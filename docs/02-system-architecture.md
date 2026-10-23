@@ -1,5 +1,7 @@
 # WES.Master 系统架构
 
+页面/功能/详细测试入口：[全模块设计索引](detailed-design/README.md)、[系统运维与恢复手册设计](detailed-design/system-operations.md)。原架构与ADR继续约束深化文档。
+
 - 状态：目标架构基线；供后续模块详细设计遵循
 - 依据：[已批准启动设计](00-project-startup-design.md)、[业务范围与现状矩阵](01-business-scope-and-status.md)
 - 范围：模块边界、依赖方向、数据所有权、接口/事件、运行和部署形态。不创建项目/解决方案骨架或生成式代码。

@@ -1,5 +1,7 @@
 # 运输编排详细设计
 
+地图页面、字段、功能与问题闭环的逐步骤用例：[Orchestration深化设计](../detailed-design/orchestration.md)。原文仍为业务边界依据，深化文档为评审中、测试未执行。
+
 - 状态：目标设计；Seven 已有 Bus 单进程实现为基线，可靠性/幂等/恢复需增强
 - 范围追踪：`SCOPE-BUS-01`、`SCOPE-WMS-06`
 - 基线参考：[WMS/WCS 实现说明](../../../Seven.Master/doc/20-WMS与WCS实现说明.md)、[WMS/WCS 包架构](../../../Seven.Master/doc/19-WMS与WCS包.md)

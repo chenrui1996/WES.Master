@@ -1,5 +1,7 @@
 # Platform 与安全详细设计
 
+页面、字段、功能流程与逐步骤用例：[Platform深化设计](../detailed-design/platform-and-security.md)。原文仍为业务边界依据，深化文档为评审中、测试未执行。
+
 - 状态：目标设计；Seven 现状按业务范围矩阵逐项复核
 - 范围追踪：`SCOPE-PLAT-01` 至 `SCOPE-PLAT-06`
 - 基线参考：[Seven 安全与数据权限](../../../Seven.Master/doc/13-安全与数据权限.md)、[功能开关](../../../Seven.Master/doc/14-功能开关.md)、[异常码规范](../../../Seven.Master/doc/22-异常码规范.md)

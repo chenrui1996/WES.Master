@@ -1,5 +1,7 @@
 # PDA 详细设计
 
+页面、扫码焦点、功能流程与逐步骤用例：[PDA深化设计](../detailed-design/pda.md)。原文仍为业务边界依据，深化文档为评审中、测试未执行。
+
 - 状态：目标设计；Seven 有可复用页面/API/服务，页面到设备的完整 E2E 尚待验收
 - 范围追踪：`SCOPE-PDA-01`、`SCOPE-PDA-02`、`SCOPE-WMS-03` 至 `SCOPE-WMS-05`
 - 前端形态：UniApp + Vue 3 + TypeScript；按 Frontloom Core FE/Vue 通用原则，遵循 UniApp 平台生命周期和设备能力限制

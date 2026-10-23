@@ -1,5 +1,7 @@
 # Route 目标规划与调度架构
 
+诊断面板、功能、固定测试图与逐步骤用例：[Route深化设计](../detailed-design/route.md)。不新增独立控制权威；逐条REQ候选待签核，测试未执行。
+
 - 状态：目标架构；现场参数与安全假设待现场输入验证
 - 依据：[现状与研究适用性](01-as-is-and-research-review.md)、[启动设计](../00-project-startup-design.md)
 - 优先级：安全约束 → 状态可信度/活性 → 公平和可恢复 → 吞吐/路径成本

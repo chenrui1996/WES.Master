@@ -1,5 +1,7 @@
 # Stacker WCS 详细设计
 
+包级面板、功能流程与逐步骤用例：[Stacker深化设计](../detailed-design/wcs-stacker.md)。原文仍为业务边界依据，深化文档为评审中、测试未执行。
+
 - 状态：目标设计；保留 Seven 已有包业务，Route 算法由 Route 专项重构
 - 范围追踪：`SCOPE-WCS-01`、`SCOPE-PDA-02`
 - 基线参考：[WMS/WCS 实现说明](../../../Seven.Master/doc/20-WMS与WCS实现说明.md)、[Route 现状分析](../route/01-as-is-and-research-review.md)、[Route 目标设计](../route/02-target-routing-and-scheduling.md)

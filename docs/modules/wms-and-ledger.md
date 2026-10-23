@@ -1,5 +1,7 @@
 # WMS 与库存账本详细设计
 
+页面、字段、功能流程与逐步骤用例：[WMS深化设计](../detailed-design/wms-and-ledger.md)。原文仍为业务边界依据，深化文档为评审中、测试未执行。
+
 - 状态：目标设计；基线业务流程已盘点，异常与并发规则需逐 provider 验收
 - 范围追踪：`SCOPE-WMS-01` 至 `SCOPE-WMS-06`
 - 基线参考：[Seven WMS/WCS 实现说明](../../../Seven.Master/doc/20-WMS与WCS实现说明.md)、[WMS/WCS 包](../../../Seven.Master/doc/19-WMS与WCS包.md)、[业务扩展规范](../../../Seven.Master/doc/23-业务扩展规范.md)

@@ -5,6 +5,8 @@
 
 ## 1. 跨模块端到端场景
 
+以下13项的固定数据、编号步骤、owner状态/副作用断言和清理见[跨模块详细场景](../detailed-design/02-cross-module-scenarios.md)；页面/功能及模块级详细用例入口见[设计索引](../detailed-design/README.md)。本目录保留原TC编号，详细DTC只是深化而非测试结果。
+
 | ID | 流程 | 验收检查 |
 |---|---|---|
 | E2E-TC-001 | Inbound → WMS 收货/组盘 → Orchestration → Stacker → Device Adapter → Feedback → WMS | 单据、Leg、包任务、货位占用、唯一库存流水均可追踪；重复反馈不重复入账 |

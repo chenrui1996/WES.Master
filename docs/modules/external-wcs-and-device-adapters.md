@@ -1,5 +1,7 @@
 # 外部 WCS 与设备适配器详细设计
 
+集成页面、功能流程与逐步骤用例：[外部WCS深化设计](../detailed-design/external-wcs-and-device-adapters.md)。原文仍为业务边界依据，深化文档为评审中、测试未执行。
+
 - 状态：目标设计；Seven 有 HTTP/MQ/Codec/Pack 抽象，当前完整设备闭环和异常语义需加强
 - 范围追踪：`SCOPE-WCS-04`、`SCOPE-DEV-01`、`SCOPE-BUS-01`
 - 基线参考：[WMS/WCS 包](../../../Seven.Master/doc/19-WMS与WCS包.md)、[WMS/WCS 实现说明](../../../Seven.Master/doc/20-WMS与WCS实现说明.md)、[DeviceComm](../../../Seven.Master/doc/16-设备通讯DeviceComm.md)

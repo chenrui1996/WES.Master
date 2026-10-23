@@ -1,5 +1,7 @@
 # Workflow 与动态表单详细设计
 
+页面、字段、功能流程与逐步骤用例：[Workflow/Form深化设计](../detailed-design/workflow-and-forms.md)。原文仍为业务边界依据，深化文档为评审中、测试未执行。
+
 - 状态：目标设计；保留 Seven 运行时流程/表单能力，不依赖源码生成器
 - 范围追踪：`SCOPE-WF-01`、`SCOPE-WF-02`
 - 基线参考：[Seven 工作流](../../../Seven.Master/doc/05-工作流.md)、[业务扩展规范](../../../Seven.Master/doc/23-业务扩展规范.md)

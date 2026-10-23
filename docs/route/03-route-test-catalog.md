@@ -1,5 +1,7 @@
 # Route 测试目录与验证协议
 
+固定图/车辆/资源/故障数据及原TC到详细DTC的对应见[Route深化用例](../detailed-design/route.md)；原编号不变，详细用例不表示已运行。
+
 - 状态：目标测试规格；数值性能门限等待现场输入
 - 关联：[Route 现状](01-as-is-and-research-review.md)、[Route 目标设计](02-target-routing-and-scheduling.md)
 - 前缀：`ROUTE-TC-*`；每个实现需求还需在总追踪矩阵关联 REQ ID。

@@ -10,6 +10,9 @@
 | 范围项 | `SCOPE-{DOMAIN}-{NN}` | `SCOPE-WMS-02` |
 | 需求 | `REQ-{DOMAIN}-{NNN}` | `REQ-WMS-014` |
 | 测试 | `{DOMAIN}-TC-{NNN}` | `WMS-TC-005` |
+| 页面/面板 | `PAGE-{DOMAIN}-{NNN}` | `PAGE-BUS-001` |
+| 功能用例 | `FUNC-{DOMAIN}-{NNN}` | `FUNC-WMS-002` |
+| 详细测试记录 | `DTC-{DOMAIN}-{NNN}` | `DTC-WMS-003` |
 | ADR | `ADR-{NNNN}` | `ADR-0003` |
 | 缺陷/风险 | 团队 issue ID + owner | `WES-123 / Route lead` |
 
@@ -118,5 +121,11 @@
 测试 case 应在模块设计中的对应详细章节描述输入、前置状态、步骤、持久化/外部副作用、预期错误和 cleanup。自动化后回填 runner、provider/设备环境、结果日期和报告链接。
 
 ## 6. 变更规则
+
+### 页面/功能深化追踪入口
+
+[详细设计覆盖索引](detailed-design/README.md)逐包关联SCOPE、PAGE、FUNC、DTC与本矩阵既有REQ/TC。原TC不改号；共用UI测试与跨模块DTC独立保留。模块数字简写仅限同域，不能跨域推断ID。设计映射、规范性需求批准和测试执行是不同状态。
+
+Route旧范围键001..027已给出[逐条语义候选与详细测试](detailed-design/route.md)，待负责人签核，不把候选等同已批准要求；028..029继续以ADR-0001为权威。
 
 每次更改业务行为、状态/权限、API/event、provider、Route 或安全边界时，同 PR 更新本矩阵、范围矩阵和对应设计/测试。移除 requirement 前须记为 deferred/rejected，并由 owner 说明影响；测试变更不应让未满足的 requirement 消失。

@@ -31,6 +31,8 @@
 
 ## 3. 前端规范（Vue 与 UniApp）
 
+页面线框、字段/操作/状态合同及详细测试结构遵循[共用页面与测试规范](detailed-design/00-shared-page-and-test-standard.md)，逐模块入口见[设计索引](detailed-design/README.md)。Skill便利建议不得覆盖本项目库存/物理控制、权限与离线只读约束。
+
 - 运维端/Simulator 使用 Vue 3 + Vite + TypeScript；PDA 使用 UniApp + Vue 3 + TypeScript。共同遵循 Frontloom Core FE + Frontloom Vue；UniApp 专有能力经明确适配边界。
 - Composition API / `<script setup>`；props/emits/model 明确类型；避免 `any`、大而全组件和业务规则复制。
 - API 调用集中在 client/service 层；组件不直接依赖数据库实体、WCS 内部表或协议报文。

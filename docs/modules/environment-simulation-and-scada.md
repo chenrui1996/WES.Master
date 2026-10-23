@@ -1,5 +1,7 @@
 # 环境搭建、仿真与 SCADA 详细设计
 
+工程/部署/仿真/SCADA页面、功能流程与逐步骤用例：[环境深化设计](../detailed-design/environment-simulation-and-scada.md)。原文仍为业务边界依据，深化文档为评审中、测试未执行。
+
 - 状态：目标设计；范围仅含现场环境/设备接入准备、Simulator 仿真与 Promote 真机切换、SCADA 只读展示
 - 范围追踪：`SCOPE-DEV-02`、`SCOPE-DEV-03`
 - 基线参考：[仿真联调闭环](../../../Seven.Master/doc/21-仿真器与联调闭环.md)、[Simulator 设计](../../../Seven.Master/design/2026-08-29-seven-simulator-design.md)、[SCADA 测试](../../../Seven.Master/Seven.Net8/Seven.Tests/Scada/Scada2dTests.cs)

@@ -1,5 +1,7 @@
 # DeviceComm 设备通讯详细设计
 
+连接/点位/规则页面、功能流程与逐步骤用例：[设备通讯深化设计](../detailed-design/device-communication.md)。原文仍为业务边界依据，深化文档为评审中、测试未执行。
+
 - 状态：目标设计；Seven 有 Step7/Modbus TCP 与规则引擎基线，生产控制闭环与多写者尚非已完成能力
 - 范围追踪：`SCOPE-DEV-01`
 - 基线参考：[Seven DeviceComm](../../../Seven.Master/doc/16-设备通讯DeviceComm.md)、[设备驱动测试](../../../Seven.Master/Seven.Net8/Seven.Tests/Unit/DeviceCommDriverTests.cs)、[WCS 包与 Phase H](../../../Seven.Master/doc/19-WMS与WCS包.md)

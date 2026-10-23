@@ -1,5 +1,7 @@
 # 通知、告警与定时任务详细设计
 
+页面、字段、功能流程与逐步骤用例：[通知/任务深化设计](../detailed-design/notifications-and-jobs.md)。原文仍为业务边界依据，深化文档为评审中、测试未执行。
+
 - 状态：目标设计；旧系统实现/配置只作为基线，非完成证明
 - 范围追踪：`SCOPE-WF-03`、`SCOPE-WF-04`、`SCOPE-WF-05`、`SCOPE-PLAT-06`
 - 基线参考：[Quartz/功能开关](../../../Seven.Master/doc/14-功能开关.md)、[消息队列](../../../Seven.Master/doc/10-消息队列指南.md)、[告警](../../../Seven.Master/doc/09-告警模块.md)、[HotStore](../../../Seven.Master/doc/15-热数据HotStore.md)

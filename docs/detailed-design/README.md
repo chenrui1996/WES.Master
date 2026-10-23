@@ -1,7 +1,7 @@
 # 页面、功能与详细测试设计索引
 
-- 状态：页面包评审中；统一范围及[WES-RULES-1.0业务规则/默认参数](05-approved-rules-and-defaults.md)已获项目发起人设计批准；具体页面、逐条REQ及现场验收不据此自动签核
-- 本轮仅文档/文本线框，没有业务实现、可执行原型或测试通过声明
+- 状态：现有全部页面/功能设计、REQ-ROUTE-001..027逐条语义及[WES-RULES-1.0](05-approved-rules-and-defaults.md)本轮已获项目发起人软件实施基线批准；不代替现场验收
+- 进入受控实施；详细设计与用例仍不是实现/测试通过证明，实际结果见[就绪台账](../implementation/readiness-register.md)
 - 权威上游：[业务范围](../01-business-scope-and-status.md)、[架构](../02-system-architecture.md)、[治理](../03-engineering-governance.md)、[总追踪](../04-requirement-design-test-traceability.md)、[ADR](../adr/README.md)
 
 ## 1. 阅读顺序与交接
@@ -12,6 +12,7 @@
 4. 最后读[13条跨模块详细场景](02-cross-module-scenarios.md)，与原验收编号建立关联。
 5. 实现前关闭模块末尾的阻断输入；本轮页面与用例不自动批准现场参数、全新能力或物理控制策略。
 6. 读[行业复审](04-industry-review-and-open-rule-recommendations.md)理解7项风险，再按[已签核规则与默认值](05-approved-rules-and-defaults.md)实施：前四项高风险设计歧义已定案，29项规则区分B业务/P初始值/H现场门禁；RVT-01..09已并入原DTC必测变体，未执行。
+7. 开发/测试排程读[全模块依赖与里程碑](../superpowers/plans/2026-10-23-wes-development-and-testing.md)、[34个开发工作包](../superpowers/plans/2026-10-23-wes-development-work-packages.md)及[测试执行/覆盖/证据计划](../superpowers/plans/2026-10-23-wes-test-execution.md)。实施已获批准，逐片保留证据；未指定具名团队/交期，不虚构日历承诺。
 
 ## 2. 设计包与数量
 

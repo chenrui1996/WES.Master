@@ -3,6 +3,18 @@
 - 状态：项目总追踪规范与初始映射；随详细设计/测试验收持续更新
 - 来源：[业务范围与现状矩阵](01-business-scope-and-status.md)
 
+## 实施批次记录
+
+项目发起人本轮明确批准现有全部模块详细设计、REQ-ROUTE-001..027逐条语义及WES-RULES-1.0作为软件基线，并允许在main实施。该批准不是测试passed、现场具名签字或生产许可。REQ-ROUTE-001..027的逐行签核及阻断输入见[就绪台账](implementation/readiness-register.md)；契约见[接口基线](contracts/01-business-and-execution-contracts.md)。当前MySQL先行，其他Provider延后按[ADR-0002](adr/ADR-0002-mysql-first-implementation.md)。
+
+| 切片 | 范围/设计 | 测试/证据状态 |
+|---|---|---|
+| T01 软件实施基线 | 全部现有PAGE/FUNC及Route语义；不含预留功能扩容 | 文档签核；现场主备/真实环境仍blocked |
+| T02 Host首片 | FUNC-SYS-001/004基础、架构§7、DTC-SYS-001/006部分 | 仅健康/边界切片；结果见[实施记录](implementation/01-foundation-host.md)，不将父DTC整体标passed |
+| T02 MySQL基础片 | 同一FUNC/DTC的真实Provider基础、ARCH-TC-005首期部分 | [Provider记录](implementation/03-mysql-provider-foundation.md)：仅wes_test探针迁移/事务/约束/tenant/并发/清理，不代表业务owner、最小权限或完整T02验收 |
+| T02 HTTP运行时/架构片 | FUNC-SYS-001/004、DTC-SYS-001/006、ARCH-TC-001/002的适用基础部分 | [运行时记录](implementation/04-host-runtime-foundation.md)：真实依赖断开/恢复、关联ID/安全错误与日志、Roslyn已知违规symbol反例；不代签其他owner/完整父DTC |
+| T03 会话/策略内部片 | FUNC-PLAT-001、DTC-PLAT-002/003/010及VAL-04的部分场景 | [会话记录](implementation/05-platform-session-core.md)：绝对/idle/access期限、耐久CAS/重放撤销、租户/摘要、登录与新密码纯策略；尚无登录/验证码/JWT/页面和完整链路，不标父DTC整体passed |
+
 ## 1. ID 规则
 
 | 类型 | 语法 | 示例 |
@@ -129,6 +141,8 @@
 Legrand/GitHub密集页面对照补充见[交互合同与评审缺口](detailed-design/03-dense-page-interaction-contract.md)：DTC-UI-013..032关联全部适用PAGE的列配置/个人视图/关联/筛选；13个模块各增一条关联交互DTC，关联原FUNC和TC。逐页矩阵以本域PAGE数字引用，不重复定义ID。个人偏好仅本机用户/租户/环境隔离，不增加团队共享、离线写入或新业务状态转换。
 
 2026-10-23项目发起人批准[WES-RULES-1.0](detailed-design/05-approved-rules-and-defaults.md)：REV-01..04的RULE-07/08/13/20已回写WMS/Orchestration/部署/Route及ADR范围澄清；其他RULE-01..29按B业务/P初始参数/H缺现场证据阻断分类。RVT-01..09和VAL-01..08为既有正式DTC必测变体，数量仍64 PAGE/65 FUNC/167 DTC，不新建第二套需求号；每项回归入口见规则基线§5。批准不是逐条REQ/Provider/设备或性能验收，原TC映射仍需证据。
+
+后续Task映射见[开发/测试总计划](superpowers/plans/2026-10-23-wes-development-and-testing.md)及[测试覆盖§3](superpowers/plans/2026-10-23-wes-test-execution.md)：T01..T34为工程工作包编号，不是新增业务REQ或测试结果。追踪链扩为SCOPE/REQ→FUNC/PAGE→Task→DTC/variant→实际RunId/证据；现阶段所有开发工作包及执行结果仍未开始。
 
 Route旧范围键001..027已给出[逐条语义候选与详细测试](detailed-design/route.md)，待负责人签核，不把候选等同已批准要求；028..029继续以ADR-0001为权威。
 

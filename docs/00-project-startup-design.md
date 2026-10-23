@@ -1,7 +1,7 @@
 # WES.Master 项目启动设计规格
 
 - 状态：已批准；可依据新证据进行事实性修订
-- 项目阶段：启动设计与文档整理；不包含源代码和脚手架
+- 项目阶段：启动文档已获实施批准，转入受控开发与测试；历史启动交付范围不回写为已实现
 - 目标框架：.NET 10
 - 前端基线：运维端/Simulator 使用 Vue 3 + Vite + TypeScript；PDA 保留 UniApp（Vue 3 + TypeScript）
 
@@ -35,13 +35,13 @@
 | PDA | 纳入 WES；保留并复核现有拣选；补齐发运、立库异常处理；离线只读 |
 | 后端 | .NET 10；迁移 Seven.Master 已验证的通用技术设计 |
 | 前端 | 运维端/Simulator 用 Vue 3 + Vite + TypeScript；PDA 保留 UniApp（Vue 3 + TypeScript）；按 Frontloom Core FE 与 Vue 规范 |
-| 数据库 | 保留 SQL Server、PostgreSQL、MySQL provider 切换能力 |
+| 数据库 | MySQL优先实施；SQL Server/PostgreSQL保留为延后兼容目标，见[ADR-0002](adr/ADR-0002-mysql-first-implementation.md) |
 | 团队 | 预计 6–15 人，按业务域分工 |
 | 架构 | 模块化单体；WMS/WCS 核心采用 DDD 保护领域不变量，用例纵切组织流程 |
 | Route 优先级 | 安全和活性优先，其后优化吞吐与路径代价 |
 | Route 输入 | 设计纳入车辆实时状态、路径冲突区、占用时间/等待状态及恢复输入 |
 | 集成边界 | 向上开放业务接口和单据扩展；向下以设备适配器接入不同协议 |
-| 当前交付 | 文档先行；本阶段不写业务代码、不生成项目脚手架 |
+| 当前交付 | 文档先行，按已批准开发计划实施；真实设备/生产验收单独放行 |
 
 ## 4. 业务范围大纲
 

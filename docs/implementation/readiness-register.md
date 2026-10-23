@@ -1,0 +1,82 @@
+# 实施就绪与阻断台账
+
+- 状态：实施中；本台账区别软件批准、工作包完成与现场许可
+- 批准来源：本轮项目发起人明确授权文档→编码→测试、在main实施、现有全部详细设计/Route逐项语义/WES-RULES-1.0软件基线
+- 不含：自动commit/push、生产连接/迁移/设备控制、代替安全/设备/DBA签字
+- 数据库：[ADR-0002](../adr/ADR-0002-mysql-first-implementation.md)，MySQL先行；其余两种deferred
+
+## 1. 范围与角色
+
+现有13包64 PAGE/65 FUNC/167父DTC及265原TC映射为开发基线，不将设计用例计作passed。BoxSort仍预留；冻结/拆合托/补货等未立项示例不自动变现成功能。Seven物料/单据/库存跟踪/角色迁移保留业务意义，脱敏映射、旧密码兼容、在途冻结/回填与对账由T31验证，不直接搬表。
+
+| 责任 | 当前明确事实 | 主/备与关闭阶段 |
+|---|---|---|
+| 软件需求批准 | 项目发起人已批准现有设计 | 不能推定其同时是现场安全签字人 |
+| 实施/测试执行 | 本轮助手执行，结果据实记录 | 人员具名主备待团队指定；不编造人名/投入/交期 |
+| DBA/隔离库与迁移 | 用户已创建并授权wes_test；按后续明确授权沿用Seven来源凭据，实测MySQL8.0.12 | DBA主备待指定；本机探针测试已具授权，生产最小权限/发布签字仍不虚构 |
+| 设备/协议/安全 | 尚无新增具名证据 | 设备与安全主备待指定；T25/T34依赖控制前关闭 |
+| PDA/浏览器终端 | 尚无批准真实OS/扫码枪矩阵 | 客户端/QA主备待指定；对应E/H验收前关闭 |
+| Seven迁移/业务对账 | 保留范围已定，未导入数据 | 业务/迁移主备待指定；T31前关闭 |
+
+软件契约细化见[契约基线](../contracts/01-business-and-execution-contracts.md)。角色待具名不虚构为组织排期；可推进不依赖外部环境的受控软件切片，不把整个T01/M0标完成。
+
+## 2. Route逐项软件语义签核
+
+下表批准者均为项目发起人，来源为本轮明确选择“批准现有设计作为软件实现基线，现场H门禁保持不变”。`approved`仅需求状态，测试仍designed；不合并为一次标题签核。
+
+| 需求 | 软件签核语义 | 状态/适用测试 |
+|---|---|---|
+| REQ-ROUTE-001 | Pack/Layer/不可变map版本明确解析 | approved / DTC-ROUTE-001 |
+| REQ-ROUTE-002 | 重复ID、缺端点/资源引用拒绝 | approved / DTC-ROUTE-001 |
+| REQ-ROUTE-003 | 非有限/负成本、非法容量/能力映射拒绝 | approved / DTC-ROUTE-001 |
+| REQ-ROUTE-004 | 无图/无路fail closed，任务版本固定 | approved / DTC-ROUTE-002/003 |
+| REQ-ROUTE-005 | 车辆方向/载荷/能力过滤 | approved / DTC-ROUTE-002/004 |
+| REQ-ROUTE-006 | 有限非负成本及分解 | approved / DTC-ROUTE-002 |
+| REQ-ROUTE-007 | 同输入确定tie-break | approved / DTC-ROUTE-002 |
+| REQ-ROUTE-008 | 完整资源与设备执行段映射 | approved / DTC-ROUTE-004 |
+| REQ-ROUTE-009 | 同向资源竞争遵守容量 | approved / DTC-ROUTE-005 |
+| REQ-ROUTE-010 | 对向/交叉共享物理冲突域 | approved / DTC-ROUTE-005 |
+| REQ-ROUTE-011 | 时间窗/边界/缓冲模型明确 | approved / DTC-ROUTE-005；物理值H未签 |
+| REQ-ROUTE-012 | 全量grant原子，授权后派发 | approved / DTC-ROUTE-006 |
+| REQ-ROUTE-013 | grant/release幂等与owner隔离 | approved / DTC-ROUTE-006 |
+| REQ-ROUTE-014 | lease/缓存丢失不释放Unknown | approved / DTC-ROUTE-007 |
+| REQ-ROUTE-015 | freshness/来源/generation/sequence校验 | approved / DTC-ROUTE-004；现场阈值H |
+| REQ-ROUTE-016 | 冲突/map不确定暂停核验 | approved / DTC-ROUTE-004 |
+| REQ-ROUTE-017 | 超时先query，反馈不串task/segment | approved / DTC-ROUTE-008；真实query能力H |
+| REQ-ROUTE-018 | 下一段先授权、取消终态一次 | approved / DTC-ROUTE-008 |
+| REQ-ROUTE-019 | 安全点重规划、恢复先对账 | approved / DTC-ROUTE-003/009；真实安全点H |
+| REQ-ROUTE-020 | 环检测相对独立oracle无误漏 | approved / DTC-ROUTE-010 |
+| REQ-ROUTE-021 | 优先/aging声明前提内公平 | approved / DTC-ROUTE-011 |
+| REQ-ROUTE-022 | 不虚称活性，不越恢复安全边界 | approved / DTC-ROUTE-010/011 |
+| REQ-ROUTE-023 | Stacker挡路/工艺依赖 | approved / DTC-ROUTE-012 |
+| REQ-ROUTE-024 | FourWay停车/提升口依赖 | approved / DTC-ROUTE-012 |
+| REQ-ROUTE-025 | 性质/差分seed及最小反例留存 | approved / DTC-ROUTE-013 |
+| REQ-ROUTE-026 | 环境/分布/门限基准证据 | approved / DTC-ROUTE-013 |
+| REQ-ROUTE-027 | 软件仿真与物理安全分开验收 | approved / DTC-ROUTE-013 |
+
+## 3. 技术/现场门禁
+
+| 门禁 | 实测/缺项 | 影响与关闭证据 |
+|---|---|---|
+| SDK | .NET10.0.103、Node24.9.0、npm11.6.0可用 | 精确工程包按实际manifest/restore锁定，不推定客户端兼容通过 |
+| 容器 | docker命令不可用 | 不安装系统软件，不宣称Testcontainers通过 |
+| MySQL | 用户已建并批准wes_test；授权读取Seven来源凭据，仅内存限库，实测8.0.12 | [隔离库方案](02-mysql-isolated-test-environment.md)已更新；探针迁移/事务/并发已验证，不读写原库、不更改账号，不代表最小权限验收 |
+| Provider选型 | 测试评估Oracle MySql.EntityFrameworkCore10.0.7/EF10.0.7/MySql.Data9.7.0，锁版及真实引擎已验证 | [实际结果/限制](03-mysql-provider-foundation.md)；8.0.12的ExecuteDelete语法差异已记录；生产许可证审查及各owner实际API仍逐项验证；其他Provider deferred |
+| H物理参数 | 制动/定位/速度/缓冲/容量/时钟/freshness未证 | 对应真实控制保持Unconfigured，禁用；T17纯逻辑不作为H证据 |
+| H协议/租约 | 去重/query/停止/fence/nonce/固件未证 | Unknown保护不放宽；真实Adapter/真机切换blocked |
+| H投用/恢复 | 具名主备、runbook、网络隔离及恢复对账未证 | T34生产许可blocked，DB连接成功也不解禁 |
+
+## 4. 执行状态与下一入口
+
+| 工作包 | 当前状态 | 下一条件 |
+|---|---|---|
+| T01软件基线/契约 | 已记录批准与跨owner边界；非整体完成 | 后续切片提交前细化本owner DTO；环境/人名不得填假值 |
+| T02无数据库Host切片 | 已实现并验证，见[详细思路与证据](01-foundation-host.md) | 26项测试通过；live200/ready503、未开放控制端点；不代表T02或父DTC整体完成 |
+| T02真实MySQL基础切片 | 已实现并验证，见[Provider记录](03-mysql-provider-foundation.md) | 测试隔离、迁移幂等/事务/唯一键/tenant/乐观并发/清理已通过；保留生产权限与兼容限制，不计业务owner验收 |
+| T02软件运行时/架构基础门禁 | 已实现并验证，见[HTTP运行时记录](04-host-runtime-foundation.md) | 安全ProblemDetails/关联日志、真实依赖故障恢复、已知非法symbol反例通过；可供T03内部实施，完整父DTC/业务扩展与生产许可仍另验 |
+| T03身份首片 | 内部会话/refresh/策略与真实并发已实现；整包仍实施中，见[记录](05-platform-session-core.md) | 登录预算/验证码耐久消费、凭据/JWT/审计/API/页面与E2E未接齐，不开放登录控制面，不误标T03完成 |
+| T04..T34 | 未开始 | 按原DAG逐项；不得因基础/会话测试通过就跳过完整T03/T04及各自硬依赖 |
+
+连续实施交接与精确测试/风险见[review交接](06-review-handoff.md)。用户要求尽量连续实施、缺资源可参考Seven，已按授权推进且未反复提问；这不授权改动旧业务库、跳过现场H或将未实现的31个后续包计作完成。
+
+本轮未估算具名团队排期，未执行现场动作。任何缺项只阻断依赖它的切片，不用虚拟成功填空，也不将全部34项任务一次性勾完。

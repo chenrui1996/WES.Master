@@ -3,6 +3,8 @@
 - 状态：验收规格；无测试已执行/通过声明
 - 关联：[系统架构](../02-system-architecture.md)、[追踪矩阵](../04-requirement-design-test-traceability.md)、[Route 测试目录](../route/03-route-test-catalog.md)
 
+实施批准已取得，但不改变下列测试的未执行事实。按[ADR-0002](../adr/ADR-0002-mysql-first-implementation.md)，当前开发门禁先要求真实MySQL；SQL Server/PostgreSQL各行保留、状态deferred，不再阻断首期MySQL迭代，也不宣称已支持。真实MySQL隔离环境未确认时仍blocked。基础切片结果单列[实施记录](../implementation/01-foundation-host.md)，不代替本表的完整验收。
+
 ## 1. 跨模块端到端场景
 
 以下13项的固定数据、编号步骤、owner状态/副作用断言和清理见[跨模块详细场景](../detailed-design/02-cross-module-scenarios.md)；页面/功能及模块级详细用例入口见[设计索引](../detailed-design/README.md)。本目录保留原TC编号，详细DTC只是深化而非测试结果。

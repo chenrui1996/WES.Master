@@ -4,8 +4,9 @@ Read [README.md](README.md) and the relevant canonical documents before changing
 
 ## Current phase
 
-- The approved startup deliverable is documentation only. Do not create application code, solution/project files, migrations, generated code, or scaffolding during this phase.
-- Before any later implementation phase, obtain explicit phase approval and update the current design/test traceability and acceptance documents first.
+- Controlled implementation is approved. The project initiator explicitly approved implementation on main and the existing module designs, REQ-ROUTE-001..027 and WES-RULES-1.0 as the software baseline. Follow the dependency-ordered development plan; document each slice before coding and testing.
+- MySQL is the first implementation database; SQL Server and PostgreSQL compatibility is deferred, not removed. Follow [ADR-0002](docs/adr/ADR-0002-mysql-first-implementation.md).
+- Read the [readiness register](docs/implementation/readiness-register.md) before starting a dependent slice. Software approval does not approve site safety, production connections, deployments, commits or pushes. Missing evidence remains blocked.
 
 ## Mandatory rules
 

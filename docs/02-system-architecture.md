@@ -4,7 +4,7 @@
 
 - 状态：目标架构基线；供后续模块详细设计遵循
 - 依据：[已批准启动设计](00-project-startup-design.md)、[业务范围与现状矩阵](01-business-scope-and-status.md)
-- 范围：模块边界、依赖方向、数据所有权、接口/事件、运行和部署形态。不创建项目/解决方案骨架或生成式代码。
+- 范围：模块边界、依赖方向、数据所有权、接口/事件、运行和部署形态。已批准按计划创建必要工程；仍禁止生成式业务代码与空层堆叠。
 
 ## 1. 架构目标与决策
 
@@ -16,7 +16,7 @@ WES 以**模块化单体**启动：一个产品部署、一个受控运行时，
 | 业务边界 | Platform、Workflow/Form、WMS、Orchestration、各 WCS 包、Device Integration、SCADA、Simulator、Notifications | 模块各自拥有业务规则、表及迁移；WCS 运维不是独立域模块，跨包流程归 Orchestration、包内命令归对应 WCS Pack |
 | 用例组织 | Vertical Slice 在模块内部组织输入、校验、处理、结果和测试 | 不能以每个 CRUD 强制建立空层；Domain/Application/Infrastructure 只在承担真实职责时保留 |
 | 领域复杂度 | WMS 库存账本、运输编排、Stacker/FourWay 调度采用 DDD 不变量保护 | 不把实体贫血化为任意 setter，也不把所有平台 CRUD 过度建模 |
-| 数据库 | EF Core Provider 抽象；目标 SQL Server、PostgreSQL、MySQL | Provider 差异显式隔离；逐 Provider 验收前不宣称等价 |
+| 数据库 | EF Core；MySQL先行，SQL Server/PostgreSQL延后兼容 | [ADR-0002](adr/ADR-0002-mysql-first-implementation.md)；Provider差异归owner，逐Provider验收前不宣称等价 |
 | 交互 | 运维和 Simulator 为 Vue 3 + Vite + TypeScript；PDA 保留 UniApp + Vue 3 + TypeScript | UniApp 平台 API 不能泄漏到领域/API 契约；Frontloom 规则结合平台生命周期使用 |
 | 设备接入 | 统一设备语义契约 + 可替换协议 Adapter | 业务模块不解析 PLC/供应商报文；仿真与真机 adapter 一致遵守语义契约 |
 | 代码生成 | 不使用 Builder、业务源码模板或依赖生成器才能维护的功能 | 运行时动态表单属于独立配置能力，不能等同源码生成器 |

@@ -5,7 +5,7 @@
 
 ## 1. 变更前置与完成定义
 
-每项变更先确认唯一业务 owner、范围/状态、领域不变量、API/事件/数据所有权、权限、并发和失败恢复。行为变更先更新设计和测试，再实现；在当前文档启动阶段不得创建代码/脚手架。
+每项变更先确认唯一业务 owner、范围/状态、领域不变量、API/事件/数据所有权、权限、并发和失败恢复。行为变更先更新设计和测试，再实现；现已获受控实施批准，按[就绪台账](implementation/readiness-register.md)及依赖计划推进，不授权生产控制。
 
 功能只有满足以下条件才可标为完成：
 
@@ -26,7 +26,7 @@
 - 业务错误返回稳定 code、可安全展示消息和关联 ID；不暴露堆栈、SQL、Secret 或原始设备 payload。
 - 业务写操作定义并发策略、幂等和事务边界；跨模块/外部副作用以 Outbox/Inbox、状态机和补偿处理，不依赖分布式 ACID 假设。
 - EF/SQL/Redis/MQ/PLC SDK 细节留在其 owner 的 Infrastructure/Adapter；不要让应用规则依赖 provider 特性而无替代/测试。
-- 三个目标数据库的迁移、查询、唯一约束、并发和事务都须在 SQL Server、PostgreSQL、MySQL 验收矩阵留结果。
+- 按[ADR-0002](adr/ADR-0002-mysql-first-implementation.md)，当前必需数据库为MySQL；SQL Server/PostgreSQL兼容延后，恢复兼容前分别留下迁移、查询、唯一约束、并发和事务结果，不用MySQL结果代签。
 - 配置强类型校验；机密不进入 appsettings 样例、仓库、客户端包、普通日志或 API 回显。
 
 ## 3. 前端规范（Vue 与 UniApp）

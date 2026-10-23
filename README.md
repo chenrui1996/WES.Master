@@ -1,6 +1,6 @@
 # WES.Master 项目启动文档
 
-WES.Master 是面向仓储执行与设备调度的新项目。本阶段先确定业务边界、架构决策、开发治理和验证方式；**不创建解决方案、源代码或脚手架**。
+WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动阶段进入**受控实施**：项目发起人批准现有设计作为软件基线，并明确允许在 main 编码。每个切片按文档→失败测试→实现→复测推进，不自动授权生产连接、设备控制或提交推送。
 
 ## 权威设计
 
@@ -9,7 +9,12 @@ WES.Master 是面向仓储执行与设备调度的新项目。本阶段先确定
 
 ## 文档工作区
 
-页面/功能深化入口：[全模块页面、功能与详细测试设计](docs/detailed-design/README.md)。包含文本线框、字段/权限/状态、功能流程及逐步骤测试；状态为评审中，不代表实现或测试通过。
+页面/功能深化入口：[全模块页面、功能与详细测试设计](docs/detailed-design/README.md)。包含文本线框、字段/权限/状态、功能流程及逐步骤测试；已批准为软件实施基线，不代表实现或测试通过。
+
+实施排程：[开发与测试总计划](docs/superpowers/plans/2026-10-23-wes-development-and-testing.md)、[34个开发工作包](docs/superpowers/plans/2026-10-23-wes-development-work-packages.md)、[测试执行与证据计划](docs/superpowers/plans/2026-10-23-wes-test-execution.md)。当前进展与阻断见[实施就绪台账](docs/implementation/readiness-register.md)；跨owner接口见[契约基线](docs/contracts/01-business-and-execution-contracts.md)。数据库按[MySQL先行决策](docs/adr/ADR-0002-mysql-first-implementation.md)，其他两种延后验收。
+
+已实现入口：[无数据库Host首片](docs/implementation/01-foundation-host.md)、[MySQL Provider基础切片与复跑命令](docs/implementation/03-mysql-provider-foundation.md)。真实测试仅使用已获授权的wes_test库；原工程凭据只在本机测试装配内存中读取，不进入WES配置或日志。Host尚未装配业务持久化，就绪检查仍返回503；T02整包尚未完成。
+当前连续批次已补齐[HTTP运行时与依赖门禁](docs/implementation/04-host-runtime-foundation.md)，并进入[T03会话核心](docs/implementation/05-platform-session-core.md)；精确交付边界、复跑方式与尚未实现项目见[review交接](docs/implementation/06-review-handoff.md)。T02软件基础已可供内部后续使用，不等于完整系统/生产验收；T03尚无可用登录页面或签发API。
 
 以下是本轮已整理的文档章节。每份功能规格都有测试设计，并在总追踪矩阵中关联需求 ID、设计章节、测试 ID 和验收结果；测试用例尚非自动化测试结果。
 
@@ -39,4 +44,4 @@ WES.Master 是面向仓储执行与设备调度的新项目。本阶段先确定
 2. WES.Master 的功能设计和测试用例是后续实现的前置依据。任何功能变更都必须同步更新设计、追踪关系和验收用例。
 3. 业务接口和单据扩展向上稳定；设备协议和供应商差异向下由适配器隔离。
 4. WMS 是库存账本权威；各 WCS 包拥有自己的路网、交通与设备模型；跨包运输通过编排契约。
-5. 本阶段仅编写与审查文档，不生成业务代码或项目骨架。
+5. 文档先行，按依赖实施真实功能；不批量生成空工程、模板CRUD或无测试证据的“完成”。

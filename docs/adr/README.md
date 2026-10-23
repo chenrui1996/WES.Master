@@ -49,10 +49,11 @@ ADR 记录影响长期架构、模块所有权、数据/接口兼容、设备安
 - PDA 离线只读缓存，不保存/重放写操作。
 - Stacker/FourWay 路网独立；安全约束优先，在线状态与冲突资源纳入 Route。
 - WMS 是库存账本权威；Builder/源码生成器移除。
-- 当前交付仅文档，不创建代码/脚手架。
+- 当前交付进入文档先行的受控实施，生产控制仍须独立验收。
 
 ## 5. ADR 索引
 
 | ID | 标题 | 状态 | 关联范围 | 复审条件 |
 |---|---|---|---|---|
 | [ADR-0001](ADR-0001-route-reservation-authority.md) | Route 预约权威：耐久账本与每 Pack 单写者 fencing | accepted | SCOPE-OPS-02, REQ-ROUTE-028..029 | Provider 并发语义、现场可用性或设备命令确认能力发生变化时复审 |
+| [ADR-0002](ADR-0002-mysql-first-implementation.md) | MySQL优先实施，SQL Server/PostgreSQL延后兼容 | accepted | T01/T02及所有持久化工作包 | 首次持久化Provider锁版、恢复其他Provider兼容时复审 |

@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/TestResults/
+.vs/
+*.user
+*.suo
+*.trx
+.env
+.env.*
+appsettings.*.local.json

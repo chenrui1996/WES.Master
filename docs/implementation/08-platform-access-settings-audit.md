@@ -12,6 +12,8 @@ TenantContext只能从验证过的单一身份及UUID claims解析，不使用UR
 
 Role代码租户内唯一，版本为不透明UUID；规则包含permission、scope、明确department集合与字段白名单，调用者可授予范围与字段必须逐条涵盖目标grant。敏感权限不使用roleId=1等特例。角色停用/变更后的下一次判定直接读取当前状态；role规则更新采用expectedVersion并有DB CAS。
 
+规则快照把字段集合固定为Ordinal、部门集合固定为默认Guid身份比较，不能让调用者构造的ImmutableHashSet自定义comparer重新定义可委派字段/部门；持久化与直接调用纯规则均经过同一验证入口。
+
 内部`ChangeRoleHandler`沿用同一干净owner事务：当前`platform.roles.write`必须覆盖全租户角色的Rules/Enabled字段；操作者既要涵盖被编辑角色的现有权限，也要涵盖目标权限，不能用“先停用/先删除强权限”绕过管理范围。每次成功变更产生1条RoleChanged版本审计；旧版本/缺权限/扩部门/扩字段拒绝且不写。此入口仍不代替用户组织、角色创建/分配、页面预览或HTTP幂等合同。
 
 配置由内部固定目录提供类型/规则/类别B/P/H，客户端不能声明“这是安全字段”。当前只实施PAR初值中的代表性非secret条目，未知key拒绝，非法值拒绝且不回退；H物理值不加默认、不允许客户端自报已验证。Secret不接收任意key/value，更不进入普通设置或audit。一次Settings变更和版本审计在同一Platform事务写入，版本冲突/审计失败均不能只改一半。新建/更新分开表达，不能以缺版本覆盖。
@@ -48,12 +50,12 @@ Platform新增roles、role_memberships、settings、audit表，全部带tenant�
 
 ## 红绿与验证证据
 
-- 领域首轮：scope/claims 10失败、3通过；settings/audit 11失败；role 2行为失败。修复后28项领域用例通过（含后来补入的2项直接构造非法grant反例，先红后绿）。
+- 领域首轮：scope/claims 10失败、3通过；settings/audit 11失败；role 2行为失败。修复后28项领域用例通过（含后来补入的2项直接构造非法grant反例，先红后绿）；再补“请求集合忽略大小写使ID被当成已有id”反例，先1红，固定集合身份后转绿，累计29项领域通过。
 - 新迁移范围测试先红（迁移集合空），生成并审查`20261023164738_AccessSettingsAudit`后转绿；原InitialSessions历史未修改。仅在wes_test应用，未执行业务库/生产DDL。
 - 第一轮真实访问持久化用例9失败、3通过：当前授权空壳、audit可改、设置写空壳均被捕获；实现后12通过。审计查询3项先红后绿；再补真实DB审计失败/两handler并发/FK/跨租户写回归与混合scope的查询字段反例，最终本片持久化27通过。
 - 使用Oracle10.0.7/EF10.0.7/MySQL8.0.12真实引擎。Platform DDL测试类加入同一不可并行collection；清理仅生成tenant，无InMemory代替、无服务重启。
-- 角色用例后续切片：2项先红、6项拒绝反例通过；实现后8通过，补实际handler重叠CAS反例后9通过。本片累计28领域与36迁移/真实MySQL用例通过，仍不将完整父DTC/T04标passed。
-- 本片及已有基线Release复测：Modules98、Persistence74、Architecture29，共201 passed、0 failed、0 skipped；Platform构建0警告/0错误、locked restore与格式检查通过。数字不代表T04页面验收，也不覆盖独立Route工作包的审查门禁。
+- 角色用例后续切片：2项先红、6项拒绝反例通过；实现后8通过，补实际handler重叠CAS反例后9通过。本片累计29领域与36迁移/真实MySQL用例通过，仍不将完整父DTC/T04标passed。
+- 本片及已有基线Release复测：Modules99、Persistence74、Architecture29，共202 passed、0 failed、0 skipped；Platform构建0警告/0错误、locked restore与格式检查通过。数字不代表T04页面验收，也不覆盖独立Route工作包的审查门禁。
 - 曾在并发构建/多项目运行期间观察到一次1秒真实健康探针返回Unhealthy；该12项健康子集单独复测通过。未改生产探针期限、未重试包装成Healthy。最终先统一构建，再以`dotnet test WES.slnx --configuration Release --no-build --no-restore -m:1`串行执行共享实例测试通过；并发压力下的健康抖动不据此宣称已消除。
 
 本片不是T04整包完成：用户/组织CRUD、角色编辑/租户切换/配置/审计页面、受权HTTP/E2E和完整T03依赖仍必须接齐；不借内部API单元绿灯对外开放未认证管理功能。

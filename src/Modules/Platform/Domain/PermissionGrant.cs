@@ -32,6 +32,11 @@ public sealed record PermissionGrant(
             throw new ArgumentException("Role rules require explicit supported permission, scope and field metadata.");
         }
 
-        return snapshot;
+        // Collection comparers are input too; they cannot redefine the owner's field or department identity.
+        return snapshot.Select(rule => rule with
+        {
+            Departments = rule.Departments.WithComparer(EqualityComparer<Guid>.Default),
+            Fields = rule.Fields.WithComparer(StringComparer.Ordinal)
+        }).ToImmutableArray();
     }
 }

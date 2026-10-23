@@ -94,6 +94,20 @@ public sealed class AuthorizationTests
             RolePolicy.VisibleFields(Tenant, Actor, "wms.stock.read", new(Tenant, Actor, D1), [invalid]));
     }
 
+    /// <summary>A caller-supplied collection comparer cannot redefine the owner's case-sensitive field identifiers.</summary>
+    [Fact]
+    [Trait("CaseId", "ACCESS-DELEGATE-001")]
+    public void Delegate_UsesOrdinalFieldIdentityRegardlessOfCollectionComparer()
+    {
+        var caller = new[] { Grant(DataScope.All, [], ["id"]) };
+        var requested = Grant(DataScope.All, [], ["ID"]) with
+        {
+            Fields = ImmutableHashSet.Create(StringComparer.OrdinalIgnoreCase, "ID")
+        };
+
+        Assert.False(RolePolicy.CanDelegate(caller, [requested]));
+    }
+
     /// <summary>Caller-provided claim ambiguity must not create a convenient tenant fallback.</summary>
     [Theory]
     [InlineData("unauthenticated")]

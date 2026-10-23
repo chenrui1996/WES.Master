@@ -24,13 +24,15 @@ Simulator 拥有工程草稿、地图编辑/校验、仿真参数、仿真运行
 ### 2.1 Edit → Validate → Deploy
 
 1. 工程编辑节点、边、设备、申请点、包配置和 SCADA 映射；所有对象具备稳定 ID、坐标/方向、能力和版本。
-2. Validate 检查必填字段、重复 ID、类型、节点/边引用、连通分量、边方向、冲突区域、层/包关系、点码/位置映射和设备能力。错误阻止 Deploy，warning 必须展示并由有权限人员确认。
+2. Validate检查字段/稳定ID/类型/引用/连通/方向/冲突域/层包/点码/能力。error拒绝Deploy；仿真warning受权逐条确认，生产warning默认阻断，仅预先分类非安全展示项由复核者逐条附理由才可放行，不以warning代替H证据。
 3. Deploy 只接受已验证的不可变地图版本，创建唯一 `DeploymentId` 和不可变 manifest。Manifest 固定目标环境、参与 owner 集合、各 owner 的 artifact version/hash、工程版本、校验摘要、操作者和目标 Pack；重复提交同一幂等请求返回同一部署记录，不能生成重复激活。
 4. Simulator 是 deployment coordinator。WMS、每个目标 WCS Pack 和 SCADA 分别校验并暂存自己拥有的数据 artifact，使用同一 `DeploymentId` 回报 `Prepared(version, hash)` 或可诊断 blocker。参与者缺失、hash/version 不匹配或准备失败时，manifest 不能激活，当前活动部署保持不变。
-5. 所有必需参与者准备成功后，Simulator 在本地事务中将唯一活动部署指针切换到该 `DeploymentId`，并同时写入 Outbox activation event。跨模块不使用分布式 ACID；activation event 至少一次投递且消费者幂等。漏收事件可查询持久 manifest 对账恢复。
-6. 运行时控制命令必须带活动 `DeploymentId` 和包内 MapVersion。WCS Pack 需核验该部署已激活、包内 artifact 已准备且版本/hash 匹配；缺少或陈旧状态时拒绝控制命令，不以本地缓存事件作为唯一依据。
+5. 必需参与者全部Prepared且未超过10分钟后，Simulator在本地事务以expectedActiveDeploymentId/expectedGeneration作CAS切换唯一active、递增generation并写Outbox。Prepared绑定同一deployment/owner/artifact版本/hash/期望代数。并发部署只有一个可匹配旧指针，失败者须重新preview/prepare/审批，不自动覆盖。跨模块非ACID，漏事件查询持久manifest恢复。
+6. 新任务只接受当前active DeploymentId/MapVersion；旧任务命令携其固定taskDeploymentId/MapVersion，仅在已批准CompatibleContinue或DrainAffected排空阶段继续。Pack核验固定部署artifact及任务继续策略、当前epoch/grant、权限/联锁/freshness，不能任意旧图新建任务，也不能只因active变化拒绝合法旧任务。缺证据拒绝，不以激活事件缓存作为唯一依据。
 7. 部署失败在激活前发生时保留旧 active pointer，并将部署标记为可诊断的失败/恢复状态。激活后需要回滚时创建新的 compensating deployment，引用先前验证过的不可变 owner artifacts；不得覆盖或删除原部署历史。
 8. 地图变更后活动任务继续固定其原 MapVersion；对应 WCS Pack 决定继续执行、在安全点暂停或受控重规划，并记录决策和设备/位置对账结果。切换活动部署不得隐式改写活动任务路线。
+
+上述规则已按[WES-RULES-1.0 §2.1/2.4](../detailed-design/05-approved-rules-and-defaults.md)定案：默认DrainAffected，按整个Pack确定受影响范围；停止接新任务及新版本grant，既有任务可用旧artifact在当前epoch/联锁/物理域核验后取得仅为排空的后续grant，未开始且无物理效果可安全取消，暂停未终结不等于排空。任务均完成/安全终结、无Unknown后才激活。CompatibleContinue须有映射/容量/几何/执行兼容证据，跨版共物理域；新图缺映射不得激活。补偿亦CAS/排空，Prepared和高后果批准各10分钟，不作物理安全时限。
 
 ### 2.2 Simulation → Review
 

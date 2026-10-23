@@ -126,6 +126,10 @@
 
 [详细设计覆盖索引](detailed-design/README.md)逐包关联SCOPE、PAGE、FUNC、DTC与本矩阵既有REQ/TC。原TC不改号；共用UI测试与跨模块DTC独立保留。模块数字简写仅限同域，不能跨域推断ID。设计映射、规范性需求批准和测试执行是不同状态。
 
+Legrand/GitHub密集页面对照补充见[交互合同与评审缺口](detailed-design/03-dense-page-interaction-contract.md)：DTC-UI-013..032关联全部适用PAGE的列配置/个人视图/关联/筛选；13个模块各增一条关联交互DTC，关联原FUNC和TC。逐页矩阵以本域PAGE数字引用，不重复定义ID。个人偏好仅本机用户/租户/环境隔离，不增加团队共享、离线写入或新业务状态转换。
+
+2026-10-23项目发起人批准[WES-RULES-1.0](detailed-design/05-approved-rules-and-defaults.md)：REV-01..04的RULE-07/08/13/20已回写WMS/Orchestration/部署/Route及ADR范围澄清；其他RULE-01..29按B业务/P初始参数/H缺现场证据阻断分类。RVT-01..09和VAL-01..08为既有正式DTC必测变体，数量仍64 PAGE/65 FUNC/167 DTC，不新建第二套需求号；每项回归入口见规则基线§5。批准不是逐条REQ/Provider/设备或性能验收，原TC映射仍需证据。
+
 Route旧范围键001..027已给出[逐条语义候选与详细测试](detailed-design/route.md)，待负责人签核，不把候选等同已批准要求；028..029继续以ADR-0001为权威。
 
 每次更改业务行为、状态/权限、API/event、provider、Route 或安全边界时，同 PR 更新本矩阵、范围矩阵和对应设计/测试。移除 requirement 前须记为 deferred/rejected，并由 owner 说明影响；测试变更不应让未满足的 requirement 消失。

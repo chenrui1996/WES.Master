@@ -33,6 +33,8 @@
 
 页面线框、字段/操作/状态合同及详细测试结构遵循[共用页面与测试规范](detailed-design/00-shared-page-and-test-standard.md)，逐模块入口见[设计索引](detailed-design/README.md)。Skill便利建议不得覆盖本项目库存/物理控制、权限与离线只读约束。
 
+密集交互按[列/关联/筛选补充合同](detailed-design/03-dense-page-interaction-contract.md)验收：每个具名页面声明必显/默认/可选列或不适用、关联投影和上下游选择链。偏好不能存业务行/待写数据，列显隐不是字段授权，字典formatter不得执行任意HTML或修改业务row；远程候选取消与旧响应指纹、稳定行ID及owner提交复验必须有测试。仅复用具名组件/组合式逻辑，不恢复生成式CRUD。
+
 - 运维端/Simulator 使用 Vue 3 + Vite + TypeScript；PDA 使用 UniApp + Vue 3 + TypeScript。共同遵循 Frontloom Core FE + Frontloom Vue；UniApp 专有能力经明确适配边界。
 - Composition API / `<script setup>`；props/emits/model 明确类型；避免 `any`、大而全组件和业务规则复制。
 - API 调用集中在 client/service 层；组件不直接依赖数据库实体、WCS 内部表或协议报文。
@@ -76,6 +78,8 @@
 文档先写清实现思路、为何采用、替代方案与团队上手路径；禁止仅粘贴类名/API 清单。所有相对链接可解析；术语、状态名和 ID 在范围矩阵、详细设计、测试、ADR 与验收中一致。
 
 文档状态只能使用 `草拟 / 评审中 / 已批准 / 实施中 / 已验收 / 已废弃` 等规范值。事实错误的更正需标注证据，不得无记录地覆盖已批准行为决策。
+
+规则/参数执行[WES-RULES-1.0](detailed-design/05-approved-rules-and-defaults.md)：B固定业务结果，P使用可覆盖初值并记录环境/租户/业务策略版本/来源，H无现场证据拒绝依赖控制。非法配置不静默回退；策略覆盖不能放宽安全不变量。审批绑定参数摘要/资源及策略版本并单operation消费，任务固定策略但权限/联锁撤销实时生效；变更同PR回写权威规格及对应DTC边界，不把项目设计批准当作现场具名签字或测试passed。
 
 ## 6. 测试、质量门禁和 PR
 

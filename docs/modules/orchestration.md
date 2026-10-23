@@ -7,6 +7,8 @@
 - 基线参考：[WMS/WCS 实现说明](../../../Seven.Master/doc/20-WMS与WCS实现说明.md)、[WMS/WCS 包架构](../../../Seven.Master/doc/19-WMS与WCS包.md)
 - 测试前缀：`BUS-TC-*`
 
+在途/交接、迟到事实、动作审批和issue初始目标按[WES-RULES-1.0](../detailed-design/05-approved-rules-and-defaults.md)的RULE-08/17/19/24实施；这是设计签核，不代表设备握手/状态新鲜度已验证。
+
 ## 1. 责任边界
 
 Orchestration 接受 WMS/扩展业务给出的运输意图，负责包选择、Leg 规划、交接、下发、事件归一、暂停/取消/失败、重试与完成通知。它不拥有库存数量，也不实现单个 WCS 包内部 Route、停车位、提升机或设备报文。
@@ -33,10 +35,14 @@ Pack selection 不以任意前缀猜测供应商能力。Pack `CanHandle` 是授
 ## 4. 下发、事件和交接
 
 - Dispatcher 使用持久化状态/租约抢占待下发 Leg，成功后记 Accepted/外部 command ID；超时按“结果未知”恢复：先 Query/去重，不盲目创建第二任务。
-- Pack 事件包含 LegId、Command/MessageId、事件序号/版本、来源 Pack、事件类型、时间和原因。未知、跨包、乱序、过期或重复事件按契约拒绝、去重或进入隔离队列。
+- Pack事件包含LegId、Command/MessageId、源generation/seq、业务版本、来源Pack、发生/接收时间。跨包/未知引用隔离，重复去重；过期新控制拒发。可信迟到完成事实持久核验/对账，不笼统丢弃，不覆盖更新遥测；认证过期报文隔离后query可信owner，不能绕过认证。
 - Progress 只推进允许的状态并保存最后进度。Completed 必须验证该 Leg 当前可完成，之后只激活唯一下一 Leg；交接点确认是两个包之间唯一所有权转移边界。
 - 下一段在前一段达到完成且交接规则满足后才激活。前段失败时后续保持 Pending/被阻塞，并进入失败/恢复流程，不自动发起后段。
 - 订单全部 Leg 完成后，经幂等 WMS completion contract 通知库存/单据闭环。通知失败重试且状态可查；不把 WCS 成功等同 WMS 已完成。
+
+交接唯一记录绑定transfer/容器/源目标Pack/口/Leg/版本。目的ReadyToReceive仅为能力/资源证据，不激活下段；源交接完成且目的接受同一版本，才原子推进执行保管权及唯一下一Leg。源已卸货但目的回执丢，保管权Unknown且保留唯一未决handover token/资源保护，先query，不能两包各自派发或重复卸货。物理口的唯一控制owner必须由设备契约证实。
+
+首期WMS最终到达才移账，途中保持来源账面归属但inTransit/不可再分配；地图分栏账面位、执行保管权、观测位置/时间/质量。Orchestration不另建中间库存、不让第二订单再次使用该容器。
 
 ## 5. 取消、失败和补偿
 

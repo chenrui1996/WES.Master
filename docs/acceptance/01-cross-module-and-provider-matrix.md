@@ -7,6 +7,8 @@
 
 以下13项的固定数据、编号步骤、owner状态/副作用断言和清理见[跨模块详细场景](../detailed-design/02-cross-module-scenarios.md)；页面/功能及模块级详细用例入口见[设计索引](../detailed-design/README.md)。本目录保留原TC编号，详细DTC只是深化而非测试结果。
 
+已批准[WES-RULES-1.0](../detailed-design/05-approved-rules-and-defaults.md)及其中RVT-01..09/VAL-01..08作为既有DTC的必测变体。特别验证跨MapVersion同物理域不双授予、全行审核与逐实物单元记账、唯一交接/在途不可分配、active CAS/旧任务固定部署、迟到可信事实与过期控制分离、快照固定读值、审批参数绑定，以及旧备份恢复不得重发外部已执行命令。所有Provider/硬件/终端报告仍待执行，H缺项控制写0；RPO15分钟/RTO4小时等P只为初始目标。
+
 | ID | 流程 | 验收检查 |
 |---|---|---|
 | E2E-TC-001 | Inbound → WMS 收货/组盘 → Orchestration → Stacker → Device Adapter → Feedback → WMS | 单据、Leg、包任务、货位占用、唯一库存流水均可追踪；重复反馈不重复入账 |

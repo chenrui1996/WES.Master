@@ -1,16 +1,17 @@
 # 页面、功能与详细测试设计索引
 
-- 状态：评审中；统一规范和交付范围已批准，具体模块包待团队逐包签核
+- 状态：页面包评审中；统一范围及[WES-RULES-1.0业务规则/默认参数](05-approved-rules-and-defaults.md)已获项目发起人设计批准；具体页面、逐条REQ及现场验收不据此自动签核
 - 本轮仅文档/文本线框，没有业务实现、可执行原型或测试通过声明
 - 权威上游：[业务范围](../01-business-scope-and-status.md)、[架构](../02-system-architecture.md)、[治理](../03-engineering-governance.md)、[总追踪](../04-requirement-design-test-traceability.md)、[ADR](../adr/README.md)
 
 ## 1. 阅读顺序与交接
 
-1. 先读[共用标准](00-shared-page-and-test-standard.md)：布局模式、字段/单位/状态、权限、操作合同、测试数据/清理和12条共用UI测试。
-2. 再读[公共参考](01-reference-cases.md)：9项已读取官方/公开仓库证据、采用/不采用内容与不可访问来源。
-3. 按下表进入模块：页面表是信息/字段/布局合同；功能表是owner/事务/状态规则；详细DTC表是可执行步骤和持久化/副作用断言。
+1. 先读[共用标准](00-shared-page-and-test-standard.md)与[密集页面交互补充](03-dense-page-interaction-contract.md)：布局、字段/权限/状态，以及列显隐/顺序/宽度/固定、个人视图、关联显示、级联筛选、主从编辑；共32条共用UI测试。
+2. 再读[公共参考](01-reference-cases.md)：原9项公开资料及本轮Legrand源码/GitHub Projects证据，区分采用、不采用与不可访问来源。
+3. 按下表进入模块：页面表是信息/字段/布局合同；新增逐页配置矩阵定义默认/必显/可选列、关联选择链与适用测试；功能表是owner/事务/状态规则；详细DTC表是步骤和持久化/副作用断言。
 4. 最后读[13条跨模块详细场景](02-cross-module-scenarios.md)，与原验收编号建立关联。
 5. 实现前关闭模块末尾的阻断输入；本轮页面与用例不自动批准现场参数、全新能力或物理控制策略。
+6. 读[行业复审](04-industry-review-and-open-rule-recommendations.md)理解7项风险，再按[已签核规则与默认值](05-approved-rules-and-defaults.md)实施：前四项高风险设计歧义已定案，29项规则区分B业务/P初始值/H现场门禁；RVT-01..09已并入原DTC必测变体，未执行。
 
 ## 2. 设计包与数量
 
@@ -18,31 +19,33 @@
 
 | 设计包 | PAGE | FUNC | 业务DTC | 覆盖范围 |
 |---|---:|---:|---:|---|
-| [Platform](platform-and-security.md) | 8 | 6 | 13 | 身份/会话、用户角色组织、数据范围/租户、配置字典语言文件、审计 |
-| [Workflow/Form](workflow-and-forms.md) | 4 | 4 | 8 | 定义发布、待办/审批/同步、运行时表单与历史版本 |
-| [Notifications/Jobs](notifications-and-jobs.md) | 6 | 5 | 8 | 告警/渠道、Outbox/死信、Quartz、公告、缓存诊断 |
-| [WMS](wms-and-ledger.md) | 8 | 7 | 10 | 主数据/库存/流水、收货上架、出库拣选发运、盘点、TransferOrder |
-| [PDA](pda.md) | 6 | 6 | 9 | 登录/任务、扫码收货上架拣选盘点发运、只读离线与异常报告 |
-| [Orchestration/运维](orchestration.md) | 5 | 5 | 9 | 地图工作台、订单/Leg、交接、授权动作、问题生命周期 |
-| [Stacker](wcs-stacker.md) | 3 | 4 | 6 | 巷道/双深/挡路/拆段、包级检查与恢复 |
-| [FourWay](wcs-fourway.md) | 3 | 5 | 6 | 分配、层内交通、停车、提升机和恢复 |
-| [External WCS](external-wcs-and-device-adapters.md) | 3 | 4 | 6 | 能力/配置、出站/回调、Unsupported与Unknown |
-| [DeviceIntegration](device-communication.md) | 4 | 4 | 6 | 连接/点位、规则、执行/反馈、单写宿主 |
-| [Simulator/SCADA](environment-simulation-and-scada.md) | 6 | 5 | 9 | 编辑校验、manifest、仿真/Reset、Promote、只读SCADA |
-| [Route](route.md) | 5 | 6 | 13 | 图/候选、ledger/epoch、反馈/恢复、等待公平、基准 |
-| [系统运维](system-operations.md) | 3 | 4 | 6 | 健康/日志/部署证据、隔离恢复、Provider/架构门禁 |
-| 合计 | 64 | 65 | 109 | 另有共用UI DTC 12条、跨模块DTC 13条；全部DTC共134条 |
+| [Platform](platform-and-security.md) | 8 | 6 | 14 | 身份/会话、用户角色组织、数据范围/租户、配置字典语言文件、审计 |
+| [Workflow/Form](workflow-and-forms.md) | 4 | 4 | 9 | 定义发布、待办/审批/同步、运行时表单与历史版本 |
+| [Notifications/Jobs](notifications-and-jobs.md) | 6 | 5 | 9 | 告警/渠道、Outbox/死信、Quartz、公告、缓存诊断 |
+| [WMS](wms-and-ledger.md) | 8 | 7 | 11 | 主数据/库存/流水、收货上架、出库拣选发运、盘点、TransferOrder |
+| [PDA](pda.md) | 6 | 6 | 10 | 登录/任务、扫码收货上架拣选盘点发运、只读离线与异常报告 |
+| [Orchestration/运维](orchestration.md) | 5 | 5 | 10 | 地图工作台、订单/Leg、交接、授权动作、问题生命周期 |
+| [Stacker](wcs-stacker.md) | 3 | 4 | 7 | 巷道/双深/挡路/拆段、包级检查与恢复 |
+| [FourWay](wcs-fourway.md) | 3 | 5 | 7 | 分配、层内交通、停车、提升机和恢复 |
+| [External WCS](external-wcs-and-device-adapters.md) | 3 | 4 | 7 | 能力/配置、出站/回调、Unsupported与Unknown |
+| [DeviceIntegration](device-communication.md) | 4 | 4 | 7 | 连接/点位、规则、执行/反馈、单写宿主 |
+| [Simulator/SCADA](environment-simulation-and-scada.md) | 6 | 5 | 10 | 编辑校验、manifest、仿真/Reset、Promote、只读SCADA |
+| [Route](route.md) | 5 | 6 | 14 | 图/候选、ledger/epoch、反馈/恢复、等待公平、基准 |
+| [系统运维](system-operations.md) | 3 | 4 | 7 | 健康/日志/部署证据、隔离恢复、Provider/架构门禁 |
+| 合计 | 64 | 65 | 122 | 另有共用UI DTC 32条、跨模块DTC 13条；全部DTC共167条 |
 
 一个PAGE可以是地图中的具名面板/详情，而不是必须创建独立全屏页面；同一FUNC可供Web/PDA复用业务owner契约。不能据统计数量机械生成64个路由/65个Handler。
+
+本轮Legrand/GitHub对照补充覆盖64个PAGE的逐页配置，没有凭空增加业务页面；新增20条共用交互测试及13条模块关联测试。列、个人视图、关联链和测试配置是既有PAGE/FUNC的细化，不形成新的权限/状态权威。PDA/登录明确不适用桌面列设置，地图仅其队列表格适用。
 
 ## 3. SCOPE覆盖与排除
 
 | 既有范围 | 深化入口 | 边界/状态 |
 |---|---|---|
-| SCOPE-PLAT-01..05 | [Platform](platform-and-security.md)、[系统](system-operations.md) | 保留；安全策略数值与公共租户规则未定不直接上生产 |
+| SCOPE-PLAT-01..05 | [Platform](platform-and-security.md)、[系统](system-operations.md) | 保留；安全初值/禁隐式公共租户已定，真实身份/Provider/恢复仍待验收 |
 | SCOPE-PLAT-06 | [通知缓存](notifications-and-jobs.md)、[Route](route.md) | 缓存/HotStore非grant或库存权威 |
 | SCOPE-WF-01..02 | [Workflow/Form](workflow-and-forms.md) | 保留有限可验证语义，不从编辑器推断任意BPMN能力 |
-| SCOPE-WF-03..05 | [通知/任务](notifications-and-jobs.md) | 公告PDA受众/已读、集群Job策略等待签核 |
+| SCOPE-WF-03..05 | [通知/任务](notifications-and-jobs.md) | 公告默认不强制已读/显式PDA渠道、Job单节点与集群策略已定；真实渠道/拓扑待验收 |
 | SCOPE-WMS-01..06 | [WMS](wms-and-ledger.md)、[运输](orchestration.md) | 保留TransferOrder；冻结/拆合托/补货等仅示例的能力不扩为首期 |
 | SCOPE-PDA-01..02 | [PDA](pda.md) | 保留与补齐，离线只读，不存/重放待提交写 |
 | SCOPE-BUS-01 | [Orchestration](orchestration.md) | 跨包运输，不共享包内Route |
@@ -66,9 +69,10 @@
 
 ## 5. 待决策与完成定义
 
+- [规则签核基线](05-approved-rules-and-defaults.md)已统一跨版物理冲突/旧任务继续、TransferOrder逐实物执行单元记账及在途交接；同步上游规格/详细测试，RVT作为既有DTC必测变体、不增加167条DTC计数。签核只关闭设计歧义，不表示运行风险已消除。
 - REQ-ROUTE-001..027的逐条语义在[Route候选表](route.md)形式化，待Route负责人批准；旧范围键缺口未冒充已关闭。
 - 其余历史范围REQ也不能仅靠编号存在视作每条规范性需求已批准；以原模块行为为准，实施前由业务owner把范围键逐项签核。
-- 产品：批次/精度/部分收发/盘点锁、Workflow首期语义、公告受众、PDA终端能力。
-- 现场/安全：freshness/定位误差/缓冲/停车提升口语义、命令query/去重、控制权限和双人门禁。
-- 运维：Provider版本/迁移恢复、备份一致性/RPO/RTO、容量/延迟/保留期/SLA、正式部署runbook。
+- 产品：批次/数量精度、部分收发/短拣、局部锁盘、All/Any、公告受众已定；尚须实际物料/单据迁移政策、业务字段映射、支持终端及角色名单。
+- 现场/安全：双人绑定、跨版排空/兼容合同已定；设备freshness/定位误差/缓冲/停车提升口信号和query/去重/停止等能力缺证据默认阻断，不借通用秒数放行。
+- 运维：会话/缓存/重试/保留、容量/延迟及issue SLA、RPO15分钟/RTO4小时有初始目标；准确Provider版本、目标硬件、实测报告、正式runbook及具名责任人仍须投用前核验。
 - 设计包完成不代表生产可上线；必须有批准策略、实现、真实Provider/Adapter/E2E及适用现场证据。

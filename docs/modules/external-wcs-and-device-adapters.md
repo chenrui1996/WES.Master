@@ -70,3 +70,5 @@ InMemory/Simulator adapter 实现与真实设备相同的命令/反馈 schema、
 ## 6. 供应商逐项验收清单
 
 每个外部 WCS/协议需有独立协议版本与设备矩阵、支持命令、签名/身份模型、幂等/查询/取消能力、超时/重试策略、异常码映射、仿真 Codec、试运行/回滚手册及现场 E2E 证据。只有 `FakeVendorCodec` 测试不代表真实供应商兼容或生产就绪。
+
+已批准[规则基线RULE-17/23、PAR-11](../detailed-design/05-approved-rules-and-defaults.md)将上述能力默认标Unverified、真实写连接禁用；缺认证/时窗/必需容量/时限显式拒绝，物理Unknown不自动重发，普通消息重试预算不适用于设备。迟到可信事实经核验/对账，不覆盖更新观测；认证过期先隔离/query，新控制deadline过期则不发。

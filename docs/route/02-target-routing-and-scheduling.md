@@ -42,6 +42,8 @@ Route Engine 仅在拥有并能观测的 WCS 包内规划。Stacker、FourWay �
 
 资源参数要表明容量、可否对向共享、是否可排队、进入/退出条件、安全缓冲、释放证据和设备约束。资源容量与时间模型需由真实几何/控制器验证。
 
+按已签核[WES-RULES-1.0 RULE-13/20](../detailed-design/05-approved-rules-and-defaults.md)，MapVersion不划分物理容量：同Pack的所有仍活跃图映射稳定physicalConflictId集合，grant检查全活跃版本占用/预约，改名/拆并不能绕过冲突。默认DrainAffected且范围为整个Pack；缺映射/不兼容须排空旧任务和Unknown占用后启新控制。CompatibleContinue须有兼容证据并继续跨版统一冲突检查；各Pack不因此共享ledger。
+
 ## 3. 车辆状态与任务意图
 
 每个车辆快照至少包含 VehicleId、Pack/MapVersion、位置/边段、方向、载荷/尺寸/能力、当前命令/任务、当前占用、模式/故障/联锁状态、LastObservedAt、sequence 和来源。位置只有在可信度/新鲜度通过配置门限后可用于规划。状态冲突或版本倒退必须显示 Unknown/Stale 并阻止新冲突预约。
@@ -50,6 +52,7 @@ Route Engine 仅在拥有并能观测的 WCS 包内规划。Stacker、FourWay �
 
 ## 4. 候选路线规划
 
+- 首期采用Dijkstra与稳定tie-break；A*仅后续证明启发式前提并完成基准后开通。算法选择不改变安全grant或设备可执行性约束。
 - 路径边成本只表达优化偏好，例如距离、预估行驶时间、能耗、作业代价、已知拥堵；成本不得让违规资源路径变得“可接受”。
 - 权重必须有限且非负，地图非法数据拒绝，不静默裁剪成零。
 - 代价相同采用稳定 tie-break（map version、route ID、node ID 等固定规则），重放可得到同一路径。
@@ -85,6 +88,7 @@ Route Engine 仅在拥有并能观测的 WCS 包内规划。Stacker、FourWay �
 - 候选采用 constraint-level cycle detection 之前，先证明 WES 的 resource/precedence 模型与算法前提一致；算法漏报/误报都要有反例测试。
 - 检测环时只可执行已设计的安全恢复：换路、撤销尚未进入物理阶段的预约、让车退到安全停车点、调度其他独立任务或升级给运维。不得自动让车“反向退让”而不验证其安全路径。
 - 优先级采用有限 aging/公平策略；高优先级不能无限饿死低优先级，低优先级也不能破坏安全硬约束。
+- 默认basePriority=0、允许0..9，effective=min(9,base+floor(等待秒/60))，同值按首次排队时间/任务ID；等待15分钟只告警，不声称有界完成。生产缓冲/时钟/freshness无验证值则阻断控制，不继承非安全投影的显示目标。
 - 在线目标在当前路段/不可抢占设备段完成或到安全停车点后再改道；变更保留旧路线/预约版本和取消确认。
 - 活性目标要写明前提：有可行路线、可达安全停靠点、状态/通讯持续更新、资源最终释放、设备可执行且没有永久故障。任何前提不成立都不能声称 bounded completion。
 

@@ -22,7 +22,21 @@
 - Flowable OSS入口404；bpmn-js、HslCommunication网页连接失败；不引用其具体实现结论。
 - 未读取商业截图库；不将“像某产品”写成已验证页面依据。
 
-## 各模块的参考责任
+## 本轮密集页面补充证据（2026-10-23）
+
+| 来源/实际读取位置 | 已核验事实 | WES采用与不采用 |
+|---|---|---|
+| [Legrand列设置组件](../../../Legrand.Master/Legrand.Vue3/src/components/basic/ViewGrid/ViewGridCustomColumn.vue)、[配置逻辑](../../../Legrand.Master/Legrand.Vue3/src/components/basic/ViewGrid/ViewGridCustomColumn.js) | 拖动列顺序、勾选显隐、至少一列、应用/取消、localStorage、恢复；缓存key按table.name | 保留便利性；补主体/租户/环境隔离、必显、schema迁移与保存失败提示；不照搬表名唯一key |
+| [Legrand表格](../../../Legrand.Master/Legrand.Vue3/src/components/basic/VolTable.vue)的formatter与表头、[用户页面](../../../Legrand.Master/Legrand.Vue3/src/views/system/Sys_User.vue) | 字典key映射名称、多选、固定列/排序、用户角色/组织树与隐藏列；读取formatter约1429行及用户页字段 | 设计稳定ID关联/名称回填；不继承Token搜索、原始HTML formatter、展示时变更row或浮点库存求和 |
+| [Legrand表单](../../../Legrand.Master/Legrand.Vue3/src/components/basic/VolForm.vue)约95–180、1015行，[部门扩展](../../../Legrand.Master/Legrand.Vue3/src/extension/system/system/Sys_Department.js) | 远程候选、自定义url、onChange、树；从当前部门新增时设父级默认值 | 采用受控远程选择/上下文继承；补请求指纹、父子校验、旧响应隔离。不是已证明所有业务页均有完整联动 |
+| [GitHub Projects表格布局](https://docs.github.com/en/issues/planning-and-tracking-with-projects/customizing-views-in-your-project/customizing-the-table-layout) | 列显隐/顺序、筛选分组/排序；跨组拖动会改变分组字段值 | 采用列设置/受控分组；不采用拖动改业务状态/物理优先级、不引Primer或GitHub查询DSL |
+| [GitHub Projects视图管理](https://docs.github.com/en/issues/planning-and-tracking-with-projects/customizing-views-in-your-project/managing-your-views) | 新建/复制视图、未保存标记、显式保存与视图管理 | 采用明确个人视图工作流；本轮只做本机用户隔离偏好，不据此新增团队共享/跨端同步 |
+
+Legrand为本地只读源码证据，未启动其页面；GitHub为成功读取的官方说明，非本项目浏览器验证。TanStack raw/官网尝试连接失败或404，GitHub文件入口未找到，未用其具体API支撑设计结论。详细缺口与取舍见[密集交互补充](03-dense-page-interaction-contract.md)。
+
+## 原案例的模块责任
+
+后续[行业复审与未决规则建议](04-industry-review-and-open-rule-recommendations.md)补充本轮直接核验的10项一手资料（Dynamics 365、Odoo、Open-RMF、VDA5050、RabbitMQ、Quartz.NET、Alertmanager、PostgreSQL、Keycloak），逐项记录核验事实、采用边界与失败入口；不把产品可配置行为当成WES已批准策略，不重复扩大本文件原证据结论。
 
 Platform使用身份/角色案例，Workflow使用现有Workflow规格与Element表单，不因未读取流程引擎文档宣称支持完整BPMN。Notifications使用RabbitMQ/Quartz事实，WMS/PDA使用ERPNext流程组织，设备/Pack/Route以WES现有设备规则与ADR为权威，OpenWMS/openTCS只作边界背景。Simulator/SCADA以现有部署协议和Element UI模式为依据。系统恢复手册来源是本项目系统验收，不声称从网页获得恢复正确性证明。
 

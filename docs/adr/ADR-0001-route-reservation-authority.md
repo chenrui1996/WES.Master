@@ -29,6 +29,12 @@ Each command envelope includes the Pack's writer epoch, reservation token, task/
 8. Loss of HotStore cannot affect reservation correctness; loss of the durable authority disables control writes.
 9. This software protocol is not a physical collision-avoidance or safety certification; safety PLC and site-specific protective systems remain authoritative for physical safety.
 
+## Ratified scope clarification (2026-10-23)
+
+The project owner approved [WES-RULES-1.0, RULE-13/20](../detailed-design/05-approved-rules-and-defaults.md). MapVersion scopes topology interpretation and grant provenance, not independent physical capacity. Within a Pack, all active map versions map to stable physical conflict identities; grant transactions check reservations and unresolved occupancy across those versions. Renaming, splitting, or merging resource IDs must not bypass a shared conflict.
+
+The default deployment policy is DrainAffected at Pack scope. Missing mappings or incompatible geometry, capacity, or equipment semantics block activation until affected work is safely drained and unknown occupancy is reconciled. CompatibleContinue requires explicit compatibility evidence and the same cross-version conflict checks. Old tasks retain their task deployment and map but still require the current writer epoch, valid grant and runtime gates. This clarifies the accepted authority decision; it does not add cross-Pack atomic grants or certify physical compatibility.
+
 ## Alternatives and trade-offs
 
 ### Database multi-writer locking as the primary authority — not selected

@@ -66,4 +66,4 @@ Seven 的现状以 `StackerRouter` 加权 Dijkstra 选择边，满容量边不�
 
 ## 7. 未决运行参数
 
-双深硬件容量/行驶规则、设备段切分语义、请求点有效期、超时阈值、最大并行段数、Route 目标成本、无地图行为是否允许、生产 adapter 控制范围需现场/设备方确认；Route 阈值统一由 Route 专项定义。
+按[规则基线RULE-18/21、PAR-11](../detailed-design/05-approved-rules-and-defaults.md)，候选稳定排序后持久轮转，额外保留空位初值0但安全/挡路空位仍必需，无地图兼容默认关闭，首期Route候选Dijkstra。双深硬件/载荷/段切分、有效期/timeout/并发及真实Adapter能力均H，缺证据阻断依赖控制，不用经验数值放行。

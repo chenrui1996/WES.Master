@@ -35,10 +35,24 @@
 | DTC-ADP-001 / 001 / ADP-TC-001/004 | 正确CodecV1；变体Codec缺/transport错/Disabled/schema未知；1保存验证；2派Leg | 合法配置可Ready；错误不接任务、外部请求0；字段/版本错误可查，不默认FakeCodec | P0/B+C+E/C1 |
 | DTC-ADP-002 / 002 / ADP-TC-002/010 | 沙箱接受C1但丢响应；1下发；2重启；3同command查询；4重试；另测4xx/5xx/限流/恶意redirect | Unknown不等于失败；query/幂等核验后效果最多1；分类/退避有界；不访问不可信目标/泄漏凭据 | P0/B+C+E/C1 |
 | DTC-ADP-003 / 002 / ADP-TC-003/007/013 | MQ Disabled/断连、query=false/cancel=false、队列上限N；1请求；2积压N+1；3恢复并过deadline | 明确Unsupported/背压；拒绝无外部效果；恢复不发送过期物理命令；取消不支持时L1未误Cancelled | P0/B+C+E/C1 |
-| DTC-ADP-004 / 003 / ADP-TC-005..006 | X1有效签名；变体缺签/错签/过期nonce/错Pack/错Leg；1回调；2重复合法完成；3迟到Progress | 非法不推进、WMS0变化；合法终态事件1；重复无二次效果，迟到不回退；隔离/审计脱敏 | P0/B+C+E/C1 |
+| DTC-ADP-004 / 003 / ADP-TC-005..006 | X1有效签名，T1完成/T2更新遥测/T3才到完成；另缺签/错签/过期nonce/错Pack/错Leg；1回调；2重复；3迟到Progress/过deadline控制 | 可信迟到完成持久核验后只推进一次、不覆盖T2位置、不回退终态；过期认证隔离并query可信owner，绝不绕验签；新控制过deadline物理写0，非法WMS0变化且脱敏审计。RVT-05必测 | P0/B+C+E/C1 |
 | DTC-ADP-005 / 002/003 / ADP-TC-014 | L1 Running；1并发Cancel与Completed；2查询X1；3重复两事件 | 仅合法当前版本生效；未知保持待处置；最终与沙箱物理事实一致；WMS最多1次完成效果 | P0/B+C/C1 |
 | DTC-ADP-006 / 004 / ADP-TC-008..009/011..012/ARCH-TC-006 | 虚拟与批准供应商Adapter同套命令/反馈数据；旧seq/旧身份/秘密payload变体；1断连重连；2发送旧反馈；3契约对比；4查UI/日志 | 错身份不发新命令、旧反馈不更新位置；支持能力语义一致，未支持明确；日志无测试secret；记录各版本证据不扩大供应商支持声明 | P0/C+E/C1 |
 
+### 3.1 列配置与供应商关联
+
+遵循[交互合同](03-dense-page-interaction-contract.md)，数字为PAGE-ADP；G/F/R为共用测试配置，`!`必显、`+`可选。供应商ID总与Pack/Codec上下文关联，不建立全局同名任务映射。
+
+| 页面 | 配置 | 默认顺序/可选列 | 新增/编辑/关联筛选与密集操作 |
+|---|---|---|---|
+| 001 | G+F | Pack业务码!、供应商、传输方式、配置/运行状态!、Codec版本!、submit/query/cancel能力!；+超时/安全endpoint摘要 | External Pack→批准transport/Codec/schema→所需配置字段/secret引用；不兼容改选清旧字段并预览影响。候选只取注册白名单，endpoint/凭据不进视图；切配置不表示已切生产 |
+| 002 | R；attempt/反馈表G | command业务号!、Leg、供应商task、状态/Unknown!、query/cancel支持!、最后回读!；+schema/attempt/correlation | 内部command→该Pack外部task→受权回调；多供应商同task码显示Pack，不能自由输入externalTask替换绑定；不支持query/cancel明确，不给通用裸发请求 |
+| 003 | G+R | eventID!、来源Pack、externalTask/Leg、验签/隔离结果!、处理结果!、接收时间!；+schema/seq/安全原因 | Pack→Codec/schema→回调结果筛选；按处理/认证结果分组，nonce仅摘要。回调未知关联可诊断但不点“修复关联”绕过验签；原报文/secret不在列设置器 |
+
+| DTC定义/功能/原TC | 固定前置与编号步骤 | UI/持久化/副作用断言 | 级别/环境/清理 |
+|---|---|---|---|
+| DTC-ADP-007 / 001..004 / ADP-TC-001/003..005/007/012 | PackA/B外部task均X1，CodecC1不支持cancel、C2支持；1换Codec/transport并旧候选迟到；2编辑历史command；3回调分组与列设置；4伪造跨Pack关联提交；5保存视图 | 不兼容字段/旧能力不沿用，不凭换列显示Cancel可用；历史X1只链本Pack；验签/Unknown必显；非法提交无物理命令/归一事件/库存写；secret/payload不进本机偏好 | P0/E+B+C/C1 |
+
 ## 4. 阻断
 
-逐供应商提交协议/Codec版本、认证/nonce时窗、幂等/query/cancel能力、错误分类/限流/过载、固件和试运行/回滚流程；未确认不可将Unknown变为可自动重发。物理设备协议配置另归DeviceIntegration，不在此页拼寄存器。
+按[已签核RULE-17/23/PAR-06/11](05-approved-rules-and-defaults.md)，物理Unknown默认不自动重发；submit/query/cancel/去重/安全停止默认Unverified，未配置认证/nonce/容量/超时显式阻断，不将消息重试5次或Job600秒套设备。DTC-ADP-001..003/006补未证能力/缺必需值外部新请求0，实际协议/Codec/固件/限流/试运行回滚仍逐供应商H。过期控制与迟到可信事实分开；物理协议另归DeviceIntegration。

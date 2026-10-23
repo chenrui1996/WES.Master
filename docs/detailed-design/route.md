@@ -22,13 +22,13 @@
 | FUNC定义 | PAGE/需求/原TC | 编号流程及边界 |
 |---|---|---|
 | FUNC-ROUTE-001 | 001；REQ-ROUTE-001..004；ROUTE-TC-001..007 | 1唯一解析map/Pack/Layer；2验证ID、有限非负权重/容量、方向/能力/资源引用；3不可变发布；4活动任务固定旧版本。无图/无路不默认为单段可行 |
-| FUNC-ROUTE-002 | 002；REQ-ROUTE-005..008；ROUTE-TC-008..013/023..025 | 1核快照freshness/来源/版本/载荷；2按硬约束过滤；3按有限非负成本产生候选；4固定tie-break并记录分解。Dijkstra/A*选型待样本基准，候选不是安全grant |
+| FUNC-ROUTE-002 | 002；REQ-ROUTE-005..008；ROUTE-TC-008..013/023..025 | 1核快照freshness/来源/版本/载荷；2按硬约束过滤；3有限非负成本以首期Dijkstra产候选；4稳定tie-break及成本分解。A*仅后续前提证明/基准通过再启，候选不是安全grant |
 | FUNC-ROUTE-003 | 003；REQ-ROUTE-009..014/028；ROUTE-TC-014..022/040/044 | 1候选转资源[enter,exit)及buffer；2单writer事务验证全部容量/冲突/owner/epoch；3全量持久grant；4dispatcher验证token/epoch后授权；5匹配owner与离开证据才释放。任一冲突/事务错无有效部分grant |
 | FUNC-ROUTE-004 | 003/004；REQ-ROUTE-015..019/029；ROUTE-TC-023..030/041..046 | 1回读校验command/task/device/segment/map/seq；2合法推进/释放；3超时Unknown；4接管epoch原子递增；5重建耐久owner/命令/物理占用再派发；6在线目标仅安全点切换。已过Adapter边界的旧命令不能被epoch“撤销事实” |
 | FUNC-ROUTE-005 | 004；REQ-ROUTE-020..024；ROUTE-TC-031..039 | 1维护释放依赖；2用独立oracle核环；3区分排队；4按明确aging/fairness和硬前提调度；5仅验证过的安全换路/撤未占用/安全停车，不能安全恢复则升级。无前提不能声称有界完成 |
 | FUNC-ROUTE-006 | 005；REQ-ROUTE-025..027；原目录§7..8 | 1固定seed/map/planner/vehicle/输入/时钟；2独立oracle/性质与差分；3逐维负载/故障；4分离规划/DB/缓存/网络/设备成本；5保存反例/门限签核。无硬件/阈值不填“性能通过” |
 
-grant请求包含owner/request、map、vehicle/task、资源与半开窗口；响应token/epoch/授权窗口。时钟/几何缓冲未经现场量测仅为软件测试参数，不证明机械安全。每Pack独立ledger/topology，ExternalWCS不进入本地图；Stacker和FourWay共享契约而不共享设备工艺。
+grant请求包含owner/request、map、vehicle/task、资源与半开窗口；响应token/epoch/授权窗口。按已批准[规则基线](05-approved-rules-and-defaults.md) RULE-13/18/20：图资源映射稳定physicalConflictId集合，grant核全活跃图占用，MapVersion不隔离物理容量；默认DrainAffected，CompatibleContinue须证据。首期Dijkstra，同分稳定；priority0..9、每60秒aging+1封顶9，等待15分钟仅报警。物理时间/几何buffer缺配置则阻断控制，仿真值不能Promote。每Pack独立ledger/topology，不形成跨Pack原子grant。
 
 ## 3. 可复现测试图与故障夹具
 
@@ -44,17 +44,33 @@ grant请求包含owner/request、map、vehicle/task、资源与半开窗口；�
 |---|---|---|---|
 | DTC-ROUTE-001 / 001 / ROUTE-TC-001..004/006 | 1加载G1/MV1指定Pack层；2变体重复节点/edge/resource、缺端点、负/NaN/Inf权重、0容量、未知冲突域、错层/能力、多active | 正确图隔离可查；每非法变体拒绝并定位引用，不裁剪为0/默认1；非法版本不发布、不grant/dispatch | P0/U+B+E/C0 |
 | DTC-ROUTE-002 / 001/002 / ROUTE-TC-005/008..011 | 1G1固定快照运行10次；2G2；3禁C能力；4无路/单点/同起终点；5提高违规路径优化成本偏好 | G1始终ABD成本2；G2 ACD成本2；禁C不取C；无路明确无派发；同起终点无无意义移动；成本不能覆盖能力/禁行 | P0/U+S/C0 |
-| DTC-ROUTE-003 / 001/004 / ROUTE-TC-007/013/030 | T1已MV1且当前段不可抢占；1激活MV2/封闭边；2改在线目标；3到安全点后请求重规划 | 已执行段不改图/强撤；新计划与旧预约衔接无保护空窗；记录策略/版本/取消确认；不可安全重规划则暂停 | P0/B+C+S/C1 |
+| DTC-ROUTE-003 / 001/004 / ROUTE-TC-007/013/030 | T1在MV1不可抢占段；MV2资源改名但同physicalConflictId；1默认DrainAffected请求激活；2独立已验证CompatibleContinue变体激活/申请T2同域；3旧T1下一段/改目标；4缺映射/几何变更；5到安全点重规划 | 默认须排空后激活、不强撤占用；兼容变体可共存但T2冲突grant拒绝；旧T1固定原部署并核当前epoch/grant；缺映射/不兼容未排空激活拒绝；重规划无保护空窗。RVT-01/04必测 | P0/B+C+S/C1 |
 | DTC-ROUTE-004 / 002/004 / ROUTE-TC-012/023..025 | ST两ExeStack段/FW多点；seq10新鲜；变体过期/旧seq/错来源/方向载荷错/map冲突；1规划/映射 | 完整资源/段反馈不丢；能力正确；过期/冲突不平均坐标、不新增依赖该位置grant，状态Unknown/Stale可见 | P0/U+C+E/C1 |
 | DTC-ROUTE-005 / 003 / ROUTE-TC-014..017 | V1/V2同向R1/反向不同edgeID/共享X1；1同时请求[10,20)；2第二窗[20,30)，buffer0；3独立buffer1变体 | 重叠冲突不双grant；不同edgeID仍受R1限制；半开边界可按buffer0相接，buffer1重叠拒绝；容量证据可查 | P0/U+B/C1 |
 | DTC-ROUTE-006 / 003 / ROUTE-TC-018..020/040 | R2被T2占，T1需R1+R2；1两实例争lease；2并发grant；3第二资源事务失败；4重复grant/release；5错owner释放 | 仅当前writer合法；失败无有效部分R1；同请求同token/逻辑效果；错owner不释放；资源容量始终≤1 | P0/B/C1 |
 | DTC-ROUTE-007 / 003/004 / ROUTE-TC-021..022/044..046 | T1持R1物理Unknown，缓存空/伪空闲变体；1让窗/lease过期；2申请T2；3重启重建 | R1不因时间释放；T2冲突拒绝；耐久owner/map/epoch恢复；缓存不是grant依据；保留RecoveryRequired | P0/B+C+E/C1 |
-| DTC-ROUTE-008 / 004 / ROUTE-TC-026..029/043 | grant已提交；变体dispatch前crash/发送已生效ACK丢；1重启；2Query；3发错车/段/map、重复/乱序；4合法完成当前段/下一段；5取消竞态 | 先核在途状态、不盲重发；非法不推进/释放；下一段先grant后dispatch；终态一次且只释放自有已确认离开资源 | P0/B+C+S/C1 |
+| DTC-ROUTE-008 / 004 / ROUTE-TC-026..029/043 | 整条候选路径grant已提交；变体dispatch前crash/发送已生效ACK丢；1重启query；2错车/段/map、重复/乱序；3合法当前段/下一段；4取消竞态 | 先核在途、不盲重发；非法不推进/释放；下一段验证已有全量grant/当前epoch及窗口再dispatch，若失效先安全重规划/全量再grant，不把原子grant拆成逐段事务；终态一次，仅释确认离开的自有资源 | P0/B+C+S/C1 |
 | DTC-ROUTE-009 / 004 / ROUTE-TC-039/041..042 | A epoch7、新B接管epoch8；有旧命令已过Adapter；1旧A grant/release/新dispatch；2B未对账派发；3查物理状态 | 旧epoch新授权全拒绝；不能据fence断言旧物理命令未执行；B未对账不派发；耐久记录/占用受保护 | P0/B+C/C1 |
 | DTC-ROUTE-010 / 005 / ROUTE-TC-031..033/035..036 | 依赖T1→R2→T2→R1→T1；无环链及共享容量变体；1构图；2与独立枚举环oracle比；3动态加入目标；4移除安全恢复前提 | 真环报告、排队不误判；动态不可撤销阶段保留；不可安全倒退/换路时升级不自动动作；永久故障不宣称活性 | P0/U+S/C1 |
-| DTC-ROUTE-011 / 005 / ROUTE-TC-034 | 低优先Tlow，连续高优先流；批准aging阈值A/等待上限B、资源最终可用且无永久故障；1按固定seed注入流；2运行至B；3独立故障破坏前提 | 前提成立Tlow在批准界内机会可验证；硬约束不放宽；破坏前提时报告不适用/阻断，不伪造通过 | P1/S；A/B未批blocked/C0 |
+| DTC-ROUTE-011 / 005 / ROUTE-TC-034 | Tlow base0、Thigh base9同竞争集；1受控钟推进59/60/540秒；2同effective比先排队时间/ID；3推进900秒；4资源永久故障；5另给有证明的可用性/服务上限夹具 | effective依次0/1/9，同级旧任务先；900秒等待告警不强派/不宣称完成；永久故障不报有界活性通过；只有显式具备服务界及前提的变体才验其完成界，生产B仍需证据 | P1/U+S/C0 |
 | DTC-ROUTE-012 / 005 / ROUTE-TC-037..038 | ST深位被挡；FW停车满/H1同口占用；1请求任务；2释放合法前置资源；3制造交叉等待 | 等待图含非路边资源/移位依赖；未证实移浅前不检索；停车/口不超容量；释放后公平唤醒且Unknown不误回收 | P0/B+C+S/C1 |
-| DTC-ROUTE-013 / 006 / 原目录§7..8 | seed1..20随机有限非负图、独立暴力小图路径/冲突oracle、固定负载分档；1跑性质/差分；2保存最小反例；3重复基准；4汇总硬件/分位/DB网络成本 | 每条边/成本/owner/容量合法；oracle独立于被测算法；差异按安全修正/行为变化分类；无签核门限不标性能通过，无现场证据不标无碰撞 | P1/U+S+B/C0 |
+| DTC-ROUTE-013 / 006 / 原目录§7..8 | seed1..20随机图与独立小图oracle；1性质/差分；2保存反例；3按规则PAR-10负载预热5分钟/稳态30分钟独立3次；4记录硬件/各Provider/网络、样本量/各次分位；5门限/门限+1ms变体 | 图/owner/容量全合法；按PAR-10分别验规划p95≤100/p99≤500ms、grant≤50/200ms，任一次越界失败，不能平均分位数；缺真实环境/报告标未执行，不因批准目标标通过；安全失败不由性能抵消。RVT-09必测 | P1/U+S+B/C0 |
+
+### 4.1 诊断表列与版本关联
+
+遵循[交互合同](03-dense-page-interaction-contract.md)，数字为PAGE-ROUTE；G/R/M为共用测试配置，`!`必显、`+`可选。所有Route运行事实只读，不增加grant、epoch、release的表格编辑入口。
+
+| 页面 | 配置 | 默认顺序/可选列 | 关联筛选/密集操作与禁用边界 |
+|---|---|---|---|
+| 001 | M；节点/边表G | 对象码!、Pack/层、方向/端点、成本/容量!、校验结果!、map/hash!；+能力/资源映射 | Pack→MapVersion→层/节点/边/资源限定版本；修改图去Simulator草稿。不同版本同edgeID不合并，表列顺序不改拓扑序，资源码显示冲突域引用 |
+| 002 | R；候选表G | 决策/候选号!、完整路径、成本/单位、可行/剔除!、原因!、输入map/planner版本!；+分项/freshness | task→固定决策快照→候选/资源序列；当前地图过滤不改旧计划依据。按剔除原因分组只能浏览，选择候选行不grant/dispatch |
+| 003 | G+R | 资源码!、物理冲突身份!、状态/物理占用!、owner!、窗口/单位!、epoch!、map!、command/释放证据；+token摘要/lease/缓存来源 | Pack/MapVersion仅过滤诊断记录，不过滤grant安全检查；同物理冲突域提示其他活跃版本的保护/计数，受权沿版本引用查明。Unknown/空闲分开，不按到期批删；token显示不是授权 |
+| 004 | R；wait-for队列G | 等待任务!、资源依赖!、等待/环类型!、不可抢占/Unknown!、等待时长/观测时间!；+age/优先/建议前提 | wait-for snapshot→任务/资源/证据，引用不在当前页照样可解析；建议进BUS受权动作，不能拖行提升真实优先级、自动反向或撤占用 |
+| 005 | G+R | 场景/run!、输入版本/hash!、seed、断言状态!、门限批准状态!、p50/p95/p99及单位；+硬件/DB/网络摘要 | run→固定manifest→planner/负载/故障，比较仅相容维度；不同环境/单位/未批门限显式不可比较，不能平均分位数冒充总指标；无新增生产回放入口 |
+
+| DTC定义/功能/原TC | 固定前置与编号步骤 | UI/持久化/副作用断言 | 级别/环境/清理 |
+|---|---|---|---|
+| DTC-ROUTE-014 / 001..006 / ROUTE-TC-007/023..024/030/040..046 | MV1/MV2同资源R1、T1固定MV1、epoch7/Unknown占用；runA秒/runB毫秒且门限未批；1换map旧resolve回；2调列/按状态分组；3沿候选/command回链；4试拖等待任务；5比较run | 不跨版本拼ledger/路径；owner/epoch/Unknown/版本必显；候选选择或拖动不grant/release/派发；返回固定T1版本；不兼容指标不可合并，性能不假标通过；所有耐久预约/库存/物理命令写0 | P0/E+B+C/C1 |
 
 ## 5. 既有 REQ-ROUTE 范围键的语义核对
 
@@ -92,4 +108,4 @@ grant请求包含owner/request、map、vehicle/task、资源与半开窗口；�
 
 ## 6. 实现阻断
 
-算法选型、几何误差/缓冲/时钟、速度制动、车型能力、A/B公平门限、query/去重/安全停车能力和基准负载须现场/算法/设备负责人共同签核。文档可先用于纯逻辑/故障契约测试设计，不能替代硬件风险评估。性能目标与安全不变量独立验收，不能用吞吐更高接受超容量grant。
+首期Dijkstra、跨版物理域、部署排空/兼容、aging及基准目标已按[规则基线](05-approved-rules-and-defaults.md)定案。几何误差/缓冲/时钟、制动/车型、query/去重/安全停车和生产服务上限仍需现场证据；默认Unconfigured阻断依赖控制，不取仿真buffer0/1当生产值。REQ逐条语义候选仍待需求owner签核；基准目标批准不等于性能通过。

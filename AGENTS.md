@@ -7,6 +7,7 @@ Read [README.md](README.md) and the relevant canonical documents before changing
 - Controlled implementation is approved. The project initiator explicitly approved implementation on main and the existing module designs, REQ-ROUTE-001..027 and WES-RULES-1.0 as the software baseline. Follow the dependency-ordered development plan; document each slice before coding and testing.
 - MySQL is the first implementation database; SQL Server and PostgreSQL compatibility is deferred, not removed. Follow [ADR-0002](docs/adr/ADR-0002-mysql-first-implementation.md).
 - Read the [readiness register](docs/implementation/readiness-register.md) before starting a dependent slice. Software approval does not approve site safety, production connections, deployments, commits or pushes. Missing evidence remains blocked.
+- 2026-10-23 follow-up authorization: the initiator explicitly approved committing and pushing each completed, verified work package to the existing GitHub remote. Do not infer production/database/physical safety sign-off from this authorization; do not force-push or mark incomplete packages complete.
 
 ## Mandatory rules
 

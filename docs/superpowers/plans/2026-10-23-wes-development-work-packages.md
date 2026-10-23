@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- 本文状态实施中；按批准基线逐片创建必要源文件/依赖/测试，不自动提交推送。复选框只在整条步骤证据齐全后勾选，部分结果见[实施记录](../../implementation/readiness-register.md)。
+- 本文状态实施中；按批准基线逐片创建必要源文件/依赖/测试。2026-10-23用户追加授权每个工作包完成且验证后提交推送到既有GitHub；不得将内部切片冒称整包完成，不force push。复选框只在整条步骤证据齐全后勾选，部分结果见[实施记录](../../implementation/readiness-register.md)。
 - 按[ADR-0002](../../adr/ADR-0002-mysql-first-implementation.md)，首期所有三Provider步骤先落实真实MySQL，SQL Server/PostgreSQL延后。未确认隔离环境仍blocked，不能InMemory替代。
 - 逐任务硬依赖/角色/里程碑以[总计划§3](2026-10-23-wes-development-and-testing.md)为准；任务内的接口是语义合同，不是新增领域规则。
 - 路径均以仓库根为起点；花括号清单表示分别创建的具名文件，不是自动生成模板。文件只有承担实际职责才创建，允许按代码审查合并简单文件，不允许合并owner。

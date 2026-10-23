@@ -23,6 +23,14 @@ public sealed class PlatformDbContext : DbContext
 
     /// <summary>Refresh families belonging to the current tenant.</summary>
     public DbSet<Session> Sessions => Set<Session>();
+    /// <summary>Tenant-owned named roles; menus are never treated as grants.</summary>
+    public DbSet<AccessRole> Roles => Set<AccessRole>();
+    /// <summary>Explicit tenant-composite assignments.</summary>
+    public DbSet<RoleMembership> Memberships => Set<RoleMembership>();
+    /// <summary>Only reviewed, typed nonsecret settings.</summary>
+    public DbSet<VersionedSetting> Settings => Set<VersionedSetting>();
+    /// <summary>Append-only owner audit facts, never raw request data.</summary>
+    public DbSet<PlatformAudit> Audit => Set<PlatformAudit>();
 
     /// <summary>Maps only Platform-owned tables with UTC instants, tenant keys and explicit concurrency.</summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -55,6 +63,55 @@ public sealed class PlatformDbContext : DbContext
         credential.Property(item => item.Digest).HasColumnType("varchar(64)").HasMaxLength(64);
         credential.Property(item => item.ConsumedAt).HasConversion(utc).HasColumnType("datetime(6)");
         credential.HasQueryFilter(item => item.TenantId == TenantId);
+
+        var role = modelBuilder.Entity<AccessRole>();
+        role.ToTable("platform_roles");
+        role.HasKey(item => new { item.TenantId, item.Id });
+        role.Property(item => item.TenantId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        role.Property(item => item.Id).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        role.Property(item => item.Code).HasColumnType("varchar(64)").HasMaxLength(64);
+        role.HasIndex(item => new { item.TenantId, item.Code }).IsUnique();
+        role.Property(item => item.Version).HasColumnType("varchar(36)").HasMaxLength(36).IsConcurrencyToken();
+        role.Property<string>("RulesData").HasColumnType("longtext").IsRequired();
+        role.Ignore(item => item.Rules);
+        role.HasQueryFilter(item => item.TenantId == TenantId);
+
+        var member = modelBuilder.Entity<RoleMembership>();
+        member.ToTable("platform_role_memberships");
+        member.HasKey(item => new { item.TenantId, item.UserId, item.RoleId });
+        member.Property(item => item.TenantId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        member.Property(item => item.UserId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        member.Property(item => item.RoleId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        member.HasOne<AccessRole>().WithMany().HasForeignKey(item => new { item.TenantId, Id = item.RoleId })
+            .OnDelete(DeleteBehavior.Restrict);
+        member.HasQueryFilter(item => item.TenantId == TenantId);
+
+        var setting = modelBuilder.Entity<VersionedSetting>();
+        setting.ToTable("platform_settings");
+        setting.HasKey(item => new { item.TenantId, item.Id });
+        setting.Property(item => item.TenantId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        setting.Property(item => item.Id).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        setting.Property(item => item.Key).HasColumnType("varchar(128)").HasMaxLength(128);
+        setting.Property(item => item.Value).HasColumnType("varchar(64)").HasMaxLength(64);
+        setting.Property(item => item.Source).HasColumnType("varchar(32)").HasMaxLength(32);
+        setting.Property(item => item.Version).HasColumnType("varchar(36)").HasMaxLength(36).IsConcurrencyToken();
+        setting.HasIndex(item => new { item.TenantId, item.Key }).IsUnique();
+        setting.HasQueryFilter(item => item.TenantId == TenantId);
+
+        var audit = modelBuilder.Entity<PlatformAudit>();
+        audit.ToTable("platform_audit");
+        audit.HasKey(item => new { item.TenantId, item.Id });
+        audit.Property(item => item.TenantId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        audit.Property(item => item.Id).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        audit.Property(item => item.ActorId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        audit.Property(item => item.TargetId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        audit.Property(item => item.CorrelationId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        audit.Property(item => item.Action).HasConversion<string>().HasColumnType("varchar(32)").HasMaxLength(32);
+        audit.Property(item => item.BeforeVersion).HasColumnType("varchar(36)").HasMaxLength(36);
+        audit.Property(item => item.AfterVersion).HasColumnType("varchar(36)").HasMaxLength(36);
+        audit.Property(item => item.OccurredAt).HasConversion(utc).HasColumnType("datetime(6)");
+        audit.HasIndex(item => new { item.TenantId, item.OccurredAt, item.Id });
+        audit.HasQueryFilter(item => item.TenantId == TenantId);
     }
 
     /// <summary>Protects every synchronous write path from cross-tenant attachment or owner changes.</summary>
@@ -76,6 +133,10 @@ public sealed class PlatformDbContext : DbContext
         foreach (var entry in ChangeTracker.Entries()
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
         {
+            if (entry.Entity is PlatformAudit && entry.State is EntityState.Modified or EntityState.Deleted)
+            {
+                throw new InvalidOperationException("Platform audit facts are append-only.");
+            }
             var tenant = entry.Property("TenantId");
             if (tenant.CurrentValue is not Guid current || current != TenantId
                 || (entry.State != EntityState.Added && (tenant.OriginalValue is not Guid original || original != TenantId)))

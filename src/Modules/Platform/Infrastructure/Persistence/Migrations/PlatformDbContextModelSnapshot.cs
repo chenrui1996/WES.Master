@@ -19,6 +19,91 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                 .HasAnnotation("ProductVersion", "10.0.7")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
+            modelBuilder.Entity("Wes.Platform.Domain.AccessRole", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("RulesData")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("platform_roles", (string)null);
+                });
+
+            modelBuilder.Entity("Wes.Platform.Domain.PlatformAudit", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("ActorId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("AfterVersion")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("BeforeVersion")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("CorrelationId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("TargetId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "OccurredAt", "Id");
+
+                    b.ToTable("platform_audit", (string)null);
+                });
+
             modelBuilder.Entity("Wes.Platform.Domain.RefreshCredential", b =>
                 {
                     b.Property<string>("TenantId")
@@ -42,6 +127,27 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "SessionId");
 
                     b.ToTable("platform_refresh_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("Wes.Platform.Domain.RoleMembership", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("RoleId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "UserId", "RoleId");
+
+                    b.HasIndex("TenantId", "RoleId");
+
+                    b.ToTable("platform_role_memberships", (string)null);
                 });
 
             modelBuilder.Entity("Wes.Platform.Domain.Session", b =>
@@ -84,12 +190,59 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                     b.ToTable("platform_sessions", (string)null);
                 });
 
+            modelBuilder.Entity("Wes.Platform.Domain.VersionedSetting", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("Value")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "Key")
+                        .IsUnique();
+
+                    b.ToTable("platform_settings", (string)null);
+                });
+
             modelBuilder.Entity("Wes.Platform.Domain.RefreshCredential", b =>
                 {
                     b.HasOne("Wes.Platform.Domain.Session", null)
                         .WithMany("Credentials")
                         .HasForeignKey("TenantId", "SessionId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Wes.Platform.Domain.RoleMembership", b =>
+                {
+                    b.HasOne("Wes.Platform.Domain.AccessRole", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "RoleId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

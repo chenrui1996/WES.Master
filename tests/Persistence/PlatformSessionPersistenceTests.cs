@@ -9,6 +9,7 @@ using Xunit;
 namespace Wes.Persistence.Tests;
 
 /// <summary>Exercises real Platform-owned optimistic refresh transactions and tenant isolation.</summary>
+[Collection("PlatformPersistence")]
 public sealed class PlatformSessionPersistenceTests : IAsyncLifetime
 {
     private static readonly DateTimeOffset Start = new(2026, 10, 23, 12, 0, 0, TimeSpan.Zero);

@@ -12,6 +12,8 @@ TenantContext只能从验证过的单一身份及UUID claims解析，不使用UR
 
 Role代码租户内唯一，版本为不透明UUID；规则包含permission、scope、明确department集合与字段白名单，调用者可授予范围与字段必须逐条涵盖目标grant。敏感权限不使用roleId=1等特例。角色停用/变更后的下一次判定直接读取当前状态；role规则更新采用expectedVersion并有DB CAS。
 
+内部`ChangeRoleHandler`沿用同一干净owner事务：当前`platform.roles.write`必须覆盖全租户角色的Rules/Enabled字段；操作者既要涵盖被编辑角色的现有权限，也要涵盖目标权限，不能用“先停用/先删除强权限”绕过管理范围。每次成功变更产生1条RoleChanged版本审计；旧版本/缺权限/扩部门/扩字段拒绝且不写。此入口仍不代替用户组织、角色创建/分配、页面预览或HTTP幂等合同。
+
 配置由内部固定目录提供类型/规则/类别B/P/H，客户端不能声明“这是安全字段”。当前只实施PAR初值中的代表性非secret条目，未知key拒绝，非法值拒绝且不回退；H物理值不加默认、不允许客户端自报已验证。Secret不接收任意key/value，更不进入普通设置或audit。一次Settings变更和版本审计在同一Platform事务写入，版本冲突/审计失败均不能只改一半。新建/更新分开表达，不能以缺版本覆盖。
 
 本片审计记录成功设置变更的固定动作、tenant/actor/target/correlation及前后版本，无任意payload/reason文本入口，避免把密码/连接串藏进“说明”；失败安全事件记录固定拒绝code日志，完整登录/权限安全事件尚未接齐。查询受当前权限及tenant过滤、明确时间边界和稳定排序；普通tracked EF的同步/异步SaveChanges拒绝修改或删除Audit。保留治理另走受控维护，不开放网页删除历史。原始SQL/bulk操作与DBA权限隔离不是本片的数据库级防篡改承诺。业务owner仍负责各自事务，本片不创建跨owner通用DbContext。
@@ -36,6 +38,7 @@ Platform新增roles、role_memberships、settings、audit表，全部带tenant�
 | ACCESS-CONTEXT-001 | 未认证、多重身份/重复或非法claims、缺tenant/空UUID拒绝 |
 | ACCESS-CURRENT-001 | 实际数据库role撤权/session撤销后下次判定立即拒绝；不同tenant同role code隔离 |
 | ACCESS-TENANT-001 / ACCESS-VERSION-001 | 四类实体同步/异步跨租户写拒绝；真实membership复合FK 1452；角色DB CAS |
+| ACCESS-ROLE-WRITE-001 | 角色用例实际检查管理字段及现有/目标可委派范围；拒绝扩权；角色+审计同事务；两handler并发只提交1版/1审计 |
 | SETTINGS-VERSION-001 | 合法写原子形成新版本与1条audit；旧版本/非法值/secret/未知key不写 |
 | SETTINGS-H-001 | H缺现场证据保持Unverified，不从客户端参数解禁 |
 | AUDIT-IMMUTABLE-001 | 普通EF更新/删除历史拒绝；原子提交前故障不留设置或audit半写；tenant受限稳定读取 |
@@ -49,5 +52,8 @@ Platform新增roles、role_memberships、settings、audit表，全部带tenant�
 - 新迁移范围测试先红（迁移集合空），生成并审查`20261023164738_AccessSettingsAudit`后转绿；原InitialSessions历史未修改。仅在wes_test应用，未执行业务库/生产DDL。
 - 第一轮真实访问持久化用例9失败、3通过：当前授权空壳、audit可改、设置写空壳均被捕获；实现后12通过。审计查询3项先红后绿；再补真实DB审计失败/两handler并发/FK/跨租户写回归与混合scope的查询字段反例，最终本片持久化27通过。
 - 使用Oracle10.0.7/EF10.0.7/MySQL8.0.12真实引擎。Platform DDL测试类加入同一不可并行collection；清理仅生成tenant，无InMemory代替、无服务重启。
+- 角色用例后续切片：2项先红、6项拒绝反例通过；实现后8通过，补实际handler重叠CAS反例后9通过。本片累计28领域与36迁移/真实MySQL用例通过，仍不将完整父DTC/T04标passed。
+- 本片及已有基线Release复测：Modules98、Persistence74、Architecture29，共201 passed、0 failed、0 skipped；Platform构建0警告/0错误、locked restore与格式检查通过。数字不代表T04页面验收，也不覆盖独立Route工作包的审查门禁。
+- 曾在并发构建/多项目运行期间观察到一次1秒真实健康探针返回Unhealthy；该12项健康子集单独复测通过。未改生产探针期限、未重试包装成Healthy。最终先统一构建，再以`dotnet test WES.slnx --configuration Release --no-build --no-restore -m:1`串行执行共享实例测试通过；并发压力下的健康抖动不据此宣称已消除。
 
 本片不是T04整包完成：用户/组织CRUD、角色编辑/租户切换/配置/审计页面、受权HTTP/E2E和完整T03依赖仍必须接齐；不借内部API单元绿灯对外开放未认证管理功能。

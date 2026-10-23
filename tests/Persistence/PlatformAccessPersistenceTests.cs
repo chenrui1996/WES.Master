@@ -111,6 +111,132 @@ public sealed class PlatformAccessPersistenceTests : IAsyncLifetime
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => second.SaveChangesAsync());
     }
 
+    /// <summary>The application path enforces delegation and persists one role-version audit before disclosing success.</summary>
+    [Fact]
+    [Trait("CaseId", "ACCESS-ROLE-WRITE-001")]
+    public async Task RoleHandler_CommitsAuthorizedChangeAndAudit_ThenRejectsStaleVersion()
+    {
+        var (context, target, version) = await SeedRoleEditorAsync();
+        await using (var write = Open(_tenant))
+        {
+            var result = await RoleHandler(write).HandleAsync(context, target, version, false,
+                [StockGrant(DataScope.Departments, ["Id"])], Guid.NewGuid());
+            Assert.Equal(SettingDecision.Changed, result.Decision);
+            Assert.NotNull(result.Version);
+        }
+        await using (var stale = Open(_tenant))
+        {
+            var result = await RoleHandler(stale).HandleAsync(context, target, version, true,
+                [StockGrant(DataScope.Departments, ["Id"])], Guid.NewGuid());
+            Assert.Equal(SettingDecision.VersionConflict, result.Decision);
+            Assert.Null(result.Version);
+        }
+        await using var verify = Open(_tenant);
+        var role = await verify.Roles.SingleAsync(item => item.Id == target);
+        Assert.False(role.Enabled);
+        var audit = await verify.Audit.SingleAsync();
+        Assert.Equal(PlatformAuditAction.RoleChanged, audit.Action);
+        Assert.Equal(version, audit.BeforeVersion);
+        Assert.Equal(role.Version, audit.AfterVersion);
+    }
+
+    /// <summary>Menu management alone cannot delegate broader permission, departments, fields, or a stronger existing role.</summary>
+    [Theory]
+    [InlineData("no-management")]
+    [InlineData("missing-field")]
+    [InlineData("all-scope")]
+    [InlineData("extra-field")]
+    [InlineData("extra-department")]
+    [InlineData("strong-target")]
+    [Trait("CaseId", "ACCESS-ROLE-WRITE-001")]
+    public async Task RoleHandler_RejectsUndelegableChangeWithoutSideEffects(string variant)
+    {
+        var (context, target, version) = await SeedRoleEditorAsync(variant);
+        var requested = variant switch
+        {
+            "all-scope" => StockGrant(DataScope.All, ["Id"]),
+            "extra-field" => StockGrant(DataScope.Departments, ["Id", "Cost"]),
+            "extra-department" => StockGrant(DataScope.Departments, ["Id"]) with { Departments = ImmutableHashSet.Create(Guid.NewGuid()) },
+            _ => StockGrant(DataScope.Departments, ["Id"])
+        };
+        await using (var write = Open(_tenant))
+        {
+            var result = await RoleHandler(write).HandleAsync(context, target, version, false, [requested], Guid.NewGuid());
+            Assert.Equal(SettingDecision.Forbidden, result.Decision);
+            Assert.Null(result.Version);
+        }
+        await using var verify = Open(_tenant);
+        Assert.Equal(version, (await verify.Roles.SingleAsync(item => item.Id == target)).Version);
+        Assert.Empty(await verify.Audit.ToListAsync());
+    }
+
+    /// <summary>Role audit failure propagates and leaves no permission/enabled/version half-update or pending EF graph.</summary>
+    [Fact]
+    [Trait("CaseId", "ACCESS-ROLE-WRITE-001")]
+    public async Task RoleHandler_AuditFailureLeavesRoleUnchanged()
+    {
+        var (context, target, version) = await SeedRoleEditorAsync();
+        await using (var write = Open(_tenant, new FailAudit()))
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => RoleHandler(write).HandleAsync(
+                context, target, version, false, [StockGrant(DataScope.Departments, ["Id"])], Guid.NewGuid()));
+            Assert.Empty(write.ChangeTracker.Entries());
+        }
+        await using var verify = Open(_tenant);
+        var role = await verify.Roles.SingleAsync(item => item.Id == target);
+        Assert.True(role.Enabled);
+        Assert.Equal(version, role.Version);
+        Assert.Empty(await verify.Audit.ToListAsync());
+    }
+
+    /// <summary>A losing authorized editor cannot leave an extra role audit when the actual SQL version check fails.</summary>
+    [Fact]
+    [Trait("CaseId", "ACCESS-ROLE-WRITE-001")]
+    public async Task ConcurrentRoleHandlers_CommitOneRoleVersionAndAudit()
+    {
+        var (context, target, version) = await SeedRoleEditorAsync();
+        var barrier = new SaveBarrier();
+        await using var first = Open(_tenant, barrier);
+        await using var second = Open(_tenant, barrier);
+        var results = await Task.WhenAll(
+            RoleHandler(first).HandleAsync(context, target, version, false, [StockGrant(DataScope.Departments, ["Id"])], Guid.NewGuid()),
+            RoleHandler(second).HandleAsync(context, target, version, true, [StockGrant(DataScope.Departments, ["Id"])], Guid.NewGuid()));
+        var winner = Assert.Single(results, item => item.Decision == SettingDecision.Changed);
+        Assert.Null(Assert.Single(results, item => item.Decision == SettingDecision.VersionConflict).Version);
+        await using var verify = Open(_tenant);
+        Assert.Equal(winner.Version, (await verify.Roles.SingleAsync(item => item.Id == target)).Version);
+        var audit = await verify.Audit.SingleAsync();
+        Assert.Equal(winner.Version, audit.AfterVersion);
+        Assert.Equal(version, audit.BeforeVersion);
+    }
+
+    private async Task<(TenantContext Context, Guid Target, string Version)> SeedRoleEditorAsync(string variant = "")
+    {
+        var (context, editor, _) = await SeedAsync();
+        await using var database = Open(_tenant);
+        var role = await database.Roles.SingleAsync(item => item.Id == editor);
+        var grants = new List<PermissionGrant> { StockGrant(DataScope.Departments, ["Id"]) };
+        if (variant != "no-management")
+        {
+            grants.Add(new PermissionGrant("platform.roles.write", DataScope.All, ImmutableHashSet<Guid>.Empty,
+                variant == "missing-field" ? ImmutableHashSet.Create("Enabled") : ImmutableHashSet.Create("Rules", "Enabled")));
+        }
+        role.Change(role.Version, true, grants);
+        var target = new AccessRole(_tenant, "target",
+            [StockGrant(DataScope.Departments, variant == "strong-target" ? ["Id", "Cost"] : ["Id"])]);
+        database.Roles.Add(target);
+        await database.SaveChangesAsync();
+        return (context, target.Id, target.Version);
+    }
+
+    private static PermissionGrant StockGrant(DataScope scope, string[] fields) =>
+        new("wms.stock.read", scope, scope == DataScope.Departments
+            ? ImmutableHashSet.Create(Guid.Parse("33333333-3333-3333-3333-333333333333")) : ImmutableHashSet<Guid>.Empty,
+            fields.ToImmutableHashSet(StringComparer.Ordinal));
+
+    private static ChangeRoleHandler RoleHandler(PlatformDbContext database) =>
+        new(database, new FixedClock(), NullLogger<ChangeRoleHandler>.Instance);
+
     /// <summary>Scoped setting writes produce exactly one version-linked audit, with no writes on stale or malformed input.</summary>
     [Fact]
     [Trait("CaseId", "SETTINGS-VERSION-001")]

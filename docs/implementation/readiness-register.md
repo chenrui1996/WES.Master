@@ -75,7 +75,7 @@
 | T02真实MySQL基础切片 | 已实现并验证，见[Provider记录](03-mysql-provider-foundation.md) | 测试隔离、迁移幂等/事务/唯一键/tenant/乐观并发/清理已通过；保留生产权限与兼容限制，不计业务owner验收 |
 | T02软件运行时/架构基础门禁 | 已实现并验证，见[HTTP运行时记录](04-host-runtime-foundation.md) | 安全ProblemDetails/关联日志、真实依赖故障恢复、已知非法symbol反例通过；可供T03内部实施，完整父DTC/业务扩展与生产许可仍另验 |
 | T03身份首片 | 内部会话/refresh/策略与真实并发已实现；整包仍实施中，见[记录](05-platform-session-core.md) | 登录预算/验证码耐久消费、凭据/JWT/审计/API/页面与E2E未接齐，不开放登录控制面，不误标T03完成 |
-| T04权限/配置/审计内部基础 | 已实现并验证，见[详细思路与红绿证据](08-platform-access-settings-audit.md)；不是整包完成 | 28领域用例、27迁移/真实MySQL用例通过；当前role/session复验、字段scope、配置CAS与原子audit、受权审计查询已覆盖；T03完整身份链路、组织/用户/字典语言、HTTP/页面/E2E仍缺 |
+| T04权限/配置/审计内部基础 | 已实现并验证，见[详细思路与红绿证据](08-platform-access-settings-audit.md)；不是整包完成 | 28领域用例、36迁移/真实MySQL用例通过；当前role/session复验、字段scope、角色可委派与原子审计、配置CAS与原子audit、受权审计查询已覆盖；T03完整身份链路、组织/用户/字典语言、HTTP/页面/E2E仍缺 |
 | T05..T16 | 未开始 | 按原DAG逐项；不得因内部基础/会话测试通过就跳过完整T03/T04及各自硬依赖 |
 | T17 Route内核 | 实施中；独立软件依赖不需要跳过T03 | FourWay私有边界与连接语义修复已审查；Stacker私有内核、整合/追踪仍逐项验证，不把纯算法作为现场H证据 |
 | T18..T34 | 未开始 | 等待各自DAG前置；现场H/真实终端/生产DBA等门禁仍独立阻断，不用软件单测替代 |

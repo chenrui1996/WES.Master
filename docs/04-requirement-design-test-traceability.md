@@ -14,7 +14,7 @@
 | T02 MySQL基础片 | 同一FUNC/DTC的真实Provider基础、ARCH-TC-005首期部分 | [Provider记录](implementation/03-mysql-provider-foundation.md)：仅wes_test探针迁移/事务/约束/tenant/并发/清理，不代表业务owner、最小权限或完整T02验收 |
 | T02 HTTP运行时/架构片 | FUNC-SYS-001/004、DTC-SYS-001/006、ARCH-TC-001/002的适用基础部分 | [运行时记录](implementation/04-host-runtime-foundation.md)：真实依赖断开/恢复、关联ID/安全错误与日志、Roslyn已知违规symbol反例；不代签其他owner/完整父DTC |
 | T03 会话/策略内部片 | FUNC-PLAT-001、DTC-PLAT-002/003/010及VAL-04的部分场景 | [会话记录](implementation/05-platform-session-core.md)：绝对/idle/access期限、耐久CAS/重放撤销、租户/摘要、登录与新密码纯策略；尚无登录/验证码/JWT/页面和完整链路，不标父DTC整体passed |
-| T04 权限/配置/审计内部片 | FUNC-PLAT-002/003/004/006、DTC-PLAT-004..006/008..009/011..012部分 | [权限配置审计记录](implementation/08-platform-access-settings-audit.md)：28领域与27真实DB/迁移用例通过，当前授权/范围字段、4表tenant保护、角色CAS、配置与audit原子性/不可改/受权查询；不代表组织/用户/字典语言/页面/E2E或完整T04验收 |
+| T04 权限/配置/审计内部片 | FUNC-PLAT-002/003/004/006、DTC-PLAT-004..006/008..009/011..012部分 | [权限配置审计记录](implementation/08-platform-access-settings-audit.md)：28领域与36真实DB/迁移用例通过，当前授权/范围字段、4表tenant保护、角色可委派/CAS/版本审计、配置与audit原子性/不可改/受权查询；不代表组织/用户/字典语言/页面/E2E或完整T04验收 |
 
 ## 1. ID 规则
 

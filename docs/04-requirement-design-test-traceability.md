@@ -15,6 +15,7 @@
 | T02 HTTP运行时/架构片 | FUNC-SYS-001/004、DTC-SYS-001/006、ARCH-TC-001/002的适用基础部分 | [运行时记录](implementation/04-host-runtime-foundation.md)：真实依赖断开/恢复、关联ID/安全错误与日志、Roslyn已知违规symbol反例；不代签其他owner/完整父DTC |
 | T03 会话/策略内部片 | FUNC-PLAT-001、DTC-PLAT-002/003/010及VAL-04的部分场景 | [会话记录](implementation/05-platform-session-core.md)：绝对/idle/access期限、耐久CAS/重放撤销、租户/摘要、登录与新密码纯策略；尚无登录/验证码/JWT/页面和完整链路，不标父DTC整体passed |
 | T04 权限/配置/审计内部片 | FUNC-PLAT-002/003/004/006、DTC-PLAT-004..006/008..009/011..012部分 | [权限配置审计记录](implementation/08-platform-access-settings-audit.md)：29领域与36真实DB/迁移用例通过，当前授权/范围字段及集合身份、4表tenant保护、角色可委派/CAS/版本审计、配置与audit原子性/不可改/受权查询；不代表组织/用户/字典语言/页面/E2E或完整T04验收 |
+| T17 Route纯内核软件包 | REQ-ROUTE-001..008、DTC-ROUTE-001..004及性质/差分的静态候选路径部分 | [Route内核记录](implementation/07-route-kernel.md)：Stacker/FourWay私有不可变图、物理映射谱系、能力/方向/负载/设备约束、确定性最短路及完整资源/执行段；228自动化测试、独立oracle/seed/shrinker和SPEC/CODE审查通过。T17软件包完成不将包含预约/实时反馈的父DTC或全部Route/H验收标passed |
 
 ## 1. ID 规则
 

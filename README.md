@@ -1,6 +1,6 @@
 # WES.Master 项目启动文档
 
-WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动阶段进入**受控实施**：项目发起人批准现有设计作为软件基线，并明确允许在 main 编码。每个切片按文档→失败测试→实现→复测推进，不自动授权生产连接、设备控制或提交推送。
+WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动阶段进入**受控实施**：项目发起人批准现有设计作为软件基线，并明确允许在 main 编码。每个切片按文档→失败测试→实现→复测推进。2026-10-23后续授权允许验证后的工作包提交推送到既有GitHub；该授权不自动放行生产连接、设备控制或现场H签字。
 
 ## 权威设计
 
@@ -15,6 +15,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 已实现入口：[无数据库Host首片](docs/implementation/01-foundation-host.md)、[MySQL Provider基础切片与复跑命令](docs/implementation/03-mysql-provider-foundation.md)。真实测试仅使用已获授权的wes_test库；原工程凭据只在本机测试装配内存中读取，不进入WES配置或日志。Host尚未装配业务持久化，就绪检查仍返回503；T02整包尚未完成。
 当前连续批次已补齐[HTTP运行时与依赖门禁](docs/implementation/04-host-runtime-foundation.md)，并进入[T03会话核心](docs/implementation/05-platform-session-core.md)；精确交付边界、复跑方式与尚未实现项目见[review交接](docs/implementation/06-review-handoff.md)。T02软件基础已可供内部后续使用，不等于完整系统/生产验收；T03尚无可用登录页面或签发API。
+
+新增内部实现：[T04当前权限、租户、配置及审计基础](docs/implementation/08-platform-access-settings-audit.md)、[T17 Pack私有Route内核记录](docs/implementation/07-route-kernel.md)。完整状态仍以[就绪台账](docs/implementation/readiness-register.md)为准；内部算法/持久化通过不等于已交付64个页面、全部T04–T34或真实设备调度。
 
 以下是本轮已整理的文档章节。每份功能规格都有测试设计，并在总追踪矩阵中关联需求 ID、设计章节、测试 ID 和验收结果；测试用例尚非自动化测试结果。
 
@@ -37,6 +39,19 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 - [Seven.Master 测试方法](../Seven.Master/doc/keypoint/09-测试方法与落库回归.md)
 - [系统架构设计参考](../系统架构设计.md)
 - [Route 研究资料目录](../Route)
+
+## 当前软件复跑
+
+在仓库根目录运行；真实MySQL测试需要本机已获授权的隔离库`wes_test`及[安全连接来源](docs/implementation/02-mysql-isolated-test-environment.md)，不要将凭据放进命令、配置或测试输出。
+
+```powershell
+dotnet restore WES.slnx --locked-mode
+dotnet build WES.slnx --configuration Release --no-restore
+dotnet test WES.slnx --configuration Release --no-build --no-restore -m:1
+dotnet format WES.slnx --no-restore --verify-no-changes
+```
+
+`-m:1`将依赖同一共享MySQL实例的项目测试顺序执行，不改变生产健康探针期限。Route内部纯逻辑测试不连接设备，Host默认就绪门禁仍保持503；运行测试不会解除业务/现场许可。失败输出必须处理，不能用InMemory或跳过测试代替真实成功。
 
 ## 设计原则
 

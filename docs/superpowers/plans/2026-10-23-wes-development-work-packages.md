@@ -194,9 +194,11 @@
 
 **Interfaces:** 消费批准图/schema与能力快照；产出FUNC-ROUTE-001/002的候选及成本/拒因，不产grant。PAGE-ROUTE-001/002由Pack诊断投影接入，不建“中央Route服务”。
 
-- [ ] DTC-ROUTE-001/002：G1始终ABD成本2，G2改BD4后ACD成本2；负/NaN/Inf权重、0容量/未知冲突域/多active/无路/同起终点及能力禁行。
-- [ ] 实现有限非负权重Dijkstra/稳定tie-break、不可变版本/hash、跨版物理冲突映射/拆并覆盖验证与可复现输入；不把无图当直接路线。
-- [ ] 用独立小图穷举oracle/seed1..20差分与缩小反例验证；算法候选不证明时间窗/物理安全，A*首期不启。DTC-ROUTE-013的纯性质部分随本任务先跑，性能留T33。
+**软件验收：** T17纯内核完成；[实现、红绿与审查证据](../../implementation/07-route-kernel.md)。Stacker/FourWay各自私有，无中央Route服务；SPEC/CODE审查PASS，228项Route自动化通过，父集成430项通过。下列勾选只覆盖本任务纯图/候选算法，不代表完整父DTC、诊断页面、T18预约或现场H验收。
+
+- [x] DTC-ROUTE-001/002：G1始终ABD成本2，G2改BD4后ACD成本2；负/NaN/Inf权重、0容量/未知冲突域/多active/无路/同起终点及能力禁行。
+- [x] 实现有限非负权重Dijkstra/稳定tie-break、不可变版本/hash、跨版物理冲突映射/拆并覆盖验证与可复现输入；不把无图当直接路线。
+- [x] 用独立小图穷举oracle/seed1..20差分与缩小反例验证；算法候选不证明时间窗/物理安全，A*首期不启。DTC-ROUTE-013的纯性质部分随本任务先跑，性能留T33。
 
 ### T18：每Pack耐久预约与epoch
 

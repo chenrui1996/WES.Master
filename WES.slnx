@@ -2,10 +2,13 @@
   <Folder Name="/src/">
     <Project Path="src/Host/Wes.Host.csproj" />
     <Project Path="src/Modules/Platform/Wes.Platform.csproj" />
+    <Project Path="src/Modules/Wcs/FourWay/Route/Wes.Wcs.FourWay.Route.csproj" />
+    <Project Path="src/Modules/Wcs/Stacker/Route/Wes.Wcs.Stacker.Route.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Architecture/Wes.Architecture.Tests.csproj" />
     <Project Path="tests/Modules/Wes.Modules.Tests.csproj" />
     <Project Path="tests/Persistence/Wes.Persistence.Tests.csproj" />
+    <Project Path="tests/Route/Wes.Route.Tests.csproj" />
   </Folder>
 </Solution>

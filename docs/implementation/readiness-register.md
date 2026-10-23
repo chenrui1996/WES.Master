@@ -77,9 +77,16 @@
 | T03身份首片 | 内部会话/refresh/策略与真实并发已实现；整包仍实施中，见[记录](05-platform-session-core.md) | 登录预算/验证码耐久消费、凭据/JWT/审计/API/页面与E2E未接齐，不开放登录控制面，不误标T03完成 |
 | T04权限/配置/审计内部基础 | 已实现并验证，见[详细思路与红绿证据](08-platform-access-settings-audit.md)；不是整包完成 | 29领域用例、36迁移/真实MySQL用例通过；当前role/session复验、字段scope/集合身份、角色可委派与原子审计、配置CAS与原子audit、受权审计查询已覆盖；T03完整身份链路、组织/用户/字典语言、HTTP/页面/E2E仍缺 |
 | T05..T16 | 未开始 | 按原DAG逐项；不得因内部基础/会话测试通过就跳过完整T03/T04及各自硬依赖 |
-| T17 Route内核 | 实施中；独立软件依赖不需要跳过T03 | FourWay私有边界与连接语义修复已审查；Stacker私有内核、整合/追踪仍逐项验证，不把纯算法作为现场H证据 |
+| T17 Route纯内核 | 软件工作包验收完成，见[实现、红绿及审查证据](07-route-kernel.md)；不是完整Route/WCS验收 | FourWay/Stacker各自私有topology/physical mapping与确定性候选路径；连接物理语义/设备归属缺陷先红后修复，最终SPEC/CODE审查PASS；228 Route测试与父集成通过；预约/派发/反馈及H分别由后续包验收 |
 | T18..T34 | 未开始 | 等待各自DAG前置；现场H/真实终端/生产DBA等门禁仍独立阻断，不用软件单测替代 |
 
 上一批次交接与精确测试/风险见[review交接](06-review-handoff.md)，本批增量以本台账及各切片记录为准。用户要求连续实施、每包完成后提交GitHub、缺资源可参考Seven，已按授权推进且未反复提问；这不授权改动旧业务库、跳过现场H或将内部切片计作完整工作包。按原计划允许可独立拒绝切片单独提交，但提交名和追踪必须明确foundation/partial，不冒称T04等整包完成。
 
 本轮未估算具名团队排期，未执行现场动作。任何缺项只阻断依赖它的切片，不用虚拟成功填空，也不将全部34项任务一次性勾完。
+
+## 5. 本批软件验证与发布
+
+- 按已授权范围持续交付：`7952ffe`权限/配置审计foundation、`519020e`实际角色委派用例、`223a589`字段集合身份回归修复均已正常推送main；这三次提交均明确T04仍partial。T17独立工作包另行提交，不混入未验代码。
+- 最终软件验证：locked restore通过；全solution Release构建0警告/0错误；`dotnet test WES.slnx --configuration Release --no-build --no-restore -m:1`得到Architecture29、Modules99、Persistence74、Route228，共430 passed、0 failed、0 skipped。
+- 全solution格式检查、EF迁移快照一致性、设计映射/计划DAG与文件链接检查通过。MySQL仅使用授权wes_test。一次并发运行健康探针抖动的观察与最终串行复跑条件保留在[T04记录](08-platform-access-settings-audit.md)，不隐瞒初次失败、不提高生产超时换绿。
+- 上述430是当前软件自动化测试数量，不等于167父DTC整体、64 PAGE或T04–T34全量交付；当前仍没有完整登录/后台页面链路、真实设备控制与生产投用许可。

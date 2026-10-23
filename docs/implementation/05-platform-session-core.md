@@ -56,7 +56,7 @@ PlatformDbContext只包含本owner会话表，tenant为必需非空UUID；按当
 
 ```powershell
 dotnet tool restore
-dotnet ef migrations has-pending-model-changes --project src\Modules\Platform\Wes.Platform.csproj --no-build
+dotnet ef migrations has-pending-model-changes --context PlatformDbContext --project src\Modules\Platform\Wes.Platform.csproj --no-build
 dotnet test tests\Modules\Wes.Modules.Tests.csproj --no-build --filter "FullyQualifiedName~Platform"
 dotnet test tests\Persistence\Wes.Persistence.Tests.csproj --no-build --filter "FullyQualifiedName~Platform"
 ```

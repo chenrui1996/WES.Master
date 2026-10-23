@@ -18,6 +18,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 新增内部实现：[T04当前权限、租户、配置及审计基础](docs/implementation/08-platform-access-settings-audit.md)、[T17 Pack私有Route内核记录](docs/implementation/07-route-kernel.md)。完整状态仍以[就绪台账](docs/implementation/readiness-register.md)为准；内部算法/持久化通过不等于已交付64个页面、全部T04–T34或真实设备调度。
 
+身份链路续实施：[T03可信来源耐久登录准入](docs/implementation/09-durable-login-source-admission.md)，已用真实MySQL验证跨账号/租户的30次/60秒预算与并发，不放宽业务租户上下文，也不代表账号/验证码/JWT/登录页面已经装配。新增专用来源DbContext后EF CLI须显式指定`--context`，具体命令见实现记录。
+
 以下是本轮已整理的文档章节。每份功能规格都有测试设计，并在总追踪矩阵中关联需求 ID、设计章节、测试 ID 和验收结果；测试用例尚非自动化测试结果。
 
 | 文档组 | 内容 |

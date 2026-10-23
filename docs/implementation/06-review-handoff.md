@@ -26,7 +26,7 @@ dotnet tool restore
 dotnet restore WES.slnx --locked-mode
 dotnet build WES.slnx --no-restore --nologo
 dotnet test WES.slnx --no-build --nologo
-dotnet ef migrations has-pending-model-changes --project src\Modules\Platform\Wes.Platform.csproj --no-build
+dotnet ef migrations has-pending-model-changes --context PlatformDbContext --project src\Modules\Platform\Wes.Platform.csproj --no-build
 dotnet format WES.slnx --no-restore --verify-no-changes
 ```
 

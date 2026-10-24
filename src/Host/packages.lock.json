@@ -17,6 +17,11 @@
           "Serilog.Sinks.File": "7.0.0"
         }
       },
+      "BCrypt.Net-Next": {
+        "type": "Transitive",
+        "resolved": "4.2.1",
+        "contentHash": "cJ1Zaad8sBSQJq3QBSPmFuLq0XDi9ys0Dk5S11gakZ2qdFWC1aaRLZ7sqOLQjGJYhgIK3LW3TixJswM6+CVbyw=="
+      },
       "BouncyCastle.Cryptography": {
         "type": "Transitive",
         "resolved": "2.6.2",
@@ -198,6 +203,7 @@
       "wes.platform": {
         "type": "Project",
         "dependencies": {
+          "BCrypt.Net-Next": "[4.2.1, )",
           "MySql.Data": "[9.7.0, )",
           "MySql.EntityFrameworkCore": "[10.0.7, )"
         }

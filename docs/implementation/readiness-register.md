@@ -79,6 +79,7 @@
 | T03账号风险状态 | 内部耐久失败窗口/暂锁已实现并验证，见[账号风险记录](10-durable-account-login-risk.md)；不是整包完成 | 5领域与20迁移/真实DB测试通过；同租户账号3后验证码门槛、5后暂锁900秒、滚动边界与CAS保护；仍须完整owner处理冲突重新准入/真实失败不漏记、验证码一次消费、凭据/JWT/审计及HTTP页面，不把风险读取当签发许可 |
 | T03验证码生命周期 | 内部耐久签发/一次消费已实现并验证，见[验证码记录](11-durable-login-challenges.md)；不是整包完成 | 9领域/保护与24迁移/真实DB测试通过；120秒、正确/错误同绑定一次、跨绑定拒、MAC保护与并发最多一接受；渲染/秘密装配、限流容量、完整凭据/风险并发接线及HTTP/页面E2E仍未验收 |
 | T03当前会话登出 | 内部撤销/原子审计已实现并验证，见[登出记录](12-audited-current-session-logout.md)；不是整包完成 | 15项真实DB测试通过；当前自有family与一条版本链审计原子、幂等/refresh两方向竞争/审计SQL失败回滚、8次CAS耗尽明确失败；不含HTTP、改密/禁用全量撤销及完整登录链路 |
+| T03兼容凭据编码 | 内部编码器已实现并验证，见[编码器记录](13-compatible-password-codec.md)；不是账号/登录整包完成 | 17项测试通过；Seven兼容仅受限验证，新密码完整Unicode/SHA384增强BCrypt、显式scheme/规范成本格式及秘密输出保护；Clear证据仍由未来历史/泄漏owner取得，不能直接签发会话 |
 | T04权限/配置/审计内部基础 | 已实现并验证，见[详细思路与红绿证据](08-platform-access-settings-audit.md)；不是整包完成 | 29领域用例、36迁移/真实MySQL用例通过；当前role/session复验、字段scope/集合身份、角色可委派与原子审计、配置CAS与原子audit、受权审计查询已覆盖；T03完整身份链路、组织/用户/字典语言、HTTP/页面/E2E仍缺 |
 | T05..T16 | 未开始 | 按原DAG逐项；不得因内部基础/会话测试通过就跳过完整T03/T04及各自硬依赖 |
 | T17 Route纯内核 | 软件工作包验收完成，见[实现、红绿及审查证据](07-route-kernel.md)；不是完整Route/WCS验收 | FourWay/Stacker各自私有topology/physical mapping与确定性候选路径；连接物理语义/设备归属缺陷先红后修复，最终SPEC/CODE审查PASS；228 Route测试与父集成通过；预约/派发/反馈及H分别由后续包验收 |
@@ -118,3 +119,10 @@
 - 当前自有会话登出与有限SessionRevoked审计同事务提交；TenantContext未修改，refresh竞争不复活family，其他family不受影响。
 - 最新全solution Release：Architecture29、Modules118、Persistence153、Route228，共528 passed、0 failed、0 skipped，0构建警告/错误；格式与双context快照一致。
 - 528替代513作为当前软件回归数量；内部验证码与登出连续实施已验证，仍不将T03完整登录/HTTP/页面或后续T04–T34标成完成。
+
+### 凭据编码器续实施验证
+
+- Seven实际依赖4.2.1/work12已只读核对；合成固定向量验证旧72字节别名与新SHA384模式差异，未读取旧用户密码/散列。
+- 先观察15项中的13项行为红灯，再实现并补充至17项通过；新/旧scheme不猜测、不try both，旧成功保持受限，不静默升级。
+- 最新fresh locked restore及全solution Release：Architecture29、Modules135、Persistence153、Route228，共545 passed、0 failed、0 skipped，0构建警告/错误；格式、IDE诊断、双context快照一致。
+- 545替代528作为当前软件回归数量；账号目录、历史5次、泄漏服务、完整登录/JWT/页面及现场H仍未验收。

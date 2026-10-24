@@ -26,6 +26,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 会话续实施：[T03当前会话登出与原子审计](docs/implementation/12-audited-current-session-logout.md)，已验证只撤当前自有family、审计与撤销原子提交、幂等及refresh两方向竞争；不替代HTTP适配或改密/禁用撤全部会话。
 
+凭据续实施：[T03 Seven兼容密码编码器](docs/implementation/13-compatible-password-codec.md)，新设SHA384增强BCrypt不截断128个Unicode标量，旧Seven模式只返回受限验证；全量545项通过，不替代账号目录、历史/泄漏证据服务或完整登录。
+
 以下是本轮已整理的文档章节。每份功能规格都有测试设计，并在总追踪矩阵中关联需求 ID、设计章节、测试 ID 和验收结果；测试用例尚非自动化测试结果。
 
 | 文档组 | 内容 |

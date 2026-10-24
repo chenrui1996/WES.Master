@@ -1,7 +1,7 @@
 # T04 directory command receipt test record
 
-- Status: owner persistence primitives verified; HTTP integration and T04 overall remain incomplete.
-- Scope: durable receipt idempotency, replay authorization, concurrency, expiry, and atomic persistence behavior.
+- Status: owner persistence primitives and named HTTP write integration verified; T04 overall remains incomplete.
+- Scope: durable receipt idempotency, replay authorization, concurrency, expiry, atomic persistence, and HTTP key/replay behavior.
 - Test database: the authorized isolated MySQL database `wes_test`; generated tenant fixtures only.
 
 ## Result
@@ -14,8 +14,16 @@ Result: **31 passed, 0 failed, 0 skipped**.
 
 Coverage includes stable same-key replay, kind/fingerprint conflicts, current authorization and target checks, tenant/actor isolation, concurrent duplicate submissions, rollback/cancellation, expiry, credential exclusion, and migration/model boundaries.
 
+The named HTTP routes are also verified with:
+
+```powershell
+dotnet test tests\Modules\Wes.Modules.Tests.csproj --no-restore -c Release --filter "FullyQualifiedName~NamedPlatformWritesReplayOriginalSafeResultAndDetectChangedRequests|FullyQualifiedName~MissingOrInvalidOperationKeyCannotMutateDirectory" --logger "console;verbosity=quiet"
+```
+
+Result: **6 passed, 0 failed, 0 skipped** across user, role, and settings replay, conflict, current-authorization, and missing/invalid-key cases.
+
 The dedicated project links the same receipt tests and authorized database fixture. It is intentionally outside the solution test count because the parent persistence test project is independently retained and validated.
 
 ## Boundary
 
-This verifies the owner persistence primitives only. It does not claim that every directory, role, or settings HTTP command is connected to receipts, nor that the bounded cleanup operation is scheduled in production. The conservative membership replay behavior and remaining integration contract are documented in [the implementation record](23-t04-command-receipts.md).
+Named directory writes use the operation key; role and settings handlers use the same receipt transaction contract, while credential writes explicitly reject receipt keys. The bounded cleanup operation is not scheduled in production. The conservative membership replay behavior and remaining deployment boundary are documented in [the implementation record](23-t04-command-receipts.md).

@@ -1,6 +1,6 @@
 # T04 非机密目录命令耐久回执
 
-- 状态：实施中（owner 持久化已验证；成员重放存在下述保守限制）；owner：Platform directory；关联 T04、DTC-PLAT-004..006/008/011/014、WES-RULES-1.0。
+- 状态：owner持久化与具名非机密HTTP写接线已验证；成员重放存在下述保守限制；生产清理调度未接线；owner：Platform directory；关联 T04、DTC-PLAT-004..006/008/011/014、WES-RULES-1.0。
 - 测试证据：[T04命令回执测试记录](30-t04-command-receipts-tests.md)
 - 仅具名非机密命令可选使用 UUID 操作上下文；不增加公开端点、通用 CRUD、Outbox 或生产自动迁移。凭据、密码、登录禁止使用回执。
 
@@ -66,7 +66,7 @@ public static Task<int> DirectoryCommandReceipts.RemoveExpiredAsync(
 
 - 新增 `20261024063825_DirectoryCommandReceipts`、EF designer/snapshot，仅新增八列 owner 表及 tenant/CreatedAt 索引；不修改/删除现有领域表。专用模型测试审查实际 Up 操作及 pending-model-change=false。生产仍需 DBA 审查/受控发布，绝不启动自动迁移。
 - TDD：API 缺失编译红后，初始九项真实 MySQL 测试出现 **5 项行为红、4 项通过**（未实现回执的基线）。专用矩阵最近复跑 **31/31 通过，0 skipped**；见独立[测试记录](30-t04-command-receipts-tests.md)。
-- 只使用已授权 `MySqlTestConnection` helper 和 wes_test；没有读取/输出明文连接配置或执行生产数据库命令。全solution和相关集成测试另见[就绪台账](readiness-register.md)；本owner切片本身仍未commit/push。
+- 只使用已授权 `MySqlTestConnection` helper 和 wes_test；没有读取/输出明文连接配置或执行生产数据库命令。全solution和相关集成测试另见[就绪台账](readiness-register.md)；当前owner代码及HTTP接线见同批集成提交。
 - 父任务同时修改 `PlatformAccessPersistenceTests`，其未完成的 `FailAfterAuditSql` / `InjectedAuditSqlFailureException` 定义一度阻止原 Persistence 工程编译。因此新增独立 `tests\DirectoryReceipts\Wes.DirectoryReceipts.Tests.csproj`，链接同一 `DirectoryReceiptTests`、原连接 helper/collection，使用原有相同版本测试依赖；不排除、更改或削弱父任务测试。该专用工程未加入全套 solution，原 Persistence 仍自然包含新测试。
 
 复跑：
@@ -75,4 +75,4 @@ public static Task<int> DirectoryCommandReceipts.RemoveExpiredAsync(
 dotnet test tests\DirectoryReceipts\Wes.DirectoryReceipts.Tests.csproj --no-restore --filter FullyQualifiedName~DirectoryReceiptTests --verbosity quiet
 ```
 
-HTTP、ChangeRole/ChangeSetting、清理调度接线由父任务负责；本轮仅为 owner 事务/模型/迁移证据。未运行完整 suite，不将其冒充 HTTP/客户端、完整 T04 或生产验收。成员透明重放限制保持显式未决，不标“全部完成”。
+DirectoryService、ChangeRole、ChangeSetting及具名非机密写路由现已接入操作回执；`IdentityHttpTests`覆盖用户/角色/设置安全重放、参数冲突、撤权及缺失/非法key，独立[HTTP测试记录](30-t04-command-receipts-tests.md)提供6项定向结果。清理调度仍需部署owner接线与监测；成员透明重放限制保持显式未决，不标“全部完成”。

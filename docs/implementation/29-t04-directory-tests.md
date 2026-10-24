@@ -26,4 +26,4 @@ The persistence cases cover field/scope filtering in SQL, authoritative departme
 
 ## Boundary
 
-Evidence is MySQL-only and does not approve production migrations or other EF providers. T04 still has outstanding integration and release obligations; in particular, receipt support is not wired to every eligible write route, and no result here certifies production authorization policy, operational ownership, or on-site H gates.
+Evidence is MySQL-only and does not approve production migrations or other EF providers. Receipt keys are wired on named nonsecret write routes; the focused route replay/key-validation evidence is recorded with the receipt tests. T04 still has outstanding release obligations, and no result here certifies production authorization policy, operational ownership, or on-site H gates.

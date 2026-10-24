@@ -28,6 +28,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 凭据续实施：[T03 Seven兼容密码编码器](docs/implementation/13-compatible-password-codec.md)，新设SHA384增强BCrypt不截断128个Unicode标量，旧Seven模式只返回受限验证；全量545项通过，不替代账号目录、历史/泄漏证据服务或完整登录。
 
+改密续实施：[T03耐久凭据历史与受控改密](docs/implementation/14-durable-password-change.md)，最近5个已设置值含当前值、真实历史验证、当前主体旧密/版本复验，凭据与既有自有family撤销/审计原子提交；全量582项通过。外部泄漏检查、账号目录/禁用、并发新family签发栅栏及HTTP/页面仍待接线。
+
 以下是本轮已整理的文档章节。每份功能规格都有测试设计，并在总追踪矩阵中关联需求 ID、设计章节、测试 ID 和验收结果；测试用例尚非自动化测试结果。
 
 | 文档组 | 内容 |

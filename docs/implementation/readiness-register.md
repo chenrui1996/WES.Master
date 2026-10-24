@@ -80,6 +80,7 @@
 | T03验证码生命周期 | 内部耐久签发/一次消费已实现并验证，见[验证码记录](11-durable-login-challenges.md)；不是整包完成 | 9领域/保护与24迁移/真实DB测试通过；120秒、正确/错误同绑定一次、跨绑定拒、MAC保护与并发最多一接受；渲染/秘密装配、限流容量、完整凭据/风险并发接线及HTTP/页面E2E仍未验收 |
 | T03当前会话登出 | 内部撤销/原子审计已实现并验证，见[登出记录](12-audited-current-session-logout.md)；不是整包完成 | 15项真实DB测试通过；当前自有family与一条版本链审计原子、幂等/refresh两方向竞争/审计SQL失败回滚、8次CAS耗尽明确失败；不含HTTP、改密/禁用全量撤销及完整登录链路 |
 | T03兼容凭据编码 | 内部编码器已实现并验证，见[编码器记录](13-compatible-password-codec.md)；不是账号/登录整包完成 | 17项测试通过；Seven兼容仅受限验证，新密码完整Unicode/SHA384增强BCrypt、显式scheme/规范成本格式及秘密输出保护；Clear证据仍由未来历史/泄漏owner取得，不能直接签发会话 |
+| T03耐久历史/受控改密 | 内部owner已实现并验证，见[改密记录](14-durable-password-change.md)；不是公开API/整包完成 | 7项领域/格式与30项迁移/真实DB测试通过；最近5个含当前值、逐原scheme历史检查、旧密/自有Active会话/版本复验，凭据与既有全部自有family撤销/审计原子；新family签发栅栏、外部泄漏检查、目录/禁用及HTTP/页面仍待接线 |
 | T04权限/配置/审计内部基础 | 已实现并验证，见[详细思路与红绿证据](08-platform-access-settings-audit.md)；不是整包完成 | 29领域用例、36迁移/真实MySQL用例通过；当前role/session复验、字段scope/集合身份、角色可委派与原子审计、配置CAS与原子audit、受权审计查询已覆盖；T03完整身份链路、组织/用户/字典语言、HTTP/页面/E2E仍缺 |
 | T05..T16 | 未开始 | 按原DAG逐项；不得因内部基础/会话测试通过就跳过完整T03/T04及各自硬依赖 |
 | T17 Route纯内核 | 软件工作包验收完成，见[实现、红绿及审查证据](07-route-kernel.md)；不是完整Route/WCS验收 | FourWay/Stacker各自私有topology/physical mapping与确定性候选路径；连接物理语义/设备归属缺陷先红后修复，最终SPEC/CODE审查PASS；228 Route测试与父集成通过；预约/派发/反馈及H分别由后续包验收 |
@@ -126,3 +127,11 @@
 - 先观察15项中的13项行为红灯，再实现并补充至17项通过；新/旧scheme不猜测、不try both，旧成功保持受限，不静默升级。
 - 最新fresh locked restore及全solution Release：Architecture29、Modules135、Persistence153、Route228，共545 passed、0 failed、0 skipped，0构建警告/错误；格式、IDE诊断、双context快照一致。
 - 545替代528作为当前软件回归数量；账号目录、历史5次、泄漏服务、完整登录/JWT/页面及现场H仍未验收。
+
+### 耐久凭据与受控改密续实施验证
+
+- 当前值计入最近5个、旧scheme逐项核历史的默认细化已回写PAR-02；不另创账号规范化/开户入口，不读旧用户数据。
+- 先观察领域5项行为红灯、owner非屏障20项中14项失败；再验证真实CAS、refresh两提交顺序及审计1062回滚。补充缺scheme和哈希期间时钟倒退的2项明确红灯后修正，验证899→900秒锁定和跨context历史第5/6旧值边界。
+- 最终7项领域/格式、30项迁移/真实DB用例通过；增量迁移只增凭据表和复合唯一索引，在授权`wes_test`应用。没有公开改密endpoint/生产迁移。
+- 最新全solution Release：Architecture29、Modules142、Persistence183、Route228，共582 passed、0 failed、0 skipped，0构建警告/错误；格式、IDE诊断与双context模型一致。
+- 582替代545作为当前软件回归数量；本地历史证据已实现，外部泄漏Clear、用户目录/禁用、并发新family签发栅栏、完整登录/JWT/HTTP/页面/E2E仍未验收，不将T03或T04–T34冒称整体完成。

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Wes.Platform.Domain;
+using Wes.Platform.Features.Identity;
 
 namespace Wes.Platform.Infrastructure.Persistence;
 
@@ -35,6 +36,8 @@ public sealed class PlatformDbContext : DbContext
     public DbSet<LoginAccountBudget> LoginAccounts => Set<LoginAccountBudget>();
     /// <summary>One-shot tenant challenges; never raw answers or global risk state.</summary>
     public DbSet<LoginChallenge> LoginChallenges => Set<LoginChallenge>();
+    /// <summary>Owner-local password history; never a user-list or public response source.</summary>
+    public DbSet<PasswordCredential> PasswordCredentials => Set<PasswordCredential>();
 
     /// <summary>Maps only Platform-owned tables with UTC instants, tenant keys and explicit concurrency.</summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -42,6 +45,20 @@ public sealed class PlatformDbContext : DbContext
         var utc = new ValueConverter<DateTimeOffset, DateTime>(
             value => value.UtcDateTime,
             value => new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)));
+        var password = modelBuilder.Entity<PasswordCredential>();
+        password.ToTable("platform_password_credentials");
+        password.HasKey(item => new { item.TenantId, item.UserId });
+        password.Property(item => item.TenantId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        password.Property(item => item.UserId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        password.Property(item => item.NormalizedAccount).HasColumnType("longtext").IsRequired();
+        password.Property(item => item.AccountDigest).HasColumnType("varchar(64)").HasMaxLength(64);
+        password.HasIndex(item => new { item.TenantId, item.AccountDigest }).IsUnique();
+        password.Property(item => item.Version).HasColumnType("varchar(36)").HasMaxLength(36).IsConcurrencyToken();
+        password.Property(item => item.ChangedAt).HasConversion(utc).HasColumnType("datetime(6)");
+        password.Property<string>("HistoryData").HasColumnType("varchar(2048)").HasMaxLength(2048).IsRequired();
+        password.Ignore(item => item.Recent);
+        password.HasQueryFilter(item => item.TenantId == TenantId);
+
         var challenge = modelBuilder.Entity<LoginChallenge>();
         challenge.ToTable("platform_login_challenges");
         challenge.HasKey(item => new { item.TenantId, item.Id });

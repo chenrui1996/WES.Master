@@ -19,6 +19,7 @@
 | T03 验证码耐久一次消费 | FUNC-PLAT-001、PAR-02、DTC-PLAT-001/010及VAL-04中验证码部分 | [验证码记录](implementation/11-durable-login-challenges.md)：9领域/保护与24迁移/真实MySQL用例通过；120秒、答案MAC/租户账号来源绑定、错误也消费与真实CAS；尚非渲染/完整登录/E2E验收，不标父DTC整体通过 |
 | T03 当前会话登出 | FUNC-PLAT-001、DTC-PLAT-003及VAL-04中单family撤销部分 | [登出记录](implementation/12-audited-current-session-logout.md)：15项真实MySQL用例通过；自助owner限定、撤销/audit原子、refresh两方向竞争、幂等与失败门禁；HTTP及改密/禁用撤销范围仍待完整接线，不标父DTC整体通过 |
 | T03 Seven兼容凭据编码器 | FUNC-PLAT-001、PAR-02 / VAL-04的新密码与旧密码受限兼容部分 | [编码器记录](implementation/13-compatible-password-codec.md)：17项用例通过；旧模式仅受限验证，新SHA384增强BCrypt保留完整128个Unicode标量、独立scheme、固定向量与不反射散列；账号历史/泄漏证据及完整登录仍待接线，不标父DTC整体通过 |
+| T03 耐久历史与当前主体改密 | FUNC-PLAT-001、DTC-PLAT-003及PAR-02 / VAL-04的历史/改密撤销部分 | [改密记录](implementation/14-durable-password-change.md)：7项领域/格式与30项迁移/真实DB用例通过；5项含当前值、逐原scheme检查历史，凭据/既有family撤销/版本链审计原子、CAS/refresh竞争与SQL失败回滚；新family签发栅栏、泄漏服务及HTTP/页面仍待接线，不标父DTC整体通过 |
 | T04 权限/配置/审计内部片 | FUNC-PLAT-002/003/004/006、DTC-PLAT-004..006/008..009/011..012部分 | [权限配置审计记录](implementation/08-platform-access-settings-audit.md)：29领域与36真实DB/迁移用例通过，当前授权/范围字段及集合身份、4表tenant保护、角色可委派/CAS/版本审计、配置与audit原子性/不可改/受权查询；不代表组织/用户/字典语言/页面/E2E或完整T04验收 |
 | T17 Route纯内核软件包 | REQ-ROUTE-001..008、DTC-ROUTE-001..004及性质/差分的静态候选路径部分 | [Route内核记录](implementation/07-route-kernel.md)：Stacker/FourWay私有不可变图、物理映射谱系、能力/方向/负载/设备约束、确定性最短路及完整资源/执行段；228自动化测试、独立oracle/seed/shrinker和SPEC/CODE审查通过。T17软件包完成不将包含预约/实时反馈的父DTC或全部Route/H验收标passed |
 

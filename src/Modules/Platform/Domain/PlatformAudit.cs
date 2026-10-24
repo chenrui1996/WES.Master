@@ -10,7 +10,9 @@ public enum PlatformAuditAction
     /// <summary>A typed nonsecret setting changed.</summary>
     SettingChanged,
     /// <summary>A subject explicitly revoked their current session family.</summary>
-    SessionRevoked
+    SessionRevoked,
+    /// <summary>The current subject changed their credential and revoked their existing session families.</summary>
+    PasswordChanged
 }
 
 /// <summary>Append-only audit fact staged with the owner mutation; no general request/payload string is accepted.</summary>

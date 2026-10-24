@@ -302,6 +302,47 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                     b.ToTable("platform_settings", (string)null);
                 });
 
+            modelBuilder.Entity("Wes.Platform.Features.Identity.PasswordCredential", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("AccountDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("HistoryData")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("varchar(2048)");
+
+                    b.Property<string>("NormalizedAccount")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "UserId");
+
+                    b.HasIndex("TenantId", "AccountDigest")
+                        .IsUnique();
+
+                    b.ToTable("platform_password_credentials", (string)null);
+                });
+
             modelBuilder.Entity("Wes.Platform.Domain.RefreshCredential", b =>
                 {
                     b.HasOne("Wes.Platform.Domain.Session", null)

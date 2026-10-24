@@ -23,6 +23,7 @@
 | T03 登录协调与签发栅栏 | FUNC-PLAT-001、DTC-PLAT-001..003/008/010及VAL-04中内部协调部分 | [登录记录](implementation/15-coordinated-password-login.md)：3项领域与28项迁移/真实DB用例通过；来源/挑战消费、账号门槛与真实核验同用例协同、在途错密不漏事件、risk/凭据CAS及login/改密两顺序、新旧格式会话持久限制；JWT/HTTP/渲染/页面/禁用管理仍另验，不标父DTC整体通过 |
 | T04 权限/配置/审计内部片 | FUNC-PLAT-002/003/004/006、DTC-PLAT-004..006/008..009/011..012部分 | [权限配置审计记录](implementation/08-platform-access-settings-audit.md)：29领域与36真实DB/迁移用例通过，当前授权/范围字段及集合身份、4表tenant保护、角色可委派/CAS/版本审计、配置与audit原子性/不可改/受权查询；不代表组织/用户/字典语言/页面/E2E或完整T04验收 |
 | T03/T04 当前授权用户禁用 | FUNC-PLAT-001/002、DTC-PLAT-003..006/008/010及VAL-04禁用撤全部family部分 | [禁用记录](implementation/16-audited-account-disable.md)：22项禁用真实DB及3项登录侧新增用例；当前Enabled字段/资源范围、原子凭据/全部family/audit、幂等修复、login/refresh两方向CAS、故障/取消与跨租户隔离通过；完整回归638项。不包含用户目录/启用重置/HTTP/页面，不标父DTC整体通过 |
+| T03/T04 受权登录事件查询 | PAGE-PLAT-008、FUNC-PLAT-006、DTC-PLAT-008内部查询部分 | [查询记录](implementation/17-authorized-login-event-query.md)：24项真实MySQL测试，当前All字段权限、隐藏字段筛选拒绝、租户/时间/类型/关联先过滤再稳定分页、真实100条门限、撤权/故障/取消通过；全量662项。无不可变主体/部门时不猜Own归属；导出/保留治理/HTTP/页面仍另验 |
 | T17 Route纯内核软件包 | REQ-ROUTE-001..008、DTC-ROUTE-001..004及性质/差分的静态候选路径部分 | [Route内核记录](implementation/07-route-kernel.md)：Stacker/FourWay私有不可变图、物理映射谱系、能力/方向/负载/设备约束、确定性最短路及完整资源/执行段；228自动化测试、独立oracle/seed/shrinker和SPEC/CODE审查通过。T17软件包完成不将包含预约/实时反馈的父DTC或全部Route/H验收标passed |
 
 ## 1. ID 规则

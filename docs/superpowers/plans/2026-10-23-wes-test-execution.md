@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans after implementation approval. Steps use checkbox (`- [ ]`) syntax for tracking. A test design is not a test result.
 
-**Goal:** 将167条父DTC及其参数/风险变体落实为可执行、可选择、可追溯、按环境分别判定的测试与现场验收证据。
+**Goal:** 将168条父DTC及其参数/风险变体落实为可执行、可选择、可追溯、按环境分别判定的测试与现场验收证据。
 
 **Architecture:** owner行为优先，真实Provider事务与实际模块连通验证；纯算法oracle、虚拟设备、协议台架、UI和现场分层取证，不互相代替。
 
@@ -94,9 +94,9 @@ SQL Server/MySQL分别用`Provider=SqlServer`、`Provider=MySql`执行同CaseId�
 | DEV | [Device](../../detailed-design/device-communication.md) | PAGE-DEV-001..004 | FUNC-DEV-001..004 | DTC-DEV-001..007 | T16,T25 |
 | SITE | [Simulator/SCADA](../../detailed-design/environment-simulation-and-scada.md) | PAGE-SITE-001..006 | FUNC-SITE-001..005 | DTC-SITE-001..010 | T26,T27,T34 |
 | ROUTE | [Route](../../detailed-design/route.md) | PAGE-ROUTE-001..005 | FUNC-ROUTE-001..006 | DTC-ROUTE-001..014 | T17,T18,T19,T33 |
-| SYS | [系统](../../detailed-design/system-operations.md) | PAGE-SYS-001..003 | FUNC-SYS-001..004 | DTC-SYS-001..007 | T02,T30 |
+| SYS | [系统](../../detailed-design/system-operations.md) | PAGE-SYS-001..003 | FUNC-SYS-001..005 | DTC-SYS-001..008 | T02,T30 |
 
-合计64 PAGE/65 FUNC/122模块DTC；另DTC-UI-001..032共32、DTC-XMOD-001..013共13，全部167。原265 TC从详细表的原TC字段保留，不重编号，也不把变体数冒充父用例数。
+合计64 PAGE/66 FUNC/123模块DTC；另DTC-UI-001..032共32、DTC-XMOD-001..013共13，全部168。原265 TC从详细表的原TC字段保留，不重编号，也不把变体数冒充父用例数。
 
 ### 3.1 模块DTC的首个落地任务
 
@@ -129,8 +129,8 @@ SQL Server/MySQL分别用`Provider=SqlServer`、`Provider=MySql`执行同CaseId�
 | T27 | DTC-SITE-005..006/009..010 | 仿真/Reset/SCADA/关联 |
 | T34 | DTC-SITE-007..008 | Promote全部阶段/中断回退，007软件部分T26已测不代替现场 |
 | T29 | DTC-PDA-001..010 | 扫码/仓储/离线/operation/终端 |
-| T02 | DTC-SYS-001/006 | 健康/架构底座，后续全程重跑 |
-| T30 | DTC-SYS-002..005/007 | 隔离恢复/单写/迁移升级/重启/关联 |
+| T02 | DTC-SYS-001/006/008 | 健康/架构/功能开关底座，后续全程重跑 |
+| T30 | DTC-SYS-002..005/007 | 隔离恢复/单写/迁移升级/重启/关联/运行态诊断 |
 
 首责唯一使遗漏可查；跨域/真实性层次的重复运行是有意回归，不重复统计父DTC。T31迁移变体挂相关SYS/WMS父DTC，保留源业务范围证据，不能因此新增未立项业务。
 
@@ -233,7 +233,7 @@ T33沿用PAR-10：1000资产、50车、100并发用户、100事件/秒、单Pack
 |---|---|---|
 | 每个切片本地 | 相关红绿、格式/类型、对应CaseId与架构 | 行为未绿不标完成；未跑环境如实记录 |
 | PR集成 | 改动涉及模块真实Provider B、相关C/E、权限/事务/幂等/故障 | 至少相关环境必需项全绿；契约变化所有消费者回归，不只编译 |
-| 定时完整回归 | 全167展开软件变体、三Provider、隔离Broker/缓存/虚拟设备 | 失败分owner定位，保留首个RunId/反例，重跑不覆盖首次失败记录 |
+| 定时完整回归 | 全168展开软件变体、三Provider、隔离Broker/缓存/虚拟设备 | 失败分owner定位，保留首个RunId/反例，重跑不覆盖首次失败记录 |
 | 候选发布 | 全回归+迁移/恢复/性能+已批准真实Adapter/终端矩阵 | 缺一适用必需项blocked；只缩发布范围须批准并禁用未支持入口 |
 | 现场阶段 | 该阶段H/Promote/停机/恢复/操作员任务与runbook | 任何未知物理事实停止扩大、保留保护，不能自动回退DB掩盖命令 |
 
@@ -256,19 +256,24 @@ T33沿用PAR-10：1000资产、50车、100并发用户、100事件/秒、单Pack
 
 该JSON只是记录形状示例，不是测试结果；执行记录还须包含实际RunId/build/provider-driver版本/Adapter或终端版本、时刻、初始快照、动作/响应、最终owner查询、断言与副作用计数、脱敏日志/trace、证据hash、清理结论及负责人。result只在真实运行后更新，不能拷示例填passed。
 
-发布报告按Provider/Adapter/终端分别汇总passed/failed/blocked/not-run与适用组合总数。代码覆盖率可辅助发现遗漏，但不发明一个百分比替代167 DTC/变体、265原TC与64页适用性。高风险失败没有“总分足够即上线”。
+发布报告按Provider/Adapter/终端分别汇总passed/failed/blocked/not-run与适用组合总数。代码覆盖率可辅助发现遗漏，但不发明一个百分比替代168 DTC/变体、265原TC与64页适用性。高风险失败没有“总分足够即上线”。
 
 ## 10. 本轮计划静态自审
 
 - 计划目标是检查T01..T34唯一/依赖存在且无环、波次高于所有直接前置；依赖表不是源代码调用关系。
-- 覆盖检查展开本计划§3与§3.1，和详细设计实际定义集合逐项比较，要求64 PAGE/65 FUNC/122模块DTC，首责无遗漏/重复；UI32+跨模块13合167，RVT9/VAL8与规则基线集合一致。
+- 覆盖检查展开本计划§3与§3.1，和详细设计实际定义集合逐项比较，要求64 PAGE/66 FUNC/123模块DTC，首责无遗漏/重复；UI32+跨模块13合168，RVT9/VAL8与规则基线集合一致。
 - 全部Markdown本地文件链接应解析；拟创建源路径只用代码格式，不能冒充已有文件链接。
 - 计划自审不等于自动化/Provider/设备/性能测试通过。完成本轮文档后登记实际检查结果，保留所有开发复选框未勾选。
 
-### 10.1 2026-10-23静态核对结果
+### 10.1 2026-10-23静态核对结果（原计划基线）
 
 - 34个任务定义/工作包标题唯一连续，所有直接依赖均存在、拓扑无环；16个最早就绪波次（0..15），每项波次严格晚于全部硬前置。
 - 测试覆盖表与原设计定义逐项比对：64 PAGE、65 FUNC、122模块DTC一致；122条模块DTC各有唯一首责，32条UI和13条XMOD覆盖完整、父DTC总数仍167。逐工作包正文也覆盖全部64 PAGE/65 FUNC，不只由索引表代替开发入口。
 - RVT-01..09与VAL-01..08均逐行映射；原设计265 TC映射保持完整。任务/设计引用、Markdown表格列数、严格UTF-8、203个本轮6份新增/修改文档的本地链接目标核对通过，不包括锚点和外部站点。
 - 原详细设计静态回归通过，当前详细包索引关联的本地文件链接目标600个有效；Git差异空白检查与VS Code文档Problems通过。
 - 全部开发复选框未勾选，无业务代码/项目/迁移/自动化测试实现、无构建或现场测试执行、未提交/推送。会话校验脚本仅为本轮文档核对，不是未来CI已部署的声明。
+
+### 10.2 功能开关设计增补
+
+- 当前基线从64 PAGE/65 FUNC/122模块DTC/167父DTC增至64 PAGE/66 FUNC/123模块DTC/168父DTC；原265 TC映射不变，新增DTC-SYS-008由T02首责并由T06/T30/T32回归。
+- DTC-SYS-008验证UI-only与runtime capability区分、启动校验、AND依赖、Disabled/Degraded、重启快照和安全不变量；文档纳入不代表测试已执行或通过。

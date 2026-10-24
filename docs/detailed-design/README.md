@@ -8,7 +8,7 @@
 
 1. 先读[共用标准](00-shared-page-and-test-standard.md)、[Ops Web 工业风格视觉基准](06-ops-web-visual-style-baseline.md)与[密集页面交互补充](03-dense-page-interaction-contract.md)：布局、字段/权限/状态、视觉tokens，以及列显隐/顺序/宽度/固定、个人视图、关联显示、级联筛选、主从编辑；共32条共用UI测试。
 2. 再读[公共参考](01-reference-cases.md)：原9项公开资料及本轮Legrand源码/GitHub Projects证据，区分采用、不采用与不可访问来源。
-3. 按下表进入模块：页面表是信息/字段/布局合同；新增逐页配置矩阵定义默认/必显/可选列、关联选择链与适用测试；功能表是owner/事务/状态规则；详细DTC表是步骤和持久化/副作用断言。
+3. 按下表进入模块：页面表是信息/字段/布局合同；新增逐页配置矩阵定义默认/必显/可选列、关联选择链与适用测试；功能表是owner/事务/状态规则；详细DTC表是步骤和持久化/副作用断言。部署开关统一见[功能开关设计](feature-switches.md)，不可与Platform租户业务配置混为一谈。
 4. 最后读[13条跨模块详细场景](02-cross-module-scenarios.md)，与原验收编号建立关联。
 5. 实现前关闭模块末尾的阻断输入；本轮页面与用例不自动批准现场参数、全新能力或物理控制策略。
 6. 读[行业复审](04-industry-review-and-open-rule-recommendations.md)理解7项风险，再按[已签核规则与默认值](05-approved-rules-and-defaults.md)实施：前四项高风险设计歧义已定案，29项规则区分B业务/P初始值/H现场门禁；RVT-01..09已并入原DTC必测变体，未执行。
@@ -32,8 +32,8 @@
 | [DeviceIntegration](device-communication.md) | 4 | 4 | 7 | 连接/点位、规则、执行/反馈、单写宿主 |
 | [Simulator/SCADA](environment-simulation-and-scada.md) | 6 | 5 | 10 | 编辑校验、manifest、仿真/Reset、Promote、只读SCADA |
 | [Route](route.md) | 5 | 6 | 14 | 图/候选、ledger/epoch、反馈/恢复、等待公平、基准 |
-| [系统运维](system-operations.md) | 3 | 4 | 7 | 健康/日志/部署证据、隔离恢复、Provider/架构门禁 |
-| 合计 | 64 | 65 | 122 | 另有共用UI DTC 32条、跨模块DTC 13条；全部DTC共167条 |
+| [系统运维](system-operations.md) | 3 | 5 | 8 | 健康/日志/部署证据、隔离恢复、Provider/架构门禁与部署能力组合；开关详见[设计](feature-switches.md) |
+| 合计 | 64 | 66 | 123 | 另有共用UI DTC 32条、跨模块DTC 13条；全部DTC共168条 |
 
 一个PAGE可以是地图中的具名面板/详情，而不是必须创建独立全屏页面；同一FUNC可供Web/PDA复用业务owner契约。不能据统计数量机械生成64个路由/65个Handler。
 
@@ -70,7 +70,7 @@
 
 ## 5. 待决策与完成定义
 
-- [规则签核基线](05-approved-rules-and-defaults.md)已统一跨版物理冲突/旧任务继续、TransferOrder逐实物执行单元记账及在途交接；同步上游规格/详细测试，RVT作为既有DTC必测变体、不增加167条DTC计数。签核只关闭设计歧义，不表示运行风险已消除。
+- [规则签核基线](05-approved-rules-and-defaults.md)已统一跨版物理冲突/旧任务继续、TransferOrder逐实物执行单元记账及在途交接；同步上游规格/详细测试，RVT作为既有DTC必测变体、不因RVT新增DTC计数。当前总量为64 PAGE/66 FUNC/168 DTC。签核只关闭设计歧义，不表示运行风险已消除。
 - REQ-ROUTE-001..027的逐条语义在[Route候选表](route.md)形式化，待Route负责人批准；旧范围键缺口未冒充已关闭。
 - 其余历史范围REQ也不能仅靠编号存在视作每条规范性需求已批准；以原模块行为为准，实施前由业务owner把范围键逐项签核。
 - 产品：批次/数量精度、部分收发/短拣、局部锁盘、All/Any、公告受众已定；尚须实际物料/单据迁移政策、业务字段映射、支持终端及角色名单。

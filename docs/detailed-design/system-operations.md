@@ -2,7 +2,7 @@
 
 - 状态：评审中；DTC均designed/未执行
 - 权威：[架构](../02-system-architecture.md)、[跨模块验收](../acceptance/01-cross-module-and-provider-matrix.md)
-- 范围SCOPE-OPS-02、SCOPE-DB-01、SCOPE-EXT-01；REQ-OPS-006..007、REQ-ARCH-001..007
+- 范围SCOPE-OPS-02、SCOPE-DB-01、SCOPE-EXT-01；REQ-OPS-006..007、REQ-ARCH-001..008
 - 共用：[标准](00-shared-page-and-test-standard.md)；[参考边界](01-reference-cases.md)
 - 产品阅读：运维员的只读状态/证据控制台与受控部署手册；DENSITY=3、DATA_COMPLEXITY=2、CONSEQUENCE=1（操作手册步骤为3）。
 
@@ -24,6 +24,7 @@
 | FUNC-SYS-002 | 003；REQ-OPS-006、SITE-TC-017 | 1审批restore工单并记录backup时间/owner版本/Outbox水位；2准备隔离数据库、secret、网络及禁生产endpoint规则；3恢复WMS/WCS/manifest等耐久记录；4禁写启动并核对账本余额/任务/grant/地图版本/待事件；5虚拟Adapter验证；6双人复核报告后才允许隔离测试。网络隔离须独立于UI配置，任何连生产迹象立即阻断 |
 | FUNC-SYS-003 | 001/003；REQ-OPS-007、SITE-TC-018 | 1检查每Pack writer及Device写宿主单例边界；2数据库原子lease/epoch；3失租约/失DB立即拒绝新写授权；4新writer先核对在途command与物理占用；5只开放策略允许的只读能力。不把Pack的epoch自动当作所有协议连接的安全fence，Adapter能力需证明 |
 | FUNC-SYS-004 | 003；REQ-ARCH-001..004 | 1预生产逐Provider迁移/升级演练；2记录备份与前向恢复/不可逆声明；3停/隔离写者及处理在途任务；4按批准runbook部署；5架构依赖/扩展边界、readiness/契约/版本核验；6失败按前向修复或可行回滚。地图回滚另建补偿manifest，不能DB降版掩盖物理状态 |
+| FUNC-SYS-005 | 001及Ops Web入口；REQ-ARCH-008；[功能开关设计](feature-switches.md) | 1 Host启动绑定并验证部署级`Features`；2构建不可变运行快照；3只公开白名单模块UI catalog；4区分Disabled/Misconfigured/Degraded；5逐模块评估独立关闭准入。匿名端点不返回运行能力或依赖细节；不得关闭权限、租户隔离、审计、幂等或H门禁 |
 
 操作手册证据含操作人/复核人、目标环境、批准单、时间、版本、前后快照、脱敏命令输出、结果/阻断及回滚决定。本文不提供未核验的生产CLI，执行前需填写现场部署工具、权限与准确资源名；缺少正式runbook阻断生产，不授权临时猜命令。
 
@@ -53,6 +54,7 @@
 | DTC定义/功能/原TC | 固定前置与编号步骤 | UI/持久化/副作用断言 | 级别/环境/清理 |
 |---|---|---|---|
 | DTC-SYS-007 / 001/002/004 / PLAT-TC-012..013/ARCH-TC-005/007 | 环境SIM/PROD、同名HostH1、SIM备份B1/目标ProviderP1，PROD证据E2无权；1存个人列/环境视图；2切PROD；3SIM旧resolve回；4在证据表选B1与不匹配Provider；5点历史记录返回 | 环境/健康/审批不可隐藏；旧Host/备份引用不跨环境回填，E2不泄露；不匹配证据显式阻断签核；视图/选择没有部署/还原/lease写，返回保留合法条件；无生产执行捷径 | P0/E+B/C0 |
+| DTC-SYS-008 / 005 / REQ-ARCH-008/ARCH-TC-011 | 有效完整配置；分别设 UI 模块关闭、运行能力关闭、AND不匹配、配置缺项/错型/未知键及依赖故障；通过重启应用新配置 | UI关闭仅隐藏入口，服务/API保持原认证授权；运行能力关闭不注册且依赖操作显式Disabled/503；非法配置启动失败；AND任一false即Disabled；依赖故障是Degraded；重启后新快照生效；所有安全门禁持续有效，无数据、Outbox或Unknown事实丢失 | P0/Host+API+Ops Web+C0 |
 
 ## 4. 阻断输入
 

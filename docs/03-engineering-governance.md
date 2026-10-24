@@ -28,6 +28,7 @@
 - EF/SQL/Redis/MQ/PLC SDK 细节留在其 owner 的 Infrastructure/Adapter；不要让应用规则依赖 provider 特性而无替代/测试。
 - 按[ADR-0002](adr/ADR-0002-mysql-first-implementation.md)，当前必需数据库为MySQL；SQL Server/PostgreSQL兼容延后，恢复兼容前分别留下迁移、查询、唯一约束、并发和事务结果，不用MySQL结果代签。
 - 配置强类型校验；机密不进入 appsettings 样例、仓库、客户端包、普通日志或 API 回显。
+- 部署级 feature switches 遵循[功能开关设计](detailed-design/feature-switches.md)：强类型且启动校验、重启生效；不得放入租户/用户可编辑的业务配置。模块工作包需记录 UI-only/runtime capability 选择；整体后端关闭须先证明依赖闭包与关闭/恢复合同，且不得替代权限、审计、幂等或 H 门禁。
 
 ## 3. 前端规范（Vue 与 UniApp）
 

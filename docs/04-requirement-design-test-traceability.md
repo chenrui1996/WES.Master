@@ -82,7 +82,7 @@
 | SCOPE-DEV-02 | REQ-SITE-001..004 | [环境搭建、仿真与 SCADA](modules/environment-simulation-and-scada.md) §1, 3, 5 | SITE-TC-001..003 | SCADA 只读地图投影；地图优先运维 UI 见 Orchestration |
 | SCOPE-DEV-03 | REQ-SITE-005..011 | [环境搭建、仿真与 SCADA](modules/environment-simulation-and-scada.md) §2, 5 | SITE-TC-004..011, 029..033 | Deploy、仿真、真机 Promote 与地图版本协调 |
 | SCOPE-OPS-01 | REQ-SITE-012..016, REQ-OPS-001..005, REQ-OPS-008..010 | [Orchestration](modules/orchestration.md) §8.1-8.2、[Stacker WCS](modules/wcs-stacker.md) §5、[FourWay WCS](modules/wcs-fourway.md) §6 | SITE-TC-012..016, 019..028 | 2D 地图优先；问题由 Orchestration 管理，跨包协调在 Orchestration，包级校验在 WCS |
-| SCOPE-OPS-02 | REQ-OPS-006..007 | [架构](02-system-architecture.md) §7.1、[验收矩阵](acceptance/01-cross-module-and-provider-matrix.md) | SITE-TC-017..018 | 隔离恢复和 SingleWriter/fencing 属于系统与 WCS 验收 |
+| SCOPE-OPS-02 | REQ-OPS-006..007、REQ-ARCH-008 | [架构](02-system-architecture.md) §7.1、[功能开关](detailed-design/feature-switches.md)、[验收矩阵](acceptance/01-cross-module-and-provider-matrix.md) | SITE-TC-017..018、ARCH-TC-011、DTC-SYS-008 | 隔离恢复、SingleWriter/fencing及部署功能组合属于系统验收 |
 | SCOPE-DB-01 | REQ-ARCH-001..004 | [架构](02-system-architecture.md) §5 | ARCH-TC-005, WMS-TC-017 | 三 provider |
 | SCOPE-EXT-01 | REQ-ARCH-005..007 | [架构](02-system-architecture.md) §3, 4 | ARCH-TC-001..004 | 保留扩展意图 |
 | SCOPE-REMOVE-01 | REQ-GOV-001 | [工程治理](03-engineering-governance.md) §1, 7 | ARCH-TC-001 + review checklist | 源码生成移除 |
@@ -98,6 +98,7 @@
 | REQ-SITE-003 | [环境/仿真/SCADA](modules/environment-simulation-and-scada.md) §3, 5 | SITE-TC-003 | designed |
 | REQ-SITE-004 | [环境/仿真/SCADA](modules/environment-simulation-and-scada.md) §1, 3, 5 | SITE-TC-001, SITE-TC-003 | designed |
 | REQ-SITE-005 | [环境/仿真/SCADA](modules/environment-simulation-and-scada.md) §2.1, 5 | SITE-TC-004 | designed |
+| REQ-ARCH-008 | [功能开关](detailed-design/feature-switches.md) §1..7、[架构](02-system-architecture.md) §7..8 | ARCH-TC-011、DTC-SYS-008 | designed |
 | REQ-SITE-006 | [环境/仿真/SCADA](modules/environment-simulation-and-scada.md) §2.1, 5 | SITE-TC-005, SITE-TC-029..032 | designed |
 | REQ-SITE-007 | [环境/仿真/SCADA](modules/environment-simulation-and-scada.md) §2.1, 5 | SITE-TC-006, SITE-TC-033 | designed |
 | REQ-SITE-008 | [环境/仿真/SCADA](modules/environment-simulation-and-scada.md) §2.2, 5 | SITE-TC-007 | designed |
@@ -151,7 +152,9 @@
 
 Legrand/GitHub密集页面对照补充见[交互合同与评审缺口](detailed-design/03-dense-page-interaction-contract.md)：DTC-UI-013..032关联全部适用PAGE的列配置/个人视图/关联/筛选；13个模块各增一条关联交互DTC，关联原FUNC和TC。逐页矩阵以本域PAGE数字引用，不重复定义ID。个人偏好仅本机用户/租户/环境隔离，不增加团队共享、离线写入或新业务状态转换。
 
-2026-10-23项目发起人批准[WES-RULES-1.0](detailed-design/05-approved-rules-and-defaults.md)：REV-01..04的RULE-07/08/13/20已回写WMS/Orchestration/部署/Route及ADR范围澄清；其他RULE-01..29按B业务/P初始参数/H缺现场证据阻断分类。RVT-01..09和VAL-01..08为既有正式DTC必测变体，数量仍64 PAGE/65 FUNC/167 DTC，不新建第二套需求号；每项回归入口见规则基线§5。批准不是逐条REQ/Provider/设备或性能验收，原TC映射仍需证据。
+部署功能开关按[功能开关设计](detailed-design/feature-switches.md)新增REQ-ARCH-008、FUNC-SYS-005、DTC-SYS-008及ARCH-TC-011；不新增PAGE，也不复用已占用的DTC-SYS-007。当前详细设计统计为64 PAGE/66 FUNC/123模块DTC，加32条UI与13条XMOD，合计168条DTC；历史批次报告保留其生成时的统计快照。
+
+2026-10-23项目发起人批准[WES-RULES-1.0](detailed-design/05-approved-rules-and-defaults.md)：REV-01..04的RULE-07/08/13/20已回写WMS/Orchestration/部署/Route及ADR范围澄清；其他RULE-01..29按B业务/P初始参数/H缺现场证据阻断分类。RVT-01..09和VAL-01..08为既有正式DTC必测变体；功能开关新增后当前统计为64 PAGE/66 FUNC/168 DTC，数量变化不新建第二套规则号；每项回归入口见规则基线§5。批准不是逐条REQ/Provider/设备或性能验收，原TC映射仍需证据。
 
 后续Task映射见[开发/测试总计划](superpowers/plans/2026-10-23-wes-development-and-testing.md)及[测试覆盖§3](superpowers/plans/2026-10-23-wes-test-execution.md)：T01..T34为工程工作包编号，不是新增业务REQ或测试结果。追踪链扩为SCOPE/REQ→FUNC/PAGE→Task→DTC/variant→实际RunId/证据；现阶段所有开发工作包及执行结果仍未开始。
 

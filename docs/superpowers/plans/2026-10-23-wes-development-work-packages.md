@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans after implementation approval. Steps use checkbox (`- [ ]`) syntax for tracking. Follow the dependency table; do not implement all tasks at once.
 
-**Goal:** 将65个已设计FUNC拆成可审核、可测试的纵向交付，并为64个PAGE接入真实owner结果。
+**Goal:** 将66个已设计FUNC拆成可审核、可测试的纵向交付，并为64个PAGE接入真实owner结果。
 
 **Architecture:** 模块化单体/owner契约协作；纯算法、业务事务、真实设备、客户端投影分别验证。契约测试替身只在测试装配使用。
 
 **Tech Stack:** .NET 10/EF Core、Vue 3/TypeScript/Element Plus、UniApp；测试工具遵循[总计划](2026-10-23-wes-development-and-testing.md)与[测试执行计划](2026-10-23-wes-test-execution.md)。
 
-**Spec:** [13模块设计](../../detailed-design/README.md)、[规则基线](../../detailed-design/05-approved-rules-and-defaults.md)、[架构](../../02-system-architecture.md)、[治理](../../03-engineering-governance.md)。
+**Spec:** [模块/功能开关设计](../../detailed-design/README.md)、[规则基线](../../detailed-design/05-approved-rules-and-defaults.md)、[架构](../../02-system-architecture.md)、[治理](../../03-engineering-governance.md)。
 
 ## Global Constraints
 
@@ -19,6 +19,7 @@
 - T01的软件契约/逐REQ批准已落文档后，可开始无外部环境依赖的T02切片；具名现场责任、真实DB及终端输入仍是相应切片硬门禁，M0/T01整体未完成。合同规划路径不冒称现有可调用API。
 - 每个复选步骤按其中列出的具体场景拆成2..5分钟的红灯/实现/复测动作；工作包本身不是2..5分钟任务。可独立拒绝的切片单独PR，每片都跑测试，不做“大包写完才测”。
 - 每片运行[测试计划§2](2026-10-23-wes-test-execution.md)的指定CaseId/Provider/Adapter选择器，留红/绿报告；完成时更新本任务关联的现有设计、[总追踪](../../04-requirement-design-test-traceability.md)及验收记录。
+- 每个工作包结束必须提供相互独立的实施文档和测试文档：`docs/implementation/<task>-implementation.md`记录变更/决策/部署回退及未完边界，`docs/implementation/<task>-tests.md`记录CaseId、命令/环境、实际结果、失败与未覆盖项；测试未运行时明确标记not-run/blocked，不以实施说明代替测试证据。
 
 ---
 
@@ -30,7 +31,7 @@
 
 **Interfaces:** 消费所有设计包及RULE-01..29；产出逐REQ签核、主/备owner、精确契约版本/DTO字段/错误code/API兼容策略、跨owner事务说明及H证据责任表。字段至少包括tenant/warehouse/Pack、operation/idempotency、expectedVersion、correlation/causation、业务ID、策略/部署/map、command/epoch/grant和反馈generation/sequence；不强迫普通平台请求携带无关设备字段。
 
-- [ ] 核对原265 TC与167父DTC，逐条REQ-ROUTE-001..027签核；BoxSort保持预留，潜在冻结/拆合托/补货不误列已实现；明确Seven迁移物料/单据/跟踪/角色的保留范围。
+- [ ] 核对原265 TC与当前168父DTC，逐条REQ-ROUTE-001..027签核；BoxSort保持预留，潜在冻结/拆合托/补货不误列已实现；明确Seven迁移物料/单据/跟踪/角色的保留范围。
 - [ ] 写入身份/审计、WMS读写/transport intent/completion、Leg与handover、Pack capability/command/query、设备语义反馈、owner prepare/manifest、只读投影与issue/alarm合同；每条列成功/拒绝/Unknown、幂等/版本/取消/超时/数据owner。
 - [ ] 做合同反例评审：跨租户、缺map物理映射、换摘要复用key、取消与完成并发、跨Pack双owner；存在歧义即退回对应设计，不用实现猜测；绑定Provider精确版本/驱动、支持终端、H主备与证据取得阶段。
 
@@ -41,8 +42,9 @@
 **Interfaces:** 消费T01契约/版本清单；产出可启动但默认禁设备写的Host、可注入TimeProvider、真实三Provider独立fixture、CaseId/Provider测试trait及架构约束。不将所有module DbContext集中进通用repository。
 
 - [ ] 写故意跨owner Infrastructure/DbContext引用、Host夹业务规则、Builder注册应被检测的负夹具；正常最小Host健康与必需DB断开readiness反例；建立测试数据库租户隔离和清理自检。
+- [ ] 按[功能开关设计](../../detailed-design/feature-switches.md)建立部署级强类型Features配置、启动时未知键/缺项/错型/依赖校验与不可变快照；运行能力按owner显式注册，Disabled不使用成功No-op。
 - [ ] 建.NET10/nullable/格式和分析器、最小装配/错误映射/日志关联/secret脱敏、禁写默认配置；锁定测试SDK/EF/三Provider包版本，沿用xUnit可兼容版本而非盲用skill样例；为首次需要的依赖改manifest后再restore。
-- [ ] 运行架构及三Provider连接/迁移/事务小测试，故障真实可注入且测试凭据不进仓库；当前无包可用则报告blocked不切InMemory。覆盖DTC-SYS-001/006与FUNC-SYS-001/004基础；最终健康/架构仍随每包重跑。
+- [ ] 运行架构及三Provider连接/迁移/事务小测试，故障真实可注入且测试凭据不进仓库；当前无包可用则报告blocked不切InMemory。覆盖DTC-SYS-001/006/008与FUNC-SYS-001/004/005基础；最终健康/架构仍随每包重跑。
 
 ### T03：身份、会话与登录预算
 
@@ -61,7 +63,7 @@
 **Interfaces:** 消费当前身份；产出FUNC-PLAT-002..004/006、PAGE-PLAT-003..006/008，当前权限/数据范围/字段投影、B/P/H版本化策略查询与不可改审计。普通只读授权缓存30秒，高后果/快照每次复验；无TenantId=0共享。
 
 - [ ] DTC-PLAT-004..006/008..009/011..014先红：空范围放大、跨租户同码缓存、无租户后台主体、旧版本覆盖、secret配置、热更新半状态、引用字典被删、审计越权修改。
-- [ ] 做具名RBAC/组织/租户切换、字典/语言回退、强类型配置及来源/版本展示；非法P配置拒绝不回退，H缺项保持Unverified；业务审计与所属事务可靠关联。
+- [ ] 做具名RBAC/组织/租户切换、字典/语言回退、强类型业务配置及来源/版本展示；部署Features与租户/数据库业务配置分离，非法P配置拒绝不回退，H缺项保持Unverified；业务审计与所属事务可靠关联。
 - [ ] 三Provider的复合唯一键/幂等清理90天后领域键仍防重；页面关联筛选/撤权/敏感字段列不可恢复，验证PAR-01/02/09及VAL-04/08。审计界面不可修改历史。
 
 ### T05：owner事务Outbox/Inbox与可靠投递
@@ -81,6 +83,7 @@
 **Interfaces:** 消费当前scope/字段权限；产出loading/空态/error/Stale状态、列偏好/关联候选/父子指纹、实时与固定水位快照协议。快照数据属于查询owner，不集中备份所有域数据到Platform。
 
 - [ ] DTC-UI-001..028/032先用真实具名最小测试页加受控API验证：列必显/顺序/宽度/键盘替代、损坏storage显式提示、本机主体租户环境隔离、父切换旧回包/主从行ID竞态、无导出页不增导出。
+- [ ] 按[功能开关设计](../../detailed-design/feature-switches.md)接入匿名白名单模块UI catalog；加载导航/路由前获取，关闭模块隐藏入口、直接导航有明确不可用态；catalog失败显式报错，不默认全开/空配置。API仍独立授权。
 - [ ] 实现语义HTML/Composition API/strict TS与Element Plus已有组件复用；白名单偏好不存业务数据/secret/待写。核对/已有导出固定有序ID及读值、水位TTL600秒，权限撤销直接失效；实时offset变化不承诺无丢重。
 - [ ] 60条动态更新/增删、599/600秒快照、单位混合不求和、200%字体/+40%翻译/768/1024/1440与局部滚动验收；RVT-06/07。组件绿不代表64页绿，T32逐PAGE适用性再验，PDA/地图不机械套Grid。
 
@@ -326,9 +329,9 @@
 
 **Files:** `src\Host\Health\ReadinessChecks.cs`、`clients\ops-web\src\features\system\{HealthPage.vue,DiagnosticsPage.vue,DeploymentEvidencePage.vue}`；`tests\EndToEnd\RecoveryScenarioTests.cs`、`tests\Modules\System\ProviderMigrationTests.cs`；`docs\runbooks\{deployment.md,isolated-restore.md,writer-reconciliation.md}`。
 
-**Interfaces:** 消费各模块readiness/事件水位/活动command/grant/manifest与准确Provider恢复工具；完成FUNC-SYS-001..004/PAGE-SYS-001..003，不添加网页一键还原/lease接管。
+**Interfaces:** 消费各模块readiness/事件水位/活动command/grant/manifest与准确Provider恢复工具；完成FUNC-SYS-001..005/PAGE-SYS-001..003，不添加网页一键还原/lease接管。
 
-- [ ] DTC-SYS-001..007、RVT-08/VAL-07/08：旧备份在C1发送前但外部已执行、隔离网络误配endpoint、Outbox/Job/Host/Device分窗口重启、DB失联/旧epoch、新writer未核在途。
+- [ ] DTC-SYS-001..008、RVT-08/VAL-07/08：旧备份在C1发送前但外部已执行、隔离网络误配endpoint、Outbox/Job/Host/Device分窗口重启、DB失联/旧epoch、新writer未核在途，以及Disabled/Misconfigured/Degraded运维区分。
 - [ ] 补齐关联诊断/证据引用与具名准确runbook，恢复隔离/生产出口deny/禁写启动，重建WMS流水/任务/grant/owner/hash/水位；不自动发旧Outbox物理命令，Unknown保护不删。
 - [ ] 三Provider空库/旧schema升级和备份恢复演练；RPO≤900秒/RTO≤14400秒含外部对账至控制解禁，不达标仍禁控制。清理90天结果不删长期领域键/Unknown，日志/审计保留按PAR-09。
 
@@ -344,13 +347,13 @@
 
 ### T32：全模块集成与页面回归
 
-**Files:** `tests\EndToEnd\{CrossModuleScenarioTests.cs,specs\all-pages.spec.ts,case-matrix.json}`；`tests\Contracts\CompatibilitySuiteTests.cs`；更新[验收矩阵](../../acceptance/01-cross-module-and-provider-matrix.md)与167父DTC执行结果引用。
+**Files:** `tests\EndToEnd\{CrossModuleScenarioTests.cs,specs\all-pages.spec.ts,case-matrix.json}`；`tests\Contracts\CompatibilitySuiteTests.cs`；更新[验收矩阵](../../acceptance/01-cross-module-and-provider-matrix.md)与168父DTC执行结果引用。
 
 **Interfaces:** 消费实际模块/锁定build/Provider/Adapter/终端/规则版本；产出全部DTC-XMOD-001..013及64 PAGE逐页适用性结果。集成装配禁止Fake业务完成/替代InMemory。
 
 - [ ] 先把13条[跨模块步骤](../../detailed-design/02-cross-module-scenarios.md)逐条编码为三Provider实际owner路径，含ST/FW上架、提升机、短拣、双包交接、External、故障地图、部署、SCADA、Workflow、强完、重启、issue。
-- [ ] 依据每PAGE的G/F/R/M/W/P/S配置展开DTC-UI-001..032，所有适用状态/关联/列配置都执行；不适用记录原因/设计引用，禁止把“同组件测过”自动填64页通过。
-- [ ] 检查每个FUNC至少一合法与主要拒绝/故障、原265 TC均落到实际自动化case/人工H记录；RVT01..09/VAL01..08全覆盖，缺环境blocked/失败failed，不用总通过率掩盖一个高风险失败。
+- [ ] 依据每PAGE的G/F/R/M/W/P/S配置展开DTC-UI-001..032，所有适用状态/关联/列配置都执行；逐模块核实UI开关只影响入口、运行开关有owner合同且安全/授权边界未变；不适用记录原因/设计引用，禁止把“同组件测过”自动填64页通过。
+- [ ] 检查每个FUNC（含FUNC-SYS-005）至少一合法与主要拒绝/故障、原265 TC均落到实际自动化case/人工H记录；RVT01..09/VAL01..08全覆盖，缺环境blocked/失败failed，不用总通过率掩盖一个高风险失败。
 
 ### T33：性能、性质与恢复目标验证
 

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task after explicit implementation-phase approval. Steps use checkbox (`- [ ]`) syntax for tracking. Do not create agents or worktrees without authorization.
 
-**Goal:** 按依赖交付全部保留业务、64个PAGE、65个FUNC及167条DTC的实现与可复核证据，而不是按模块名批量生成CRUD。
+**Goal:** 按依赖交付全部保留业务、64个PAGE、66个FUNC及168条DTC的实现与可复核证据，而不是按模块名批量生成CRUD。
 
 **Architecture:** 沿用模块化单体，模块内Vertical Slice、复杂业务以领域不变量保护。WMS独占账本，Orchestration拥有跨包运输/问题，各Pack独占交通与最终控制，Simulator协调manifest而不写其他owner私表。
 
@@ -32,7 +32,7 @@
 |---|---|
 | 本文 | 依赖图、交付波次、阶段门禁、角色和变更规则 |
 | [逐工作包开发计划](2026-10-23-wes-development-work-packages.md) | T01..T34的文件职责、消费/产出契约、可审核步骤、失败测试与交付断言 |
-| [测试执行与证据计划](2026-10-23-wes-test-execution.md) | 167条DTC的责任入口、适用环境、RVT/VAL、故障/恢复/性能与放行 |
+| [测试执行与证据计划](2026-10-23-wes-test-execution.md) | 168条DTC的责任入口、适用环境、RVT/VAL、故障/恢复/性能与放行 |
 | [详细设计索引](../../detailed-design/README.md) | 页面字段/列配置、功能流程、DTC步骤的唯一细节来源；本计划不复制第二套业务规则 |
 
 下列源路径是逐片创建的职责约定，不表示所有文件已存在；已实现入口仅以实施记录为准。现有设计文件以相对链接引用。各任务中的数段均含两端，例如001..003代表001、002、003。
@@ -58,11 +58,11 @@ Route不是新增顶层业务模块：T17可提纯无状态算法；T18/T19的le
 | Task | 可审核交付 | 硬依赖 | 最早波次 | 牵头角色 |
 |---|---|---|---:|---|
 | T01 | 实施范围逐项签核、接口/数据owner与H台账 | 无 | 0 | 架构/业务/QA |
-| T02 | 最小Host、工程/测试装配、架构/Provider基础门禁 | T01 | 1 | 后端/QA/运维 |
+| T02 | 最小Host、部署Features校验/快照、工程/测试装配与架构/Provider基础门禁 | T01 | 1 | 后端/QA/运维 |
 | T03 | 登录/会话/撤销/限流 | T02 | 2 | Platform |
 | T04 | RBAC/租户/配置/审计与策略版本 | T03 | 3 | Platform |
 | T05 | 各owner事务Outbox/Inbox与投递恢复 | T04 | 4 | 后端/消息 |
-| T06 | 共用页面状态、密集交互、授权查询/快照合同 | T04 | 4 | 前端/后端/QA |
+| T06 | 共用页面状态、Features模块入口catalog、密集交互、授权查询/快照合同 | T04 | 4 | 前端/后端/QA |
 | T07 | 隔离文件生命周期 | T04,T06 | 5 | Platform |
 | T08 | WMS主数据/账本/保护数量与查询 | T04,T05,T06 | 5 | WMS |
 | T09 | 收货/上架意图与完成记账 | T08 | 6 | WMS |
@@ -105,7 +105,7 @@ T30/T32可以先取得虚拟设备上的软件恢复/集成结论，因此T30不
 | M2 人工仓储闭环 | T08..T14 | 收发/短拣/盘点/多行移库、审批/通知 | 账本重算、三Provider竞争、All/Any、已实物到待补账不重运；不以人工流程冒充设备闭环 |
 | M3 执行内核 | T15..T25 | 虚拟设备上ST/FW/EXT执行与恢复；批准台架协议 | 全量grant/epoch/Unknown保护、双包handover、反馈故障/幂等；真实能力逐项未证则blocked |
 | M4 可操作产品 | T26..T30 | 部署/仿真/SCADA/地图运维/PDA/诊断联动 | active CAS/排空、64页适用状态、双人绑定、问题证据闭环、断网无待写/重放 |
-| M5 预生产可信 | T31..T33 | 脱敏隔离迁移、跨模块回归及固定负载报告 | 167父DTC展开结果、全部265原TC可追溯；三Provider分别结论、RVT/VAL和性能各次分位、恢复水位对账 |
+| M5 预生产可信 | T31..T33 | 脱敏隔离迁移、跨模块回归及固定负载报告 | 168父DTC展开结果、全部265原TC可追溯；三Provider分别结论、RVT/VAL和性能各次分位、恢复水位对账 |
 | M6 生产许可 | T34 | 只读联调→受控单设备→批准扩大 | 全部相关H证据/主备/runbook/网络隔离、业务与设备安全签署；阶段变更重新批准，无自动扩大 |
 
 M1..M3可在隔离测试环境里形成可运行增量，但不是生产许可。任何高风险不变量失败暂停相关链路，不暂停无关只读文档工作。DB ready不等于控制解禁，RTO目标不能反向迫使Unknown放行。
@@ -140,4 +140,4 @@ M1..M3可在隔离测试环境里形成可运行增量，但不是生产许可�
 
 三份计划是全产品执行基线；逐工作包签核只授权已确定切片，不自动授权真实设备、生产迁移或推送。开始实施时采用executing-plans按依赖分批推进；如以后明确选择代理并行，再按批准范围使用subagent-driven-development，不默认启动代理池。
 
-原计划自审目标：任务依赖无环、所有65 FUNC/64 PAGE/167 DTC均有开发/测试入口、29 RULE/11 PAR/9 RVT/8 VAL纳入回归、265原TC链路不丢。静态核对不等于自动化通过；后续实际结果按实施记录逐片追加。
+原始计划自审目标（2026-10-23快照）：任务依赖无环、当时65 FUNC/64 PAGE/167 DTC均有开发/测试入口、29 RULE/11 PAR/9 RVT/8 VAL纳入回归、265原TC链路不丢。功能开关纳入后，当前交付基线为66 FUNC/64 PAGE/168 DTC；静态核对不等于自动化通过，后续实际结果按实施记录逐片追加。

@@ -188,7 +188,7 @@ The interface is not a safety certification. Physical stopping, collision avoida
 
 ## 7. Runtime and deployment shape
 
-- One Host composes modules and serves APIs. Module feature configuration controls explicit optional capabilities; disabling a UI route is never treated as server-side authorization.
+- One Host composes modules and serves APIs. [Feature switches](detailed-design/feature-switches.md) separate client-only module UI visibility from explicitly declared optional runtime capabilities; configuration is deployment-scoped, strongly typed, validated at startup and immutable until restart. Hiding a UI route never changes server-side authorization.
 - Hosted services (Outbox, Quartz, device connections, HotStore warm-up) declare startup ordering, readiness dependency, shutdown/cancellation, singleton ownership and disabled-mode behavior.
 - External integrations (SQL provider, Redis, RabbitMQ, MinIO, SignalR and device endpoints) are independently configurable and health-checked. Missing required configuration is an explicit startup/readiness failure, not a silent no-op success.
 - For single-instance deployments, in-process coordination is allowed only if restart recovery is specified. Multi-instance operation requires durable leases/locks, idempotent workers and tested ownership; no hidden in-memory singleton may be the only scheduler or Route reservation authority.
@@ -201,6 +201,7 @@ The interface is not a safety certification. Physical stopping, collision avoida
 |---|---|---|
 | REQ-OPS-006 | 恢复到隔离环境必须保持 WMS 账本、活动 WCS 工作和已部署地图版本的一致性，并阻止该环境意外连接生产设备。 | SITE-TC-017 |
 | REQ-OPS-007 | 缺少有效的每 Pack 单写者租约/fencing token 时，系统必须拒绝控制写入；只可开放部署策略明确允许的只读能力。 | SITE-TC-018 |
+| REQ-ARCH-008 | 部署功能开关必须区分仅影响客户端入口的模块 UI 开关与显式可选运行能力开关；配置须启动校验，且任何开关不得削弱认证授权、租户隔离、审计、幂等或 H 现场安全门禁。 | ARCH-TC-011 |
 
 上述要求属于设计约束，未实现和验收前保持 `designed`；其验收结果见跨模块矩阵。
 
@@ -218,6 +219,7 @@ The interface is not a safety certification. Physical stopping, collision avoida
 | ARCH-TC-008 | Authorization boundary | Direct API call without permission is denied even if a menu is hidden or client state is modified |
 | ARCH-TC-009 | Restart recovery | Restart Host during an Outbox publish, active job, active transport and adapter reconnect; durable state is recovered or operator-visible as unresolved |
 | ARCH-TC-010 | PDA contract parity | UniApp and web clients receive the same validation, idempotency and authorization outcome for equivalent business requests |
+| ARCH-TC-011 | Feature-switch boundary | Verify UI-only switches do not unload backend APIs or bypass authorization; runtime switches have validated Disabled/Degraded behavior; no switch weakens tenant, audit, idempotency or H safety gates |
 
 ## 9. Decision/change control
 

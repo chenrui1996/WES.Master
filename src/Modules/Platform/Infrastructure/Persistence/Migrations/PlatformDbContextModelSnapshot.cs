@@ -87,6 +87,48 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                     b.ToTable("platform_login_accounts", (string)null);
                 });
 
+            modelBuilder.Entity("Wes.Platform.Domain.LoginChallenge", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("AccountDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("AnswerMac")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("SourceDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.ToTable("platform_login_challenges", (string)null);
+                });
+
             modelBuilder.Entity("Wes.Platform.Domain.PlatformAudit", b =>
                 {
                     b.Property<string>("TenantId")

@@ -16,6 +16,7 @@
 | T03 会话/策略内部片 | FUNC-PLAT-001、DTC-PLAT-002/003/010及VAL-04的部分场景 | [会话记录](implementation/05-platform-session-core.md)：绝对/idle/access期限、耐久CAS/重放撤销、租户/摘要、登录与新密码纯策略；尚无登录/验证码/JWT/页面和完整链路，不标父DTC整体passed |
 | T03 可信来源耐久准入 | FUNC-PLAT-001、PAR-02、DTC-PLAT-001/010及VAL-04中来源预算部分 | [来源准入记录](implementation/09-durable-login-source-admission.md)：5领域与20迁移/真实MySQL用例通过；同可信IP跨账号/租户30/60滚动窗口、并发唯一键/CAS、失败/取消/时钟/损坏schema保护，不标完整登录/防滥用/父DTC通过 |
 | T03 账号风险耐久状态 | FUNC-PLAT-001、PAR-02、DTC-PLAT-001/010及VAL-04中账号窗口部分 | [账号风险记录](implementation/10-durable-account-login-risk.md)：5领域与20迁移/真实MySQL用例通过；3后需验证码、5后锁900秒、租户隔离/版本冲突/取消保护；实际密码核验、冲突重准入和验证码原子接线仍未验收，不标父DTC整体通过 |
+| T03 验证码耐久一次消费 | FUNC-PLAT-001、PAR-02、DTC-PLAT-001/010及VAL-04中验证码部分 | [验证码记录](implementation/11-durable-login-challenges.md)：9领域/保护与24迁移/真实MySQL用例通过；120秒、答案MAC/租户账号来源绑定、错误也消费与真实CAS；尚非渲染/完整登录/E2E验收，不标父DTC整体通过 |
 | T04 权限/配置/审计内部片 | FUNC-PLAT-002/003/004/006、DTC-PLAT-004..006/008..009/011..012部分 | [权限配置审计记录](implementation/08-platform-access-settings-audit.md)：29领域与36真实DB/迁移用例通过，当前授权/范围字段及集合身份、4表tenant保护、角色可委派/CAS/版本审计、配置与audit原子性/不可改/受权查询；不代表组织/用户/字典语言/页面/E2E或完整T04验收 |
 | T17 Route纯内核软件包 | REQ-ROUTE-001..008、DTC-ROUTE-001..004及性质/差分的静态候选路径部分 | [Route内核记录](implementation/07-route-kernel.md)：Stacker/FourWay私有不可变图、物理映射谱系、能力/方向/负载/设备约束、确定性最短路及完整资源/执行段；228自动化测试、独立oracle/seed/shrinker和SPEC/CODE审查通过。T17软件包完成不将包含预约/实时反馈的父DTC或全部Route/H验收标passed |
 

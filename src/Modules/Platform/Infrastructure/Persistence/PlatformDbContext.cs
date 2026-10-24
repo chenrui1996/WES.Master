@@ -33,6 +33,8 @@ public sealed class PlatformDbContext : DbContext
     public DbSet<PlatformAudit> Audit => Set<PlatformAudit>();
     /// <summary>Tenant-account risk independent of user existence, never global source budgets.</summary>
     public DbSet<LoginAccountBudget> LoginAccounts => Set<LoginAccountBudget>();
+    /// <summary>One-shot tenant challenges; never raw answers or global risk state.</summary>
+    public DbSet<LoginChallenge> LoginChallenges => Set<LoginChallenge>();
 
     /// <summary>Maps only Platform-owned tables with UTC instants, tenant keys and explicit concurrency.</summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -40,6 +42,20 @@ public sealed class PlatformDbContext : DbContext
         var utc = new ValueConverter<DateTimeOffset, DateTime>(
             value => value.UtcDateTime,
             value => new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)));
+        var challenge = modelBuilder.Entity<LoginChallenge>();
+        challenge.ToTable("platform_login_challenges");
+        challenge.HasKey(item => new { item.TenantId, item.Id });
+        challenge.Property(item => item.TenantId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        challenge.Property(item => item.Id).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        challenge.Property(item => item.AccountDigest).HasColumnType("varchar(64)").HasMaxLength(64);
+        challenge.Property(item => item.SourceDigest).HasColumnType("varchar(64)").HasMaxLength(64);
+        challenge.Property(item => item.AnswerMac).HasColumnType("varchar(64)").HasMaxLength(64);
+        challenge.Property(item => item.Version).HasColumnType("varchar(36)").HasMaxLength(36).IsConcurrencyToken();
+        challenge.Property(item => item.CreatedAt).HasConversion(utc).HasColumnType("datetime(6)");
+        challenge.Property(item => item.ConsumedAt).HasConversion(utc).HasColumnType("datetime(6)");
+        challenge.Ignore(item => item.ExpiresAt);
+        challenge.HasQueryFilter(item => item.TenantId == TenantId);
+
         var account = modelBuilder.Entity<LoginAccountBudget>();
         account.ToTable("platform_login_accounts");
         account.HasKey(item => new { item.TenantId, item.AccountDigest });

@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Wes.Platform.Domain;
@@ -108,6 +109,46 @@ public sealed class DirectoryPersistenceTests : IAsyncLifetime
         var fields = await new CurrentAuthorization(read, new FixedClock()).VisibleFieldsAsync(context,
             "platform.users.write", new ResourceScope(_tenant, target, department));
         Assert.Empty(fields);
+    }
+
+    /// <summary>Credential concurrency versions are visible only with the explicit read-side Credential field grant.</summary>
+    [Fact]
+    public async Task ReadUsers_ProjectsCredentialVersionOnlyWhenGranted()
+    {
+        var (context, department, _) = await SeedAsync(
+            [Grant("platform.users.read", "Id", "Enabled", "Version")]);
+        var target = Guid.NewGuid();
+        await using (var seed = Open())
+        {
+            seed.DirectoryUsers.Add(new DirectoryUser(_tenant, target, "CREDENTIAL", "Credential subject", department));
+            seed.PasswordCredentials.Add(new PasswordCredential(_tenant, target, "CREDENTIAL",
+                StoredPasswordHash.Import(PasswordHashScheme.BcryptSha384V1,
+                    "$2a$12$N9qo8uLOickgx2ZMRZoMyebq.QrfAcQ2j7P1iiG.cM44tPZp1iuQS"), Now));
+            await seed.SaveChangesAsync();
+        }
+
+        await using (var read = Open())
+        {
+            var row = Assert.Single((await Service(read).ReadUsersAsync(context, new())).Rows, item => item.Id == target);
+            var json = JsonSerializer.SerializeToElement(row, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+            Assert.True(json.TryGetProperty("credentialVersion", out var version));
+            Assert.Equal(JsonValueKind.Null, version.ValueKind);
+        }
+
+        await using (var seed = Open())
+        {
+            var role = await seed.Roles.SingleAsync();
+            role.Change(role.Version, true, [Grant("platform.users.read", "Id", "Enabled", "Version", "Credential")]);
+            await seed.SaveChangesAsync();
+        }
+
+        await using var authorizedRead = Open();
+        var authorizedRow = Assert.Single((await Service(authorizedRead).ReadUsersAsync(context, new())).Rows,
+            item => item.Id == target);
+        var authorizedJson = JsonSerializer.SerializeToElement(authorizedRow,
+            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        Assert.Equal((await authorizedRead.PasswordCredentials.SingleAsync(item => item.UserId == target)).Version,
+            authorizedJson.GetProperty("credentialVersion").GetString());
     }
 
     /// <summary>A dictionary code is persisted independently of labels, with no generated CRUD or culture-based business mutation.</summary>

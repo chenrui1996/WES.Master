@@ -6,7 +6,7 @@ import { api, ApiError, canRead, sessionState } from "../identity/identity-api";
 import { useDirectoryCandidates } from "./useDirectoryCandidates";
 
 interface UserRow { id: string; account: string | null; name: string | null; departmentId: string | null;
-  enabled: boolean | null; version: string | null; roleIds: string[] | null }
+  enabled: boolean | null; version: string | null; credentialVersion: string | null; roleIds: string[] | null }
 interface DepartmentRow { id: string; code: string | null; name: string | null; enabled: boolean | null; version: string | null;
   parentId?: string | null; parentName?: string | null }
 interface RoleRow { id: string; code: string | null; enabled: boolean | null }
@@ -26,7 +26,7 @@ const online = ref(navigator.onLine);
 const offset = ref(0);
 const filters = reactive({ account: "", name: "", departmentId: "", enabled: "" });
 const selectedUser = ref<UserRow | null>(null);
-const mode = ref<"create" | "edit" | "credential" | "roles" | null>(null);
+const mode = ref<"create" | "edit" | "credential" | "disable-credential" | "roles" | null>(null);
 const form = reactive({ account: "", name: "", departmentId: "", enabled: true, password: "", roleIds: [] as string[] });
 const departmentEditor = ref<DepartmentRow | "new" | null>(null);
 const departmentForm = reactive({ code: "", name: "", enabled: true, parentId: "" });
@@ -156,23 +156,33 @@ function open(next: NonNullable<typeof mode.value>, row?: UserRow) {
     enabled: row.enabled === true, roleIds: row.roleIds ? [...row.roleIds] : [] });
   error.value = ""; message.value = "";
 }
-async function write(path: string, method: string, body: object) {
+async function write(path: string, method: string, body: object,
+  successMessage = "已保存。列表已重新读取；新用户仍需单独设置凭据。", allowNoContent = false) {
   if (busy.value) return;
   if (!online.value) { error.value = "当前离线，未发送写入。恢复连接后请重新读取。"; return; }
   const current = generation;
   const identity = sessionState.subject;
   busy.value = true; error.value = ""; message.value = "";
   try {
-    const result = await api<{ decision: number }>(path, { method, body: JSON.stringify(body), signal: controller?.signal });
+    const result = await api<{ decision: number } | undefined>(path, { method, body: JSON.stringify(body), signal: controller?.signal });
     if (current !== generation) return;
-    if (result.decision !== 0) throw new Error("写入未被接受。请重新读取后检查输入及权限。");
+    if (result === undefined ? !allowNoContent : result.decision !== 0)
+      throw new Error("写入未被接受。请重新读取后检查输入及权限。");
     await load();
-    if (identity === sessionState.subject) message.value = "已保存。列表已重新读取；新用户仍需单独设置凭据。";
+    if (identity === sessionState.subject) message.value = successMessage;
   } catch (reason) { if (current === generation) fail(reason); }
   finally { if (current === generation) busy.value = false; }
 }
 function submitUser() {
   const row = selectedUser.value;
+  if (mode.value === "disable-credential") {
+    if (!row?.credentialVersion || row.enabled !== true || !writable(["Enabled"], row)) {
+      error.value = "当前凭据版本或禁用权限不可用，请重新读取。"; return;
+    }
+    void write(`/api/platform/users/${encodeURIComponent(row.id)}/disable`, "POST",
+      { expectedVersion: row.credentialVersion }, "登录凭据已停用，现有会话已撤销；列表已重新读取。", true);
+    return;
+  }
   if (mode.value === "credential") {
     if (!row?.version || !form.password || !writable(["Credential"], row)) { error.value = "需要当前版本、凭据权限及新密码。"; return; }
     const password = form.password; form.password = "";
@@ -286,6 +296,7 @@ onBeforeUnmount(() => {
               <td><div class="row-actions">
                 <button v-if="row.version && row.name !== null && row.departmentId !== null && row.enabled !== null && writable(['Name', 'DepartmentId', 'Enabled'], row)" data-test="edit-user" @click="open('edit', row)">编辑</button>
                 <button v-if="row.version && row.enabled === true && writable(['Credential'], row)" data-test="credential-user" @click="open('credential', row)">设置初始凭据</button>
+                <button v-if="row.credentialVersion && row.enabled === true && writable(['Enabled'], row)" type="button" data-test="disable-credential" :disabled="busy || loading" @click="open('disable-credential', row)">停用登录凭据</button>
                 <button v-if="row.version && row.roleIds !== null && writable(['Roles'], row)" data-test="roles-user" @click="open('roles', row)">关联角色</button>
               </div></td>
             </tr></tbody>
@@ -295,7 +306,7 @@ onBeforeUnmount(() => {
       <p v-else-if="!loading && !error" role="status">{{ filters.account || filters.name || filters.departmentId || filters.enabled ? '无匹配用户，请清除筛选。' : '尚无可读用户，可新建用户档案。' }}</p>
       <nav class="actions" aria-label="用户分页"><button v-if="offset > 0" @click="page(-50)">上一页</button><span>第 {{ offset / 50 + 1 }} 页，每页最多 50 条</span><button v-if="rows.length === 50" @click="page(50)">下一页</button></nav>
       <form v-if="mode" data-test="user-form" class="editor" @submit.prevent="submitUser">
-        <fieldset :disabled="busy"><legend>{{ mode === 'create' ? '新建用户' : mode === 'edit' ? '用户档案' : mode === 'credential' ? '初始登录凭据' : '用户角色' }}</legend>
+        <fieldset :disabled="busy"><legend>{{ mode === 'create' ? '新建用户' : mode === 'edit' ? '用户档案' : mode === 'credential' ? '初始登录凭据' : mode === 'disable-credential' ? '停用登录凭据' : '用户角色' }}</legend>
           <template v-if="mode === 'create' || mode === 'edit'">
             <label v-if="mode === 'create'">账号<input v-model="form.account" name="account" required maxlength="128" autocomplete="off" /></label>
             <p v-else>账号：{{ selectedUser?.account ?? '未授权' }}</p>
@@ -311,6 +322,10 @@ onBeforeUnmount(() => {
             <label>新密码<input v-model="form.password" name="password" type="password" autocomplete="new-password" required /></label>
             <p class="hint">密码只发送一次；拒绝后需重新输入，不保留密码。</p>
           </template>
+          <template v-else-if="mode === 'disable-credential'">
+            <p>确定停用 {{ selectedUser?.account ?? selectedUser?.id }} 的登录凭据？此操作不修改用户档案或角色。</p>
+            <p class="notice">该用户的全部现有会话将被撤销；停用后不能通过此页面重新启用凭据。</p>
+          </template>
           <template v-else>
             <p>替换 {{ selectedUser?.account ?? selectedUser?.id }} 的角色关联。提交前请核对，移除角色立即影响权限。</p>
             <p class="hint">角色候选每次读取 50 项，可继续加载；不可选或尚未加载的已有角色不会自动移除。</p>
@@ -322,7 +337,7 @@ onBeforeUnmount(() => {
             <p v-if="!rolesReady" class="notice">角色候选未获授权或读取失败，不能提交关联。请重新读取。</p>
             <p v-if="!roleCandidates.length" class="hint">没有已加载的启用角色。空列表提交会移除关联。</p>
           </template>
-          <div class="actions"><button type="button" @click="closeEditor">取消</button><button type="submit" class="primary">{{ busy ? '正在提交' : mode === 'credential' ? '确认创建凭据' : mode === 'roles' ? '确认替换角色' : '保存用户' }}</button></div>
+          <div class="actions"><button type="button" @click="closeEditor">取消</button><button type="submit" class="primary">{{ busy ? '正在提交' : mode === 'credential' ? '确认创建凭据' : mode === 'disable-credential' ? '确认停用凭据' : mode === 'roles' ? '确认替换角色' : '保存用户' }}</button></div>
         </fieldset>
       </form>
       <details v-if="canRead('platform.departments.read')" class="department-section"><summary>部门管理（当前已加载页）</summary>

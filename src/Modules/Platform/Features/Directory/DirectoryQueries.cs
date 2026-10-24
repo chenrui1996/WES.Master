@@ -55,18 +55,27 @@ public sealed partial class DirectoryService
         var ids = users.Select(x => x.Id).ToArray();
         var disabled = await database.PasswordCredentials.AsNoTracking().Where(AnyId<PasswordCredential>(x => x.UserId, ids)).Where(x => !x.Enabled)
             .Select(x => x.UserId).ToListAsync(cancellationToken);
-        var roleReaders = users.Where(x => Fields(context, "platform.users.read", x.Id, x.DepartmentId, grants).Contains("Roles"))
+        var projectedFields = users.ToDictionary(user => user.Id,
+            user => Fields(context, "platform.users.read", user.Id, user.DepartmentId, grants));
+        var roleReaders = users.Where(user => projectedFields[user.Id].Contains("Roles"))
             .Select(x => x.Id).ToArray();
         var memberships = await database.Memberships.AsNoTracking().Where(AnyId<RoleMembership>(x => x.UserId, roleReaders))
             .OrderBy(x => x.RoleId).ToListAsync(cancellationToken);
+        var credentialReaders = users.Where(user => projectedFields[user.Id].Contains("Credential"))
+            .Select(user => user.Id).ToArray();
+        var credentialVersions = await database.PasswordCredentials.AsNoTracking()
+            .Where(AnyId<PasswordCredential>(x => x.UserId, credentialReaders))
+            .Select(credential => new { credential.UserId, credential.Version })
+            .ToDictionaryAsync(credential => credential.UserId, credential => credential.Version, cancellationToken);
         return new(true, users.Select(user =>
         {
-            var fields = Fields(context, "platform.users.read", user.Id, user.DepartmentId, grants);
+            var fields = projectedFields[user.Id];
             return new UserDirectoryRow(user.Id, Pick(fields, "Account", user.Account), Pick(fields, "Name", user.Name),
                 fields.Contains("DepartmentId") ? user.DepartmentId : null,
                 fields.Contains("Enabled") ? user.Enabled && !disabled.Contains(user.Id) : null,
                 Pick(fields, "Version", user.Version), fields.Contains("Roles")
-                    ? memberships.Where(x => x.UserId == user.Id).Select(x => x.RoleId).ToImmutableArray() : null);
+                    ? memberships.Where(x => x.UserId == user.Id).Select(x => x.RoleId).ToImmutableArray() : null,
+                credentialVersions.GetValueOrDefault(user.Id));
         }).ToImmutableArray());
     }
 

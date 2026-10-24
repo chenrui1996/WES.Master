@@ -21,7 +21,7 @@ login/禁用以同一credential CAS竞争：禁用先提交，旧snapshot登录�
 
 `POST /api/platform/users/{id}/disable`接收`expectedVersion`（凭据版本），由当前Bearer身份构造可信`TenantContext`，并通过PlatformScope调用同一个owner。端点继承平台路由的HTTPS、`X-WES-Client`与认证要求；权限/数据范围仍在owner内重查，不接受客户端提供tenant、actor或session。成功返回204；无当前`Enabled`字段权限/目标不可用返回403；版本冲突返回412；输入边界错误由统一adapter返回400。页面现有用户档案启停仍使用目录用户版本及目录owner，不把目录`Version`误作凭据版本。
 
-HTTP测试使用随机目标、两个真实登录family和隔离MySQL，验证缺权限时不写、旧版本不写、正确版本只提交一次AccountDisabled、两个family均撤销、撤销后旧访问令牌被拒。该adapter不暴露凭据材料，也不改变自禁用等既有owner语义。
+HTTP测试使用随机目标、两个真实登录family和隔离MySQL，验证缺权限时不写、旧版本不写、正确版本只提交一次AccountDisabled、两个family均撤销、撤销后旧访问令牌被拒。该adapter不暴露凭据材料，也不改变自禁用等既有owner语义。运维页面现通过独立受权的凭据版本投影连接该动作；档案编辑启停仍走目录用户版本。UI实现及验证见[页面闭环记录](33-t03-account-disable-ops-web.md)和[页面测试记录](34-t03-account-disable-ops-web-tests.md)。
 
 拒dirty图、显式/ambient外层事务和AutoTransactionBehavior.Never。真实SQL/取消故障向上明确传播；只捕获CAS为VersionConflict；提交丢响应不承诺未写，不补偿启用或重放密码。不借用一个隐式SaveChanges事务推断安全原子性。日志只有固定code，audit只UUID/版本/时间，无账号/密码/hash/token。
 
@@ -52,4 +52,4 @@ dotnet test WES.slnx --configuration Release --no-build --no-restore -m:1
 
 fresh Release build为0 warning/error；完整回归Architecture29、Modules145、Persistence236、Route228，共638 passed、0 failed、0 skipped。首次全量运行期间同时运行formatter，既有1秒依赖探针恢复断言出现Unhealthy；不修改生产超时或断言，在无并行formatter条件下完整复跑638全绿。格式检查已通过；模型/设计映射与DAG作为提交前独立门禁执行。
 
-回滚不启用已禁用账号、不恢复已撤销family或删除审计；代码前滚修复优先。本切片交付认证HTTP adapter，不交付用户目录/部门归属、启用/创建/重置、受权安全事件查询/保留治理，亦不代表页面端点接线、生产许可或T03/T04整包完成。
+回滚不启用已禁用账号、不恢复已撤销family或删除审计；代码前滚修复优先。本切片交付认证HTTP和具名用户页面控制，不交付用户目录/部门归属、启用/创建/重置、受权安全事件查询/保留治理、生产许可或T03/T04整包完成。

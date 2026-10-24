@@ -3,7 +3,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import UsersPage from "./UsersPage.vue";
 import { forgetIdentity, sessionState, setAccessToken } from "../identity/identity-api";
 
-const user = { id: "u1", account: "ALICE", name: "Alice", departmentId: "d1", enabled: true, version: "user-v1", roleIds: ["r1"] };
+const user = { id: "u1", account: "ALICE", name: "Alice", departmentId: "d1", enabled: true,
+  version: "user-v1", credentialVersion: null as string | null, roleIds: ["r1"] };
 const departments = [{ id: "d1", name: "收货", code: "IN", enabled: true, version: "d-v1" },
   { id: "d2", name: "停用部门", code: "OLD", enabled: false, version: "d-v2" }];
 beforeEach(() => {
@@ -94,6 +95,40 @@ it("fences profile writes with the displayed version and requires reread after c
   expect(wrapper.find('[data-test="user-form"]').exists()).toBe(false);
   expect(wrapper.text()).toContain("重新读取");
   expect(writes).toHaveLength(1);
+  wrapper.unmount();
+});
+it("requires explicit confirmation and submits only the authorized credential version", async () => {
+  const writes: { url: string; body: unknown }[] = [];
+  const target = { ...user, credentialVersion: "credential-v1" };
+  vi.stubGlobal("fetch", vi.fn(async (url: string, options: RequestInit) => {
+    if (options.method === "POST") {
+      writes.push({ url, body: JSON.parse(String(options.body)) });
+      return new Response(null, { status: 204 });
+    }
+    return new Response(JSON.stringify({ authorized: true, rows: url.includes("/departments") ? departments
+      : url.includes("/roles") ? [] : [target] }));
+  }));
+  const wrapper = mount(UsersPage); await flushPromises();
+  await wrapper.get('[data-test="disable-credential"]').trigger("click");
+  expect(wrapper.get('[data-test="user-form"]').text()).toContain("登录凭据");
+  expect(writes).toEqual([]);
+  await wrapper.get('[data-test="user-form"]').trigger("submit");
+  await flushPromises();
+  expect(writes).toEqual([{
+    url: "/api/platform/users/u1/disable",
+    body: { expectedVersion: "credential-v1" },
+  }]);
+  expect(wrapper.text()).toContain("登录凭据已停用");
+  wrapper.unmount();
+});
+it("does not expose the credential-disable action without the current Enabled write grant", async () => {
+  sessionState.subject!.grants = sessionState.subject!.grants.map(grant => grant.permission === "platform.users.write"
+    ? { ...grant, fields: grant.fields.filter(field => field !== "Enabled") } : grant);
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(JSON.stringify({ authorized: true, rows:
+    url.includes("/departments") ? departments : url.includes("/roles") ? [] : [{ ...user, credentialVersion: "credential-v1" }],
+  }))));
+  const wrapper = mount(UsersPage); await flushPromises();
+  expect(wrapper.find('[data-test="disable-credential"]').exists()).toBe(false);
   wrapper.unmount();
 });
 it("never restores a late user response after identity changes", async () => {

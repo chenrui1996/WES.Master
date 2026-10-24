@@ -31,9 +31,9 @@ public sealed record DirectoryWriteResult(DirectoryDecision Decision, Guid? Id =
 /// <summary>Authorized bounded projection; denied and legitimately empty pages are distinct.</summary>
 public sealed record DirectoryPage<T>(bool Authorized, ImmutableArray<T> Rows);
 
-/// <summary>Field-authorized user projection. Null means not granted, never a request to fetch a hidden entity.</summary>
+/// <summary>Field-authorized user projection. CredentialVersion is a nonsecret fence, visible only with Credential grant.</summary>
 public sealed record UserDirectoryRow(Guid Id, string? Account, string? Name, Guid? DepartmentId, bool? Enabled,
-    string? Version, ImmutableArray<Guid>? RoleIds);
+    string? Version, ImmutableArray<Guid>? RoleIds, string? CredentialVersion = null);
 
 /// <summary>Optional exact account, contains-name, department/state filters; pagination is stable and bounded.</summary>
 public sealed record UserDirectoryFilter(string? Account = null, string? Name = null, Guid? DepartmentId = null,

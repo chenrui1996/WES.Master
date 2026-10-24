@@ -51,13 +51,14 @@ describe("identity transport", () => {
     expect(calls[2]?.get("Idempotency-Key")).toBe(key);
   });
 
-  it("never assigns ordinary command receipts to credentials, authentication or eligibility reads", async () => {
+  it("never assigns ordinary command receipts to credential, disable, authentication or eligibility calls", async () => {
     const calls: Headers[] = [];
     vi.stubGlobal("fetch", vi.fn(async (_url: string, options: RequestInit) => {
       calls.push(new Headers(options.headers));
       return new Response("{}", { status: 200 });
     }));
     await api("/api/platform/users/fixture/credential", { method: "POST", body: "{}" });
+    await api("/api/platform/users/fixture/disable", { method: "POST", body: "{}" });
     await api("/api/identity/password", { method: "POST", body: "{}" });
     await api("/api/platform/tenants/switch-check", { method: "POST", body: "{}" });
     await api("/api/platform/users");

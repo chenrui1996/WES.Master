@@ -40,6 +40,7 @@ export async function api<T = unknown>(path: string, options: RequestInit = {}):
   const method = (options.method ?? "GET").toUpperCase();
   if (path.startsWith("/api/platform/") && ["POST", "PUT", "PATCH", "DELETE"].includes(method)
     && !/\/credential(?:\?|$)/.test(path) && !/\/tenants\/switch-check(?:\?|$)/.test(path)
+    && !/\/users\/[^/]+\/disable(?:\?|$)/.test(path)
     && !headers.has("Idempotency-Key")) headers.set("Idempotency-Key", crypto.randomUUID());
   if (options.body) headers.set("Content-Type", "application/json");
   if (sessionState.token) headers.set("Authorization", `Bearer ${sessionState.token}`);

@@ -590,6 +590,10 @@ public sealed class IdentityHttpTests : IAsyncLifetime
             new { expectedVersion = credentialVersion });
         Assert.Equal(HttpStatusCode.Forbidden, unauthorized.StatusCode);
         await GrantPlatformAsync();
+        using var projection = await _client.GetAsync("/api/platform/users?account=TARGET");
+        Assert.Equal(HttpStatusCode.OK, projection.StatusCode);
+        var projectedRows = (await projection.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("rows").EnumerateArray();
+        Assert.Equal(credentialVersion, Assert.Single(projectedRows).GetProperty("credentialVersion").GetString());
 
         using var stale = await _client.PostAsJsonAsync($"/api/platform/users/{target:D}/disable",
             new { expectedVersion = Guid.NewGuid().ToString("D") });

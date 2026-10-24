@@ -25,7 +25,7 @@ dotnet test tests\Modules\Wes.Modules.Tests.csproj --no-restore -c Release --fil
 
 结果：**1 passed，0 failed**。日志仅包含固定拒绝原因和HTTP状态，不包含账号、密码、token或凭据版本。
 
-当前UI已有目录用户编辑的启停控件，其expectedVersion是目录用户版本并走目录事务；本新增HTTP adapter要求凭据版本，故未把列表行版本当成该请求版本，也未增加重复UI动作。独立owner持久层CAS/并发/故障证据仍见[禁用owner实施记录](16-audited-account-disable.md)。
+目录用户编辑启停仍使用目录用户版本；禁用凭据的列表投影与显式确认动作另见[用户页面实施记录](33-t03-account-disable-ops-web.md)及[测试记录](34-t03-account-disable-ops-web-tests.md)。独立owner持久层CAS/并发/故障证据仍见[禁用owner实施记录](16-audited-account-disable.md)。
 
 ## 边界
 

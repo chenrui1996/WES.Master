@@ -562,6 +562,61 @@ public sealed class IdentityHttpTests : IAsyncLifetime
         Assert.Equal("New subject", (await final.DirectoryUsers.SingleAsync(item => item.Id == id)).Name);
     }
 
+    /// <summary>Credential disable is exposed only to current field authority and atomically revokes every own family.</summary>
+    [Fact]
+    [Trait("CaseId", "IDENTITY-DISABLE-HTTP-001")]
+    public async Task CredentialDisableHttpChecksVersionAndRevokesCurrentFamily()
+    {
+        await SignInAsync();
+        var target = Guid.NewGuid();
+        await using (var seed = Open())
+        {
+            var departmentId = await seed.Departments.Select(item => item.Id).SingleAsync();
+            seed.DirectoryUsers.Add(new DirectoryUser(_tenant, target, "TARGET", "Target subject", departmentId));
+            seed.PasswordCredentials.Add(new PasswordCredential(_tenant, target, "TARGET",
+                StoredPasswordHash.Import(PasswordHashScheme.BcryptSha384V1, Hash), _clock.GetUtcNow()));
+            await seed.SaveChangesAsync();
+        }
+        using var targetClient = Client();
+        using var firstLogin = await targetClient.PostAsJsonAsync("/api/identity/login", LoginRequest("TARGET"));
+        using var secondLogin = await targetClient.PostAsJsonAsync("/api/identity/login", LoginRequest("TARGET"));
+        Assert.Equal(HttpStatusCode.OK, firstLogin.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, secondLogin.StatusCode);
+        string credentialVersion;
+        await using (var read = Open())
+            credentialVersion = (await read.PasswordCredentials.SingleAsync(item => item.UserId == target)).Version;
+
+        using var unauthorized = await _client.PostAsJsonAsync($"/api/platform/users/{target:D}/disable",
+            new { expectedVersion = credentialVersion });
+        Assert.Equal(HttpStatusCode.Forbidden, unauthorized.StatusCode);
+        await GrantPlatformAsync();
+
+        using var stale = await _client.PostAsJsonAsync($"/api/platform/users/{target:D}/disable",
+            new { expectedVersion = Guid.NewGuid().ToString("D") });
+        Assert.Equal(HttpStatusCode.PreconditionFailed, stale.StatusCode);
+        await using (var verify = Open())
+            Assert.True((await verify.PasswordCredentials.SingleAsync(item => item.UserId == target)).Enabled);
+
+        using var response = await _client.PostAsJsonAsync($"/api/platform/users/{target:D}/disable",
+            new { expectedVersion = credentialVersion });
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        using var repeated = await _client.PostAsJsonAsync($"/api/platform/users/{target:D}/disable",
+            new { expectedVersion = credentialVersion });
+        Assert.Equal(HttpStatusCode.NoContent, repeated.StatusCode);
+        using var targetAccess = new HttpRequestMessage(HttpMethod.Get, "/api/identity/me");
+        var targetToken = (await secondLogin.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString();
+        targetAccess.Headers.Authorization = new AuthenticationHeaderValue("Bearer", targetToken);
+        using var denied = await targetClient.SendAsync(targetAccess);
+        Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
+        await using var sessionRead = Open();
+        var remaining = await sessionRead.Sessions.Where(item => item.UserId == target).ToListAsync();
+        Assert.Equal(2, remaining.Count);
+        Assert.All(remaining, family => Assert.NotNull(family.RevokedAt));
+        await using var final = Open();
+        Assert.False((await final.PasswordCredentials.SingleAsync(item => item.UserId == target)).Enabled);
+        Assert.Single(await final.Audit.Where(item => item.Action == PlatformAuditAction.AccountDisabled).ToListAsync());
+    }
+
     /// <summary>Config source/version and H status are safe projections, never secret keys or client-approved physical evidence.</summary>
     [Fact]
     [Trait("CaseId", "PLATFORM-HTTP-002")]

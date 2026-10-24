@@ -16,6 +16,8 @@ public sealed record CreateCredentialInput(string? ExpectedVersion, string Passw
     /// <summary>Prevents incidental secret formatting.</summary>
     public override string ToString() => "CreateCredentialInput[REDACTED]";
 }
+/// <summary>Explicit credential shutdown guarded by its current opaque version.</summary>
+public sealed record DisableCredentialInput(string ExpectedVersion);
 /// <summary>Explicit membership replacement under the user's version fence.</summary>
 public sealed record MembershipInput(string? ExpectedVersion, Guid[] RoleIds);
 /// <summary>Named department creation; stable codes cannot be renamed.</summary>
@@ -68,6 +70,7 @@ public static class PlatformEndpoints
             await WriteAsync(http, factory, clock, (owner, subject, correlation) =>
                 owner.Directory.ChangeUserAsync(subject, id, input.ExpectedVersion, input.Name, input.DepartmentId, input.Enabled, correlation, ct)));
         group.MapPost("/users/{id:guid}/credential", CreateCredentialAsync);
+        group.MapPost("/users/{id:guid}/disable", DisableCredentialAsync);
         group.MapPut("/users/{id:guid}/roles", async (Guid id, MembershipInput input, HttpContext http, IdentityDatabase factory, TimeProvider clock, CancellationToken ct) =>
             input.RoleIds is null || input.RoleIds.Length > 100 ? Results.BadRequest() :
             await WriteAsync(http, factory, clock, (owner, subject, correlation) =>
@@ -168,6 +171,20 @@ public static class PlatformEndpoints
         var evidence = await breach.CheckAsync(input.Password, ct);
         return await WriteAsync(http, factory, clock, (owner, subject, correlation) =>
             owner.CreateCredentialAsync(subject, id, input.ExpectedVersion, input.Password, evidence, correlation, ct), receipted: false);
+    }
+    private static async Task<IResult> DisableCredentialAsync(Guid id, DisableCredentialInput input, HttpContext http,
+        IdentityDatabase factory, TimeProvider clock, CancellationToken ct)
+    {
+        var subject = IdentityRuntime.Subject(http.User);
+        await using var database = factory.Open(subject.TenantId);
+        var decision = await database.DisableAccountAsync(subject, id, input.ExpectedVersion, Guid.Parse(http.TraceIdentifier), ct);
+        return decision switch
+        {
+            AccountDisableDecision.Completed => Results.NoContent(),
+            AccountDisableDecision.Rejected => Results.Forbid(),
+            AccountDisableDecision.VersionConflict => Results.StatusCode(412),
+            _ => throw new InvalidOperationException("Unknown account-disable outcome.")
+        };
     }
     private static async Task<IResult> ChangeRoleAsync(Guid id, ChangeRoleInput input, HttpContext http, IdentityDatabase factory,
         TimeProvider clock, ILoggerFactory logs, CancellationToken ct)

@@ -1,6 +1,6 @@
 # T03/T04 当前授权的用户禁用与全部family撤销
 
-- 状态：实施中；Platform内部管理用例，不是完整用户目录/公开API
+- 状态：软件owner、认证HTTP adapter已验证；T03/T04仍未整体完成
 - 依据：[平台用户/会话设计](../detailed-design/platform-and-security.md)、[PAR-01/02及VAL-04](../detailed-design/05-approved-rules-and-defaults.md)、[登录协调共享CAS](15-coordinated-password-login.md)
 
 ## 有界范围与权限
@@ -17,6 +17,12 @@
 
 login/禁用以同一credential CAS竞争：禁用先提交，旧snapshot登录整体回滚、不发secret；login先提交，旧禁用返回VersionConflict，不自动沿用旧授权重试。管理员显式重新取得版本与当前权限后重试，查询会包含新family并撤销。refresh先提交也会使family CAS冲突，调用者重新核验后重试；禁用先提交则refresh重读Inactive。禁用成功后下一次当前授权返回空grants、正确密码也不能签发新family。
 
+## 认证HTTP adapter
+
+`POST /api/platform/users/{id}/disable`接收`expectedVersion`（凭据版本），由当前Bearer身份构造可信`TenantContext`，并通过PlatformScope调用同一个owner。端点继承平台路由的HTTPS、`X-WES-Client`与认证要求；权限/数据范围仍在owner内重查，不接受客户端提供tenant、actor或session。成功返回204；无当前`Enabled`字段权限/目标不可用返回403；版本冲突返回412；输入边界错误由统一adapter返回400。页面现有用户档案启停仍使用目录用户版本及目录owner，不把目录`Version`误作凭据版本。
+
+HTTP测试使用随机目标、两个真实登录family和隔离MySQL，验证缺权限时不写、旧版本不写、正确版本只提交一次AccountDisabled、两个family均撤销、撤销后旧访问令牌被拒。该adapter不暴露凭据材料，也不改变自禁用等既有owner语义。
+
 拒dirty图、显式/ambient外层事务和AutoTransactionBehavior.Never。真实SQL/取消故障向上明确传播；只捕获CAS为VersionConflict；提交丢响应不承诺未写，不补偿启用或重放密码。不借用一个隐式SaveChanges事务推断安全原子性。日志只有固定code，audit只UUID/版本/时间，无账号/密码/hash/token。
 
 ## 测试合同
@@ -28,7 +34,7 @@ login/禁用以同一credential CAS竞争：禁用先提交，旧snapshot登录�
 | IDENTITY-DISABLE-CONCURRENT-001 | 两禁用、禁用与login/refresh两顺序 | CAS不丢安全状态；显式重试包含先赢的新family；最终禁用后无可用session |
 | IDENTITY-DISABLE-FAULT-001 | 真实audit1062、取消/DB异常、dirty/外层事务、坏时钟 | 整体回滚或明确失败；不启用回退、不泄露秘密、不清调用者图 |
 
-不新增schema迁移，AccountDisabled为固定审计字符串enum新项，既有值顺序保持不变；两个模型快照须仍一致。真实验证只在已授权`wes_test`，生产管理/发布/现场H不随此内部用例解禁。实际红绿/回归在验证后追加。
+不新增schema迁移，AccountDisabled为固定审计字符串enum新项，既有值顺序保持不变；两个模型快照须仍一致。真实验证只在已授权`wes_test`，生产管理/发布/现场H不随此内部用例解禁。owner与持久层证据见本页下方；HTTP红绿及回归见[禁用HTTP测试记录](32-t03-account-disable-http-tests.md)。
 
 ## 实测证据与复跑
 
@@ -46,4 +52,4 @@ dotnet test WES.slnx --configuration Release --no-build --no-restore -m:1
 
 fresh Release build为0 warning/error；完整回归Architecture29、Modules145、Persistence236、Route228，共638 passed、0 failed、0 skipped。首次全量运行期间同时运行formatter，既有1秒依赖探针恢复断言出现Unhealthy；不修改生产超时或断言，在无并行formatter条件下完整复跑638全绿。格式检查已通过；模型/设计映射与DAG作为提交前独立门禁执行。
 
-回滚不启用已禁用账号、不恢复已撤销family或删除审计；代码前滚修复优先。本片只是T03/T04内部管理用例，不交付用户目录/部门归属、启用/创建/重置、受权安全事件查询/保留治理、HTTP/JWT或页面E2E，不标整包完成。
+回滚不启用已禁用账号、不恢复已撤销family或删除审计；代码前滚修复优先。本切片交付认证HTTP adapter，不交付用户目录/部门归属、启用/创建/重置、受权安全事件查询/保留治理，亦不代表页面端点接线、生产许可或T03/T04整包完成。

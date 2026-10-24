@@ -84,10 +84,10 @@
 | T03耐久历史/受控改密 | 内部owner已实现并验证，见[改密记录](14-durable-password-change.md)；不是公开API/整包完成 | 7项领域/格式与30项迁移/真实DB测试通过；最近5个含当前值、逐原scheme历史检查、旧密/自有Active会话/版本复验，凭据与既有全部自有family撤销/审计原子；新family签发栅栏、外部泄漏检查、目录/禁用及HTTP/页面仍待接线 |
 | T03耐久登录协调/签发栅栏 | 内部协调owner已实现；后续身份HTTP/JWT与具名页面已集成，见[登录记录](15-coordinated-password-login.md)、[HTTP合同](19-t03-authenticated-http.md) | 3项领域与28项迁移/真实DB测试通过；来源/挑战独立消费、账号门槛、未知账号dummy/真实新旧核密、在途失败事件合并、risk/凭据/new-family显式原子事务；已关闭login/改密new-family竞态。真实泄漏语料/生产密钥和代理、365天保留与容量治理、生产及现场H仍待批准；T03未整体完成 |
 | T04权限/配置/审计内部基础 | 已实现并验证，见[详细思路与红绿证据](08-platform-access-settings-audit.md)；不是整包完成 | 29领域用例、36迁移/真实MySQL用例通过；当前role/session复验、字段scope/集合身份、角色可委派与原子审计、配置CAS与原子audit、受权审计查询已覆盖；用户/部门/字典目录owner和具名HTTP/页面已接通，仍有完整T04命令集成及运维验收待办 |
-| T03/T04当前授权凭据禁用 | 内部credential-disable owner已实现并验证，见[禁用记录](16-audited-account-disable.md)；该命令本身仍非公开endpoint，且不等同完整目录/T03/T04 | 22项禁用与3项登录侧新增真实DB测试通过；当前Enabled字段权限、All/Own范围、禁用与全部family/audit显式原子事务、幂等/孤留修复、两个禁用和login/refresh两方向竞争、真实SQL回滚。具名用户/部门目录API见[T04记录](18-t04-directory.md)；credential-disable HTTP/页面闭环仍单独待办 |
+| T03/T04当前授权凭据禁用 | 内部credential-disable owner与认证HTTP adapter已实现并验证，见[禁用记录](16-audited-account-disable.md)及[HTTP测试](32-t03-account-disable-http-tests.md)；不等同完整目录/T03/T04 | 22项禁用与3项登录侧新增真实DB测试通过；当前Enabled字段权限、All/Own范围、禁用与全部family/audit显式原子事务、幂等/孤留修复、两个禁用和login/refresh两方向竞争、真实SQL回滚；HTTP覆盖无权拒绝、版本冲突、两个family撤销及旧token拒绝。现有页面档案启停继续使用目录用户版本，不把它误作凭据版本 |
 | T03/T04受权登录安全事件查询 | 内部只读投影和受权HTTP/具名页面已接通，见[查询记录](17-authorized-login-event-query.md)、[HTTP合同](19-t03-authenticated-http.md) | 24项真实MySQL查询测试；All字段权限、筛选/有界分页、撤权、真实SQL失败/取消通过；保留/容量/导出治理与生产验收仍缺 |
 | T03登录页视觉实现 | 已完成独立UI切片，见[实现记录](24-ops-web-login-ui.md)及[测试记录](25-ops-web-login-ui-tests.md) | 仅呈现层；不视为T03认证/API/E2E整包验收；浏览器视口无横向溢出、登录页组件5项和Ops Web构建已通过 |
-| T03/T04具名运维页面与身份HTTP | 软件切片已通过，见[页面实施](20-t03-t04-operations-client.md)、[页面测试](31-t03-t04-operations-client-tests.md)及[T03 HTTP测试](28-t03-authenticated-http-tests.md) | Ops Web组件73项、严格构建、隔离HTTPS Chromium实名页面/写入/登出验收通过；200%人工缩放、真实PDA与生产环境仍未验收 |
+| T03/T04具名运维页面与身份HTTP | 软件切片已通过，见[页面实施](20-t03-t04-operations-client.md)、[页面测试](31-t03-t04-operations-client-tests.md)、[T03 HTTP测试](28-t03-authenticated-http-tests.md)及[账号禁用HTTP测试](32-t03-account-disable-http-tests.md) | Ops Web组件73项、严格构建、隔离HTTPS Chromium实名页面/写入/登出验收通过；账号禁用adapter额外1项真实HTTP测试通过；200%人工缩放、真实PDA与生产环境仍未验收 |
 | T04目录及命令回执 | 目录owner/API/页面与具名非机密写回执已集成；**T04整体仍partial**。见[目录实施](18-t04-directory.md)、[目录测试](29-t04-directory-tests.md)、[回执实施](23-t04-command-receipts.md)、[回执测试](30-t04-command-receipts-tests.md) | 目录与相关授权持久层106项、回执专用工程31项及HTTP回执6项通过；成员重放保守限制、生产清理调度与DBA/运维仍待验收 |
 | 功能开关后续集成 | 设计见[功能开关设计](../detailed-design/feature-switches.md)，T02配置/catalog首片已验证 | T06客户端菜单接入、可选能力owner注册、T30诊断及T32全组合验收仍待依赖计划执行 |
 | T05..T16 | 未开始 | 按原DAG逐项；不得因内部基础/会话测试通过就跳过完整T03/T04及各自硬依赖 |
@@ -169,3 +169,10 @@
 - 严格配置路径校验、不可变快照与匿名白名单catalog已有6项定向测试；禁用所有模块UI开关时，真实身份HTTP仍通过认证/授权集成测试。
 - 首轮全套回归中旧运行时测试fixture缺少必填Features，16项启动失败；补齐测试配置后定向17项与最终串行Release全套通过。
 - 当前全solution为Architecture29、Modules217、Persistence316、Route228，共790 passed、0 failed、0 skipped。后续运行能力owner、T06菜单集成及T30/T32仍未验收；790不代表完整DTC-SYS-008或T02完成。
+
+### 当前授权账号禁用HTTP adapter
+
+- 新增`POST /api/platform/users/{id}/disable`，复用PlatformScope中的禁用owner；当前授权、可信tenant、凭据版本与事务审计继续由owner负责。
+- HTTP真实MySQL测试先红（未注册路由返回404），接线后通过；覆盖无权403、旧版本412、成功204、重复请求不重复审计、目标两个family撤销和旧访问token拒绝。现有用户档案UI继续使用目录用户版本，不引入错误的版本转换。
+- 修改文件的C#格式验证通过；最新全solution Release回归Architecture29、Modules218、Persistence316、Route228，共**791 passed、0 failed、0 skipped**。
+- 791替代790作为最新自动化软件回归数量；T03/T04仍为partial，真实生产凭据/key ring/泄漏语料、代理与保留治理、DBA/现场H、PDA及人工200%缩放等门禁仍未关闭。

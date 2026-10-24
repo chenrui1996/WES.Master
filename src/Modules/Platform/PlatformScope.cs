@@ -183,6 +183,11 @@ public sealed class PlatformScope : IAsyncDisposable
     public Task<DirectoryWriteResult> CreateCredentialAsync(TenantContext subject, Guid user, string? version, string password,
         PasswordBreachEvidence evidence, Guid correlation, CancellationToken ct) =>
         Directory.CreateCredentialAsync(subject, user, version, password, Evidence(evidence), correlation, ct);
+    /// <summary>Disables only under current Enabled-field authority and the exact credential version.</summary>
+    public Task<AccountDisableDecision> DisableAccountAsync(TenantContext subject, Guid user, string expectedVersion, Guid correlation,
+        CancellationToken ct = default) =>
+        new DisableAccountHandler(_database, _clock, _logs.CreateLogger<DisableAccountHandler>())
+            .HandleAsync(subject, user, expectedVersion, correlation, ct);
     /// <summary>Changes a role without exposing domain/persistence implementation to transport.</summary>
     public async Task<PlatformWriteResult> ChangeRoleAsync(TenantContext subject, Guid id, string? version, bool enabled,
         PermissionRuleInput[] rules, Guid correlation, CancellationToken ct)

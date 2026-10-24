@@ -1,5 +1,6 @@
 using Serilog;
 using Serilog.Events;
+using Microsoft.Extensions.Options;
 
 namespace Wes.Host.Runtime;
 
@@ -9,6 +10,9 @@ public static class HostRuntimeExtensions
     /// <summary>Registers runtime diagnostics; never registers business state or device drivers.</summary>
     public static IServiceCollection AddWesRuntime(this IServiceCollection services, IConfiguration configuration)
     {
+        var features = FeatureSwitchConfiguration.Load(configuration);
+        services.AddSingleton(features);
+        services.AddSingleton<IOptions<FeatureSwitches>>(Options.Create(features));
         services.AddProblemDetails(options => options.CustomizeProblemDetails = problem =>
         {
             problem.ProblemDetails.Extensions["correlationId"] = problem.HttpContext.TraceIdentifier;

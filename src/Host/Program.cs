@@ -29,6 +29,7 @@ app.MapHealthChecks("/health/dependencies", new HealthCheckOptions
 {
     Predicate = registration => registration.Tags.Contains("dependency")
 });
+app.MapFeatureCatalog();
 app.Run();
 
 /// <summary>

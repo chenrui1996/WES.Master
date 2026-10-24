@@ -11,6 +11,7 @@ using Microsoft.Extensions.Hosting;
 using Serilog.Core;
 using Serilog.Events;
 using Wes.Host.Runtime;
+using Wes.Modules.Tests.Fixtures;
 using Xunit;
 
 namespace Wes.Modules.Tests.SystemOperations;
@@ -193,7 +194,10 @@ public sealed class RuntimeBoundaryTests
             .ConfigureServices(services =>
             {
                 services.AddSingleton<ILogEventSink>(sink);
-                services.AddWesRuntime(new ConfigurationBuilder().Build());
+                var configuration = new ConfigurationBuilder()
+                    .AddInMemoryCollection(FeatureSwitchConfigurationFixture.ValidValues())
+                    .Build();
+                services.AddWesRuntime(configuration);
             })
             .Configure(app =>
             {

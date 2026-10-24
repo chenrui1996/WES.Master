@@ -7,7 +7,7 @@
 
 ## 1. 范围与角色
 
-现有13个设计包64 PAGE/66 FUNC/168父DTC及265原TC映射为开发基线，不将设计用例计作passed。功能开关已纳入SCOPE-OPS-02设计及T02/T06/T30/T32计划，DTC-SYS-008尚未实现/执行。BoxSort仍预留；冻结/拆合托/补货等未立项示例不自动变现成功能。Seven物料/单据/库存跟踪/角色迁移保留业务意义，脱敏映射、旧密码兼容、在途冻结/回填与对账由T31验证，不直接搬表。
+现有13个设计包64 PAGE/66 FUNC/168父DTC及265原TC映射为开发基线，不将设计用例计作passed。功能开关已纳入SCOPE-OPS-02设计及T02/T06/T30/T32计划；DTC-SYS-008已有配置校验与匿名catalog测试，完整能力组合尚未验收。BoxSort仍预留；冻结/拆合托/补货等未立项示例不自动变现成功能。Seven物料/单据/库存跟踪/角色迁移保留业务意义，脱敏映射、旧密码兼容、在途冻结/回填与对账由T31验证，不直接搬表。
 
 | 责任 | 当前明确事实 | 主/备与关闭阶段 |
 |---|---|---|
@@ -74,6 +74,7 @@
 | T02无数据库Host切片 | 已实现并验证，见[详细思路与证据](01-foundation-host.md) | 26项测试通过；live200/ready503、未开放控制端点；不代表T02或父DTC整体完成 |
 | T02真实MySQL基础切片 | 已实现并验证，见[Provider记录](03-mysql-provider-foundation.md) | 测试隔离、迁移幂等/事务/唯一键/tenant/乐观并发/清理已通过；保留生产权限与兼容限制，不计业务owner验收 |
 | T02软件运行时/架构基础门禁 | 已实现并验证，见[HTTP运行时记录](04-host-runtime-foundation.md) | 安全ProblemDetails/关联日志、真实依赖故障恢复、已知非法symbol反例通过；可供T03内部实施，完整父DTC/业务扩展与生产许可仍另验 |
+| T02部署级功能开关基础 | 首片已实现并验证，见[实施记录](26-deployment-feature-switches.md)及[测试记录](27-deployment-feature-switches-tests.md) | 严格启动配置校验、不可变快照和匿名白名单catalog已测；当前无运行能力owner，启用时明确失败；T02/DTC-SYS-008整体仍未完成 |
 | T03身份首片 | 内部会话/refresh/策略与真实并发已实现；整包仍实施中，见[记录](05-platform-session-core.md) | 登录预算/验证码耐久消费、凭据/JWT/审计/API/页面与E2E未接齐，不开放登录控制面，不误标T03完成 |
 | T03可信来源准入 | 内部耐久IP预算已实现并验证，见[来源准入记录](09-durable-login-source-admission.md)；不是整包完成 | 跨账号/租户30次/60秒、首次唯一键与第30次CAS并发、保存失败/取消/坏schema/时钟反例、独立owner迁移通过；账号预算/验证码/凭据/JWT/代理与HTTP页面链路仍未接齐 |
 | T03账号风险状态 | 内部耐久失败窗口/暂锁已实现并验证，见[账号风险记录](10-durable-account-login-risk.md)；不是整包完成 | 5领域与20迁移/真实DB测试通过；同租户账号3后验证码门槛、5后暂锁900秒、滚动边界与CAS保护；仍须完整owner处理冲突重新准入/真实失败不漏记、验证码一次消费、凭据/JWT/审计及HTTP页面，不把风险读取当签发许可 |
@@ -86,7 +87,7 @@
 | T03/T04当前授权用户禁用 | 内部管理owner已实现并验证，见[禁用记录](16-audited-account-disable.md)；不是用户目录/API/整包 | 22项禁用与3项登录侧新增真实DB测试通过；当前Enabled字段权限、All/Own范围、禁用与全部family/audit显式原子事务、幂等/孤留修复、两个禁用和login/refresh两方向竞争、真实SQL回滚。启用/创建/重置、完整目录/部门与公开HTTP/页面仍缺 |
 | T03/T04受权登录安全事件查询 | 内部只读投影已实现并验证，见[查询记录](17-authorized-login-event-query.md)；非导出/页面 | 24项真实MySQL测试；当前All字段权限、时间/结果/关联筛选后稳定有界分页、隐藏字段不作oracle、100条实际门限/撤权/真实SQL失败/取消通过。Own/部门缺不可变归属时拒绝；保留/容量/导出治理、HTTP/页面仍缺 |
 | T03登录页视觉实现 | 已完成独立UI切片，见[实现记录](24-ops-web-login-ui.md)及[测试记录](25-ops-web-login-ui-tests.md) | 仅呈现层；不视为T03认证/API/E2E整包验收；浏览器视口无横向溢出、登录页组件5项和Ops Web构建已通过 |
-| 部署功能开关设计 | 设计/计划已补齐，见[功能开关设计](../detailed-design/feature-switches.md)；未实现 | T02强类型配置/启动校验、T06模块入口catalog、T30诊断及T32组合验收仍待依赖计划执行 |
+| 功能开关后续集成 | 设计见[功能开关设计](../detailed-design/feature-switches.md)，T02配置/catalog首片已验证 | T06客户端菜单接入、可选能力owner注册、T30诊断及T32全组合验收仍待依赖计划执行 |
 | T05..T16 | 未开始 | 按原DAG逐项；不得因内部基础/会话测试通过就跳过完整T03/T04及各自硬依赖 |
 | T17 Route纯内核 | 软件工作包验收完成，见[实现、红绿及审查证据](07-route-kernel.md)；不是完整Route/WCS验收 | FourWay/Stacker各自私有topology/physical mapping与确定性候选路径；连接物理语义/设备归属缺陷先红后修复，最终SPEC/CODE审查PASS；228 Route测试与父集成通过；预约/派发/反馈及H分别由后续包验收 |
 | T18..T34 | 未开始 | 等待各自DAG前置；现场H/真实终端/生产DBA等门禁仍独立阻断，不用软件单测替代 |
@@ -160,3 +161,9 @@
 - 22项可编译行为桩12红10绿→实现22绿→新增实际100条分页门限及跨scope必需列回归，24项真实MySQL查询测试通过；没有将编译错误/伪造SQL异常当数据库证据。
 - 最新全solution Release：Architecture29、Modules145、Persistence260、Route228，共662 passed、0 failed、0 skipped，构建0 warning/error，format/IDE通过。
 - 662替代638；内部受权登录事件查询缺口已关闭。365天保留/归档容量、导出审计、泄漏服务、目录/部门、JWT/可信代理/HTTP/验证码渲染/页面E2E仍待实施；不标T03/T04或后续工作包整体完成。
+
+### T02 部署功能开关首片
+
+- 严格配置路径校验、不可变快照与匿名白名单catalog已有6项定向测试；禁用所有模块UI开关时，真实身份HTTP仍通过认证/授权集成测试。
+- 首轮全套回归中旧运行时测试fixture缺少必填Features，16项启动失败；补齐测试配置后定向17项与最终串行Release全套通过。
+- 当前全solution为Architecture29、Modules217、Persistence316、Route228，共790 passed、0 failed、0 skipped。后续运行能力owner、T06菜单集成及T30/T32仍未验收；790不代表完整DTC-SYS-008或T02完成。

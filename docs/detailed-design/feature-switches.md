@@ -1,6 +1,6 @@
 ﻿# 功能开关详细设计
 
-- 状态：评审中；配置模型与测试为设计基线，尚不代表实现或部署验收
+- 状态：已纳入软件实现基线；分包实现与测试中，不代表全量验收或部署许可
 - 范围：SCOPE-OPS-02；REQ-ARCH-008；FUNC-SYS-005；DTC-SYS-008
 - Owner：Host（部署组合与校验）、各模块（能力边界）、Ops Web（入口投影）
 - 参考：[Seven 功能开关](../../../Seven.Master/doc/14-功能开关.md)、[系统架构](../02-system-architecture.md)、[系统运维](system-operations.md)、[工程治理](../03-engineering-governance.md)

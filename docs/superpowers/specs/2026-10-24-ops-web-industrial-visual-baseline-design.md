@@ -1,6 +1,6 @@
 # Ops Web Industrial Visual Baseline
 
-- Status: Approved for written-spec review; implementation is not yet authorized.
+- Status: Written specification approved by the user; implementation is in place, with native 200% desktop-zoom inspection still outstanding.
 - Date: 2026-10-24
 - Scope: All current Ops Web routes and future pages built on the same operations shell.
 - Design authority: This document defines the visual baseline and must remain subordinate to approved business, authorization, safety, and page-interaction contracts.

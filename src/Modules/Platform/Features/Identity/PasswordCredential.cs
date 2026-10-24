@@ -35,6 +35,25 @@ public sealed class PasswordCredential
     public string Version { get; private set; } = Guid.NewGuid().ToString("D");
     /// <summary>UTC microsecond instant of the last set.</summary>
     public DateTimeOffset ChangedAt { get; private set; }
+    /// <summary>Current account security state; existing imported rows fail closed until explicitly enabled.</summary>
+    public bool Enabled { get; private set; } = true;
+    /// <summary>Stages the shared CAS fence used by successful session issuance, never a password change.</summary>
+    public void FenceSession(DateTimeOffset now)
+    {
+        _ = ReadRecent();
+        if (Normalize(now) < ChangedAt) throw new InvalidOperationException("Credential time cannot move backwards.");
+        if (!Enabled) throw new InvalidOperationException("A disabled account cannot issue a session.");
+        Version = Guid.NewGuid().ToString("D");
+    }
+    /// <summary>Stages a reviewed owner account-state transition; authorization/audit and family revocation are caller obligations.</summary>
+    public void SetEnabled(bool enabled, DateTimeOffset now)
+    {
+        _ = ReadRecent();
+        if (Normalize(now) < ChangedAt) throw new InvalidOperationException("Credential time cannot move backwards.");
+        if (Enabled == enabled) return;
+        Enabled = enabled;
+        Version = Guid.NewGuid().ToString("D");
+    }
     private string HistoryData { get; set; } = "[]";
     /// <summary>Detached owner-only view, including the current value, newest first.</summary>
     [JsonIgnore]

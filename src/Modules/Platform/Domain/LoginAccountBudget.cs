@@ -71,6 +71,21 @@ public sealed class LoginAccountBudget
         return gate;
     }
 
+    /// <summary>CAS-fences a currently permitted successful verification without resetting the approved failure window.</summary>
+    public LoginGate FenceSuccess(DateTimeOffset now, bool validChallenge)
+    {
+        var gate = Evaluate(now, validChallenge);
+        if (gate == LoginGate.VerifyPassword) Version = Guid.NewGuid().ToString("D");
+        return gate;
+    }
+
+    /// <summary>Owner-only merge of an already admitted, actually checked wrong candidate; concurrent lock saturation never extends its deadline.</summary>
+    public void RecordAdmittedFailure(DateTimeOffset now)
+    {
+        if (RecordFailure(now, true) != LoginGate.VerifyPassword)
+            Version = Guid.NewGuid().ToString("D");
+    }
+
     private static DateTimeOffset Normalize(DateTimeOffset now) =>
         new(now.UtcTicks - now.UtcTicks % 10, TimeSpan.Zero);
 

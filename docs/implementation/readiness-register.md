@@ -81,6 +81,7 @@
 | T03当前会话登出 | 内部撤销/原子审计已实现并验证，见[登出记录](12-audited-current-session-logout.md)；不是整包完成 | 15项真实DB测试通过；当前自有family与一条版本链审计原子、幂等/refresh两方向竞争/审计SQL失败回滚、8次CAS耗尽明确失败；不含HTTP、改密/禁用全量撤销及完整登录链路 |
 | T03兼容凭据编码 | 内部编码器已实现并验证，见[编码器记录](13-compatible-password-codec.md)；不是账号/登录整包完成 | 17项测试通过；Seven兼容仅受限验证，新密码完整Unicode/SHA384增强BCrypt、显式scheme/规范成本格式及秘密输出保护；Clear证据仍由未来历史/泄漏owner取得，不能直接签发会话 |
 | T03耐久历史/受控改密 | 内部owner已实现并验证，见[改密记录](14-durable-password-change.md)；不是公开API/整包完成 | 7项领域/格式与30项迁移/真实DB测试通过；最近5个含当前值、逐原scheme历史检查、旧密/自有Active会话/版本复验，凭据与既有全部自有family撤销/审计原子；新family签发栅栏、外部泄漏检查、目录/禁用及HTTP/页面仍待接线 |
+| T03耐久登录协调/签发栅栏 | 内部完整协调用例已实现并验证，见[登录记录](15-coordinated-password-login.md)；非公开身份系统/整包完成 | 3项领域与28项迁移/真实DB测试通过；来源/挑战独立消费、账号门槛、未知账号dummy/真实新旧核密、在途失败事件合并、risk/凭据/新family显式原子事务；已关闭login/改密新family竞态；旧family持久限制并拒当前grants。禁用管理/JWT/HTTP/渲染/目录/页面E2E仍缺 |
 | T04权限/配置/审计内部基础 | 已实现并验证，见[详细思路与红绿证据](08-platform-access-settings-audit.md)；不是整包完成 | 29领域用例、36迁移/真实MySQL用例通过；当前role/session复验、字段scope/集合身份、角色可委派与原子审计、配置CAS与原子audit、受权审计查询已覆盖；T03完整身份链路、组织/用户/字典语言、HTTP/页面/E2E仍缺 |
 | T05..T16 | 未开始 | 按原DAG逐项；不得因内部基础/会话测试通过就跳过完整T03/T04及各自硬依赖 |
 | T17 Route纯内核 | 软件工作包验收完成，见[实现、红绿及审查证据](07-route-kernel.md)；不是完整Route/WCS验收 | FourWay/Stacker各自私有topology/physical mapping与确定性候选路径；连接物理语义/设备归属缺陷先红后修复，最终SPEC/CODE审查PASS；228 Route测试与父集成通过；预约/派发/反馈及H分别由后续包验收 |
@@ -135,3 +136,11 @@
 - 最终7项领域/格式、30项迁移/真实DB用例通过；增量迁移只增凭据表和复合唯一索引，在授权`wes_test`应用。没有公开改密endpoint/生产迁移。
 - 最新全solution Release：Architecture29、Modules142、Persistence183、Route228，共582 passed、0 failed、0 skipped，0构建警告/错误；格式、IDE诊断与双context模型一致。
 - 582替代545作为当前软件回归数量；本地历史证据已实现，外部泄漏Clear、用户目录/禁用、并发新family签发栅栏、完整登录/JWT/HTTP/页面/E2E仍未验收，不将T03或T04–T34冒称整体完成。
+
+### 登录协调与会话签发栅栏验证
+
+- 来源/账号/挑战/凭据/新family已由一个内部owner协同；不接收客户端预验证布尔值。当前grants拒持久legacy受限family，refresh不解除限制。
+- 先取得3项领域红灯与14项DB行为红灯，再实现；真实event1062暴露risk/event隐式事务回滚不完整，改为显式owner事务后断言通过。没有把“多记一次风险”作为原子性例外。
+- 3项领域、28项迁移/真实DB验证通过，涵盖6并发错密、单挑战双请求、risk CAS及8次耗尽、首次PK竞争、login/改密两种提交顺序、角色与refresh不能绕过受限状态、独立消费不退款及核验后时钟倒退。
+- 最新全solution Release：Architecture29、Modules145、Persistence211、Route228，共613 passed、0 failed、0 skipped，0构建警告/错误；格式、IDE诊断、双context模型一致。
+- 613替代582；已关闭新family签发/改密竞态，用户禁用管理、受权登录事件查询/365天保留与容量治理、泄漏服务、完整账号目录、JWT/可信代理/HTTP/验证码渲染/页面E2E仍待完成。旧行迁移默认禁用/受限，生产升级需受控方案，不把测试库通过当部署许可。

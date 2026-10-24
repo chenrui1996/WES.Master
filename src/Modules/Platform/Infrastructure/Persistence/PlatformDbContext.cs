@@ -38,6 +38,8 @@ public sealed class PlatformDbContext : DbContext
     public DbSet<LoginChallenge> LoginChallenges => Set<LoginChallenge>();
     /// <summary>Owner-local password history; never a user-list or public response source.</summary>
     public DbSet<PasswordCredential> PasswordCredentials => Set<PasswordCredential>();
+    /// <summary>Append-only finite login security evidence, including unknown-account attempts.</summary>
+    public DbSet<LoginSecurityEvent> LoginEvents => Set<LoginSecurityEvent>();
 
     /// <summary>Maps only Platform-owned tables with UTC instants, tenant keys and explicit concurrency.</summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -55,9 +57,24 @@ public sealed class PlatformDbContext : DbContext
         password.HasIndex(item => new { item.TenantId, item.AccountDigest }).IsUnique();
         password.Property(item => item.Version).HasColumnType("varchar(36)").HasMaxLength(36).IsConcurrencyToken();
         password.Property(item => item.ChangedAt).HasConversion(utc).HasColumnType("datetime(6)");
+        password.Property(item => item.Enabled).HasDefaultValue(false);
         password.Property<string>("HistoryData").HasColumnType("varchar(2048)").HasMaxLength(2048).IsRequired();
         password.Ignore(item => item.Recent);
         password.HasQueryFilter(item => item.TenantId == TenantId);
+
+        var loginEvent = modelBuilder.Entity<LoginSecurityEvent>();
+        loginEvent.ToTable("platform_login_events");
+        loginEvent.HasKey(item => new { item.TenantId, item.Id });
+        loginEvent.Property(item => item.TenantId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        loginEvent.Property(item => item.Id).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        loginEvent.Property(item => item.CorrelationId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        loginEvent.Property(item => item.SessionId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        loginEvent.Property(item => item.AccountDigest).HasColumnType("varchar(64)").HasMaxLength(64);
+        loginEvent.Property(item => item.SourceDigest).HasColumnType("varchar(64)").HasMaxLength(64);
+        loginEvent.Property(item => item.Kind).HasConversion<string>().HasColumnType("varchar(32)").HasMaxLength(32);
+        loginEvent.Property(item => item.OccurredAt).HasConversion(utc).HasColumnType("datetime(6)");
+        loginEvent.HasIndex(item => new { item.TenantId, item.OccurredAt, item.Id });
+        loginEvent.HasQueryFilter(item => item.TenantId == TenantId);
 
         var challenge = modelBuilder.Entity<LoginChallenge>();
         challenge.ToTable("platform_login_challenges");
@@ -92,6 +109,7 @@ public sealed class PlatformDbContext : DbContext
         session.Property(item => item.Id).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
         session.Property(item => item.UserId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
         session.Property(item => item.Client).HasConversion<string>().HasColumnType("varchar(8)").HasMaxLength(8);
+        session.Property(item => item.RequiresPasswordChange).HasDefaultValue(true);
         session.Property(item => item.CreatedAt).HasConversion(utc).HasColumnType("datetime(6)");
         session.Property(item => item.LastActivityAt).HasConversion(utc).HasColumnType("datetime(6)");
         session.Property(item => item.RevokedAt).HasConversion(utc).HasColumnType("datetime(6)");
@@ -180,7 +198,7 @@ public sealed class PlatformDbContext : DbContext
         foreach (var entry in ChangeTracker.Entries()
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
         {
-            if (entry.Entity is PlatformAudit && entry.State is EntityState.Modified or EntityState.Deleted)
+            if (entry.Entity is PlatformAudit or LoginSecurityEvent && entry.State is EntityState.Modified or EntityState.Deleted)
             {
                 throw new InvalidOperationException("Platform audit facts are append-only.");
             }

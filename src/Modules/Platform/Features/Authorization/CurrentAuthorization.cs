@@ -20,7 +20,7 @@ public sealed class CurrentAuthorization(PlatformDbContext database, TimeProvide
 
         var session = await database.Sessions.AsNoTracking().SingleOrDefaultAsync(
             item => item.Id == context.SessionId && item.UserId == context.ActorId, cancellationToken);
-        if (session is null || session.StateAt(clock.GetUtcNow()) != SessionState.Active)
+        if (session is null || session.RequiresPasswordChange || session.StateAt(clock.GetUtcNow()) != SessionState.Active)
         {
             return ImmutableArray<PermissionGrant>.Empty;
         }

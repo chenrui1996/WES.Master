@@ -48,7 +48,7 @@ public sealed class ChangePasswordHandler(PlatformDbContext database, TimeProvid
             var now = Now();
             if (session is null || session.StateAt(now) != SessionState.Active) return Rejected();
             var credential = await database.PasswordCredentials.SingleOrDefaultAsync(item => item.UserId == context.ActorId, cancellationToken);
-            if (credential is null) return Rejected();
+            if (credential is null || !credential.Enabled) return Rejected();
             if (credential.Version != expectedVersion) return Conflict();
             if (credential.Verify(oldPassword) == CredentialVerification.Invalid) return Rejected();
             var before = credential.Version;

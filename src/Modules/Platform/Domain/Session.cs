@@ -46,7 +46,7 @@ public sealed class Session
     private Session() { }
 
     /// <summary>Creates one session with trusted nonempty owner IDs and an initial digest, never a raw token.</summary>
-    public Session(Guid tenantId, Guid userId, SessionClient client, DateTimeOffset now, string digest)
+    public Session(Guid tenantId, Guid userId, SessionClient client, DateTimeOffset now, string digest, bool requiresPasswordChange = false)
     {
         if (tenantId == Guid.Empty || userId == Guid.Empty || !Enum.IsDefined(client))
         {
@@ -57,6 +57,7 @@ public sealed class Session
         TenantId = tenantId;
         UserId = userId;
         Client = client;
+        RequiresPasswordChange = requiresPasswordChange;
         CreatedAt = LastActivityAt = now;
         Id = Guid.NewGuid();
         Version = Guid.NewGuid().ToString("D");
@@ -71,6 +72,8 @@ public sealed class Session
     public Guid UserId { get; private set; }
     /// <summary>Approved client classification.</summary>
     public SessionClient Client { get; private set; }
+    /// <summary>Durable legacy credential restriction; refresh cannot clear it and client claims cannot override it.</summary>
+    public bool RequiresPasswordChange { get; private set; }
     /// <summary>UTC instant at initial login; refresh cannot modify it.</summary>
     public DateTimeOffset CreatedAt { get; private set; }
     /// <summary>Last accepted real user activity; refresh does not count.</summary>

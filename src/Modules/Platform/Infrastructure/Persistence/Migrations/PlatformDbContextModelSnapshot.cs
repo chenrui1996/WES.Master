@@ -245,6 +245,11 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("LastActivityAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<bool>("RequiresPasswordChange")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
+
                     b.Property<DateTime?>("RevokedAt")
                         .HasColumnType("datetime(6)");
 
@@ -302,6 +307,50 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                     b.ToTable("platform_settings", (string)null);
                 });
 
+            modelBuilder.Entity("Wes.Platform.Features.Identity.LoginSecurityEvent", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("AccountDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("CorrelationId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("SessionId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("SourceDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "OccurredAt", "Id");
+
+                    b.ToTable("platform_login_events", (string)null);
+                });
+
             modelBuilder.Entity("Wes.Platform.Features.Identity.PasswordCredential", b =>
                 {
                     b.Property<string>("TenantId")
@@ -319,6 +368,11 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime>("ChangedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("Enabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("HistoryData")
                         .IsRequired()

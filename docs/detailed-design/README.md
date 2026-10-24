@@ -6,7 +6,7 @@
 
 ## 1. 阅读顺序与交接
 
-1. 先读[共用标准](00-shared-page-and-test-standard.md)与[密集页面交互补充](03-dense-page-interaction-contract.md)：布局、字段/权限/状态，以及列显隐/顺序/宽度/固定、个人视图、关联显示、级联筛选、主从编辑；共32条共用UI测试。
+1. 先读[共用标准](00-shared-page-and-test-standard.md)、[Ops Web 工业风格视觉基准](06-ops-web-visual-style-baseline.md)与[密集页面交互补充](03-dense-page-interaction-contract.md)：布局、字段/权限/状态、视觉tokens，以及列显隐/顺序/宽度/固定、个人视图、关联显示、级联筛选、主从编辑；共32条共用UI测试。
 2. 再读[公共参考](01-reference-cases.md)：原9项公开资料及本轮Legrand源码/GitHub Projects证据，区分采用、不采用与不可访问来源。
 3. 按下表进入模块：页面表是信息/字段/布局合同；新增逐页配置矩阵定义默认/必显/可选列、关联选择链与适用测试；功能表是owner/事务/状态规则；详细DTC表是步骤和持久化/副作用断言。
 4. 最后读[13条跨模块详细场景](02-cross-module-scenarios.md)，与原验收编号建立关联。

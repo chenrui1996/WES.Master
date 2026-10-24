@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Microsoft.EntityFrameworkCore;
 using Wes.Platform.Domain;
+using Wes.Platform.Features.Directory;
 using Wes.Platform.Features.Tenancy;
 using Wes.Platform.Infrastructure.Persistence;
 
@@ -17,6 +18,9 @@ public sealed class CurrentAuthorization(PlatformDbContext database, TimeProvide
         {
             throw new InvalidOperationException("Authorization requires matching trusted owner context.");
         }
+
+        if (!await new DirectoryEligibility(database).IsDirectoryEligibleAsync(context.ActorId, cancellationToken))
+            return ImmutableArray<PermissionGrant>.Empty;
 
         var session = await database.Sessions.AsNoTracking().SingleOrDefaultAsync(
             item => item.Id == context.SessionId && item.UserId == context.ActorId, cancellationToken);
@@ -35,7 +39,17 @@ public sealed class CurrentAuthorization(PlatformDbContext database, TimeProvide
 
     /// <summary>Returns the exact authorized projection for a resource, not an unfiltered entity or a role bypass.</summary>
     public async Task<ImmutableHashSet<string>> VisibleFieldsAsync(
-        TenantContext context, string permission, ResourceScope resource, CancellationToken cancellationToken = default) =>
-        RolePolicy.VisibleFields(context.TenantId, context.ActorId, permission, resource,
-            await ReadGrantsAsync(context, cancellationToken));
+        TenantContext context, string permission, ResourceScope resource, CancellationToken cancellationToken = default)
+    {
+        var grants = await ReadGrantsAsync(context, cancellationToken);
+        if (permission.StartsWith("platform.users.", StringComparison.Ordinal) && resource.OwnerId != Guid.Empty)
+        {
+            // User department comes from current owner state even when a handler supplies stale/empty metadata.
+            var user = await database.DirectoryUsers.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.Id == resource.OwnerId, cancellationToken);
+            if (user is null || resource.TenantId != database.TenantId) return ImmutableHashSet<string>.Empty;
+            resource = new ResourceScope(user.TenantId, user.Id, user.DepartmentId);
+        }
+        return RolePolicy.VisibleFields(context.TenantId, context.ActorId, permission, resource, grants);
+    }
 }

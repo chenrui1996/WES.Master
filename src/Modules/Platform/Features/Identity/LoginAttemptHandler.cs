@@ -82,7 +82,9 @@ public sealed class LoginAttemptHandler(PlatformDbContext database, LoginSourceD
                 item => item.AccountDigest == account.Digest, cancellationToken);
             var verification = credential is null
                 ? PasswordCredentialCodec.Verify(password, Dummy) : credential.Verify(password);
-            if (credential is null || !credential.Enabled || verification == CredentialVerification.Invalid)
+            if (credential is null || !credential.Enabled || verification == CredentialVerification.Invalid
+                || !await new Wes.Platform.Features.Directory.DirectoryEligibility(database)
+                    .IsEligibleAsync(credential.UserId, cancellationToken))
             {
                 database.ChangeTracker.Clear();
                 return await RecordFailureAsync(account, source, correlation, checkedAt, cancellationToken);

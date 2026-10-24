@@ -347,6 +347,7 @@ public sealed class DisableAccountPersistenceTests : IAsyncLifetime
     private async Task<(TenantContext Context, string Version)> SeedAsync(string variant = "")
     {
         await using var seed = Open();
+        DirectoryTestFixture.Add(seed, _admin, _target);
         var credential = NewCredential(_tenant);
         var current = new Session(_tenant, _admin, SessionClient.Web, Start, RefreshSecret.Generate().Digest, variant == "legacy-session");
         var scope = variant == "own-other" ? DataScope.Own : variant == "department" ? DataScope.Departments : DataScope.All;
@@ -398,6 +399,7 @@ public sealed class DisableAccountPersistenceTests : IAsyncLifetime
             database.Sessions.RemoveRange(await database.Sessions.ToListAsync());
             database.Memberships.RemoveRange(await database.Memberships.ToListAsync());
             database.Roles.RemoveRange(await database.Roles.ToListAsync());
+            await DirectoryTestFixture.RemoveAsync(database);
             await database.SaveChangesAsync();
         }
     }

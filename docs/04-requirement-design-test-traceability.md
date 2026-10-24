@@ -161,3 +161,7 @@ Legrand/GitHub密集页面对照补充见[交互合同与评审缺口](detailed-
 Route旧范围键001..027已给出[逐条语义候选与详细测试](detailed-design/route.md)，待负责人签核，不把候选等同已批准要求；028..029继续以ADR-0001为权威。
 
 每次更改业务行为、状态/权限、API/event、provider、Route 或安全边界时，同 PR 更新本矩阵、范围矩阵和对应设计/测试。移除 requirement 前须记为 deferred/rejected，并由 owner 说明影响；测试变更不应让未满足的 requirement 消失。
+
+### 2026-10-24 T04 directory owner implementation evidence
+
+REQ-PLAT-004..009 → FUNC-PLAT-002..004 → T04 → DTC-PLAT-004..006/008/011/014 的具名后端目录、角色成员、租户切换准入、字典语言/引用保护实现及 MySQL scoped runner 证据见 [18-t04-directory](implementation/18-t04-directory.md)。包括当前目录资格 fail-closed、逐资源字段投影、旧/新部门范围复验、独立凭据创建、显式本地 bootstrap、原子追加审计、实际并发成员写与保存后回滚；不覆盖全部 DTC 的页面/HTTP/其他 Provider 验收，不将 T04 整包或相关 REQ 标为已验收。

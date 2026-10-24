@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -31,6 +32,15 @@ public sealed class PlatformAccessPersistenceTests : IAsyncLifetime
         await using var database = Open(_tenant);
         await database.Database.MigrateAsync();
         _migrated = true;
+    }
+
+    /// <summary>DTC-PLAT-004: historical sessions/roles alone cannot invent an enabled directory identity.</summary>
+    [Fact]
+    public async Task CurrentAuthorization_MissingDirectoryIdentity_FailsClosed()
+    {
+        var (context, _, _) = await SeedAsync(provisionDirectory: false);
+        await using var read = Open(_tenant);
+        Assert.Empty(await new CurrentAuthorization(read, new FixedClock()).ReadGrantsAsync(context));
     }
 
     /// <summary>Current enabled roles round-trip through JSON, then revoke immediately even on a reused context.</summary>
@@ -351,6 +361,49 @@ public sealed class PlatformAccessPersistenceTests : IAsyncLifetime
         Assert.Equal(duplicate.Id, (await verify.Audit.SingleAsync()).Id);
     }
 
+    /// <summary>A provider fault after an audit SQL command must not leave the audit or its associated mutation committed.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("CaseId", "AUDIT-ATOMIC-002")]
+    public async Task FailureAfterAuditSql_RollsBackRoleOrSettingAndItsAudit(bool role)
+    {
+        TenantContext context;
+        Guid target;
+        string version;
+        if (role) (context, target, version) = await SeedRoleEditorAsync();
+        else
+        {
+            (context, _, target) = await SeedAsync();
+            await using var read = Open(_tenant);
+            var setting = await read.Settings.SingleAsync();
+            version = setting.Version;
+        }
+        await using (var write = Open(_tenant, new FailAfterAuditSql()))
+        {
+            Func<Task> command = role
+                ? () => RoleHandler(write).HandleAsync(context, target, version, false, [StockGrant(DataScope.Departments, ["Id"])], Guid.NewGuid())
+                : () => Handler(write).HandleAsync(context, target, version, "300", Guid.NewGuid());
+            var fault = await Assert.ThrowsAnyAsync<Exception>(command);
+            Assert.IsType<InjectedAuditSqlFailureException>(fault.GetBaseException());
+            Assert.Empty(write.ChangeTracker.Entries());
+        }
+        await using var verify = Open(_tenant);
+        Assert.Empty(await verify.Audit.ToListAsync());
+        if (role)
+        {
+            var unchanged = await verify.Roles.SingleAsync(item => item.Id == target);
+            Assert.True(unchanged.Enabled);
+            Assert.Equal(version, unchanged.Version);
+        }
+        else
+        {
+            var unchanged = await verify.Settings.SingleAsync(item => item.Id == target);
+            Assert.Equal("600", unchanged.Value);
+            Assert.Equal(version, unchanged.Version);
+        }
+    }
+
     /// <summary>Two actual handlers overlap before SQL; CAS failure also rolls back that handler's audit insert.</summary>
     [Fact]
     [Trait("CaseId", "SETTINGS-VERSION-001")]
@@ -541,9 +594,10 @@ public sealed class PlatformAccessPersistenceTests : IAsyncLifetime
     private PlatformAudit NewAudit() => new(_tenant, _actor, Guid.NewGuid(), Guid.NewGuid(),
         PlatformAuditAction.SettingChanged, null, Guid.NewGuid().ToString("D"), Now);
 
-    private async Task<(TenantContext Context, Guid Role, Guid Setting)> SeedAsync(DataScope scope = DataScope.All)
+    private async Task<(TenantContext Context, Guid Role, Guid Setting)> SeedAsync(DataScope scope = DataScope.All, bool provisionDirectory = true)
     {
         await using var database = Open(_tenant);
+        if (provisionDirectory) DirectoryTestFixture.Add(database, _actor);
         var session = new Session(_tenant, _actor, SessionClient.Web, Now, new string('A', 64));
         var role = new AccessRole(_tenant, "operator", [new PermissionGrant("platform.settings.write", scope,
             ImmutableHashSet<Guid>.Empty, ImmutableHashSet.Create("Value"))]);
@@ -581,6 +635,7 @@ public sealed class PlatformAccessPersistenceTests : IAsyncLifetime
             database.Roles.RemoveRange(await database.Roles.ToListAsync());
             database.Settings.RemoveRange(await database.Settings.ToListAsync());
             database.Sessions.RemoveRange(await database.Sessions.ToListAsync());
+            await DirectoryTestFixture.RemoveAsync(database);
             await database.SaveChangesAsync();
         }
     }
@@ -610,6 +665,26 @@ public sealed class PlatformAccessPersistenceTests : IAsyncLifetime
             return ValueTask.FromResult(result);
         }
     }
+
+    private sealed class FailAfterAuditSql : DbCommandInterceptor
+    {
+        public override async ValueTask<DbDataReader> ReaderExecutedAsync(DbCommand command, CommandExecutedEventData eventData,
+            DbDataReader result, CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains("INSERT INTO `platform_audit`", StringComparison.Ordinal))
+            {
+                await result.DisposeAsync();
+                throw new InjectedAuditSqlFailureException();
+            }
+            return result;
+        }
+        public override ValueTask<int> NonQueryExecutedAsync(DbCommand command, CommandExecutedEventData eventData, int result,
+            CancellationToken cancellationToken = default) =>
+            command.CommandText.Contains("INSERT INTO `platform_audit`", StringComparison.Ordinal)
+                ? throw new InjectedAuditSqlFailureException() : ValueTask.FromResult(result);
+    }
+
+    private sealed class InjectedAuditSqlFailureException : Exception;
 
     private sealed class SaveBarrier : SaveChangesInterceptor
     {

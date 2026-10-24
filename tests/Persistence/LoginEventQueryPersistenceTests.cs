@@ -248,6 +248,7 @@ public sealed class LoginEventQueryPersistenceTests : IAsyncLifetime
     private async Task<TenantContext> SeedAsync(string variant = "")
     {
         await using var seed = Open();
+        DirectoryTestFixture.Add(seed, _actor);
         var session = new Session(_tenant, _actor, SessionClient.Web, Now, RefreshSecret.Generate().Digest, variant == "legacy");
         if (variant == "revoked") session.Revoke(Now);
         var fields = variant == "missing-id" ? AllFields.Remove("Id") : variant == "missing-time" ? AllFields.Remove("OccurredAt") : AllFields;
@@ -304,6 +305,7 @@ public sealed class LoginEventQueryPersistenceTests : IAsyncLifetime
             database.Memberships.RemoveRange(await database.Memberships.ToListAsync());
             database.Roles.RemoveRange(await database.Roles.ToListAsync());
             database.Sessions.RemoveRange(await database.Sessions.ToListAsync());
+            await DirectoryTestFixture.RemoveAsync(database);
             await database.SaveChangesAsync();
         }
     }

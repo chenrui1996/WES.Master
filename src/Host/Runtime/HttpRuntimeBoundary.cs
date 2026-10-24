@@ -44,6 +44,7 @@ public sealed class HttpRuntimeBoundary(RequestDelegate next, ILogger<HttpRuntim
             var status = error switch
             {
                 TimeoutException => StatusCodes.Status503ServiceUnavailable,
+                Wes.Host.Identity.BreachEvidenceUnavailableException => StatusCodes.Status503ServiceUnavailable,
                 BadHttpRequestException => StatusCodes.Status400BadRequest,
                 _ => StatusCodes.Status500InternalServerError
             };

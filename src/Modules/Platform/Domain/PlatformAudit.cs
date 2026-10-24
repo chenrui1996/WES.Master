@@ -14,7 +14,17 @@ public enum PlatformAuditAction
     /// <summary>The current subject changed their credential and revoked their existing session families.</summary>
     PasswordChanged,
     /// <summary>A current authorized manager disabled an account and revoked its existing families.</summary>
-    AccountDisabled
+    AccountDisabled,
+    /// <summary>A directory subject profile changed or was created.</summary>
+    UserChanged,
+    /// <summary>A separate first credential was provisioned.</summary>
+    CredentialCreated,
+    /// <summary>A department profile/state changed.</summary>
+    DepartmentChanged,
+    /// <summary>Tenant metadata/state changed.</summary>
+    TenantChanged,
+    /// <summary>A stable dictionary entry, translation or reference changed.</summary>
+    DictionaryChanged
 }
 
 /// <summary>Append-only audit fact staged with the owner mutation; no general request/payload string is accepted.</summary>

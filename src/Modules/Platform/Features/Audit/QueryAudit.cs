@@ -20,19 +20,25 @@ public sealed class QueryAudit(PlatformDbContext database, TimeProvider clock, I
 {
     /// <summary>Queries [from,to), stable instant/ID order, with a bounded page after tenant and data-scope filtering.</summary>
     public async Task<AuditPage> ReadAsync(TenantContext context, DateTimeOffset from, DateTimeOffset to,
-        int offset = 0, int limit = 100, CancellationToken cancellationToken = default)
+        int offset = 0, int limit = 100, CancellationToken cancellationToken = default,
+        PlatformAuditAction? filterAction = null, Guid? correlationId = null)
     {
         if (from >= to) throw new ArgumentException("Audit queries require an increasing time interval.");
         if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset));
         if (limit is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(limit));
+        if (filterAction is not null && !Enum.IsDefined(filterAction.Value)) throw new ArgumentOutOfRangeException(nameof(filterAction));
+        if (correlationId == Guid.Empty) throw new ArgumentException("Audit correlation must be a nonempty UUID.");
         var grants = await new CurrentAuthorization(database, clock).ReadGrantsAsync(context, cancellationToken);
         var relevant = grants.Where(grant => grant.Permission == "platform.audit.read").ToArray();
         var allFields = relevant.Where(grant => grant.Scope == DataScope.All).SelectMany(grant => grant.Fields)
             .ToImmutableHashSet(StringComparer.Ordinal);
         var ownFields = relevant.Where(grant => grant.Scope is DataScope.All or DataScope.Own).SelectMany(grant => grant.Fields)
             .ToImmutableHashSet(StringComparer.Ordinal);
-        var all = allFields.Contains("Id") && allFields.Contains("OccurredAt");
-        var own = ownFields.Contains("Id") && ownFields.Contains("OccurredAt");
+        var required = new List<string> { "Id", "OccurredAt" };
+        if (filterAction is not null) required.Add("Action");
+        if (correlationId is not null) required.Add("CorrelationId");
+        var all = required.All(allFields.Contains);
+        var own = required.All(ownFields.Contains);
         if (!all && !own)
         {
             logger.LogWarning("Audit query rejected {Code}", "AuditReadForbidden");
@@ -47,10 +53,12 @@ public sealed class QueryAudit(PlatformDbContext database, TimeProvider clock, I
         var action = Access("Action");
         var before = Access("BeforeVersion");
         var after = Access("AfterVersion");
-        var rows = await database.Audit.AsNoTracking()
+        var query = database.Audit.AsNoTracking()
             .Where(item => item.OccurredAt >= from && item.OccurredAt < to
-                && (all || (own && item.ActorId == context.ActorId)))
-            .OrderBy(item => item.OccurredAt).ThenBy(item => item.Id).Skip(offset).Take(limit)
+                && (all || (own && item.ActorId == context.ActorId)));
+        if (filterAction is not null) query = query.Where(item => item.Action == filterAction.Value);
+        if (correlationId is not null) query = query.Where(item => item.CorrelationId == correlationId.Value);
+        var rows = await query.OrderBy(item => item.OccurredAt).ThenBy(item => item.Id).Skip(offset).Take(limit)
             .Select(item => new AuditRow(item.Id, item.OccurredAt,
                 actor.All || (actor.Own && item.ActorId == context.ActorId) ? item.ActorId : null,
                 target.All || (target.Own && item.ActorId == context.ActorId) ? item.TargetId : null,

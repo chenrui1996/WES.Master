@@ -55,6 +55,278 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                     b.ToTable("platform_roles", (string)null);
                 });
 
+            modelBuilder.Entity("Wes.Platform.Domain.DictionaryEntry", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<string>("LanguageKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<string>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "Category", "Code")
+                        .IsUnique();
+
+                    b.ToTable("platform_dictionary_entries", (string)null);
+                });
+
+            modelBuilder.Entity("Wes.Platform.Domain.DictionaryReference", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("EntryId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("ReferenceId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "EntryId", "ReferenceId");
+
+                    b.ToTable("platform_dictionary_references", (string)null);
+                });
+
+            modelBuilder.Entity("Wes.Platform.Domain.DictionaryTranslation", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("EntryId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Language")
+                        .HasMaxLength(35)
+                        .HasColumnType("varchar(35)");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.HasKey("TenantId", "EntryId", "Language");
+
+                    b.ToTable("platform_dictionary_translations", (string)null);
+                });
+
+            modelBuilder.Entity("Wes.Platform.Domain.DirectoryCommandReceipt", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("ActorId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("OperationId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("ResultId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("ResultVersion")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "ActorId", "OperationId");
+
+                    b.HasIndex("TenantId", "CreatedAt");
+
+                    b.ToTable("platform_directory_command_receipts", (string)null);
+                });
+
+            modelBuilder.Entity("Wes.Platform.Domain.DirectoryDelegationRequirement", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("ActorId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("OperationId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("RoleIdsData")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("TenantId", "ActorId", "OperationId");
+
+                    b.ToTable("platform_directory_delegation_requirements", (string)null);
+                });
+
+            modelBuilder.Entity("Wes.Platform.Domain.DirectoryDepartment", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<string>("ParentId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "ParentId");
+
+                    b.ToTable("platform_departments", (string)null);
+                });
+
+            modelBuilder.Entity("Wes.Platform.Domain.DirectoryTenant", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("DefaultLanguage")
+                        .IsRequired()
+                        .HasMaxLength(35)
+                        .HasColumnType("varchar(35)");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<string>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId");
+
+                    b.ToTable("platform_directory_tenants", (string)null);
+                });
+
+            modelBuilder.Entity("Wes.Platform.Domain.DirectoryUser", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Account")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("varchar(512)");
+
+                    b.Property<string>("AccountDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("DepartmentId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<string>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "AccountDigest")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "DepartmentId");
+
+                    b.ToTable("platform_directory_users", (string)null);
+                });
+
             modelBuilder.Entity("Wes.Platform.Domain.LoginAccountBudget", b =>
                 {
                     b.Property<string>("TenantId")
@@ -395,6 +667,56 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("platform_password_credentials", (string)null);
+                });
+
+            modelBuilder.Entity("Wes.Platform.Domain.DictionaryReference", b =>
+                {
+                    b.HasOne("Wes.Platform.Domain.DictionaryEntry", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "EntryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Wes.Platform.Domain.DictionaryTranslation", b =>
+                {
+                    b.HasOne("Wes.Platform.Domain.DictionaryEntry", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "EntryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Wes.Platform.Domain.DirectoryDelegationRequirement", b =>
+                {
+                    b.HasOne("Wes.Platform.Domain.DirectoryCommandReceipt", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ActorId", "OperationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Wes.Platform.Domain.DirectoryDepartment", b =>
+                {
+                    b.HasOne("Wes.Platform.Domain.DirectoryTenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Wes.Platform.Domain.DirectoryDepartment", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ParentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Wes.Platform.Domain.DirectoryUser", b =>
+                {
+                    b.HasOne("Wes.Platform.Domain.DirectoryDepartment", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Wes.Platform.Domain.RefreshCredential", b =>

@@ -8,3 +8,7 @@
 .env
 .env.*
 appsettings.*.local.json
+**/node_modules/
+**/dist/
+**/test-results/
+**/playwright-report/

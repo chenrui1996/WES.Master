@@ -6,7 +6,7 @@ using Wes.Platform.Features.Identity;
 namespace Wes.Platform.Infrastructure.Persistence;
 
 /// <summary>Platform-owned persistence only. Every operational instance requires an explicit trusted tenant.</summary>
-public sealed class PlatformDbContext : DbContext
+public sealed partial class PlatformDbContext : DbContext
 {
     /// <summary>Rejects absent tenant identity before any model, query, or database connection is used.</summary>
     public PlatformDbContext(DbContextOptions<PlatformDbContext> options, Guid tenantId) : base(options)
@@ -44,6 +44,7 @@ public sealed class PlatformDbContext : DbContext
     /// <summary>Maps only Platform-owned tables with UTC instants, tenant keys and explicit concurrency.</summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        ConfigureDirectory(modelBuilder);
         var utc = new ValueConverter<DateTimeOffset, DateTime>(
             value => value.UtcDateTime,
             value => new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)));

@@ -1,11 +1,11 @@
 # T03 耐久登录协调与会话签发栅栏
 
-- 状态：内部登录协调已实现并验证；不是已公开HTTP/JWT/页面
+- 状态：内部登录协调已实现并验证；HTTP/JWT和具名页面由后续集成切片接通，见[身份HTTP](19-t03-authenticated-http.md)与[Ops Web页面](20-t03-t04-operations-client.md)
 - 依据：[T03](../superpowers/plans/2026-10-23-wes-development-work-packages.md)、[PAR-01/02及VAL-04](../detailed-design/05-approved-rules-and-defaults.md)、[改密与既有family撤销](14-durable-password-change.md)
 
 ## 范围与顺序
 
-复用已有来源预算、账号风险、挑战MAC、密码编码和Session，新增一个协调owner，而非让HTTP分别调用几个Accepted接口再自行签发身份。调用者仅提供受信tenant数据库、账号owner已规范化值、可信连接来源及支持的client；不收客户端“密码已验证/验证码有效”布尔值、role/menu集合或任意目标user。完整账号显示名/部门目录、账号规范化adapter、可信代理HTTP装配及JWT/页面仍是独立门禁。
+复用已有来源预算、账号风险、挑战MAC、密码编码和Session，新增一个协调owner，而非让HTTP分别调用几个Accepted接口再自行签发身份。调用者仅提供受信tenant数据库、账号owner已规范化值、可信连接来源及支持的client；不收客户端“密码已验证/验证码有效”布尔值、role/menu集合或任意目标user。后续集成现已提供账号规范化adapter、目录身份、可信连接来源HTTP、JWT和具名页面；生产可信代理拓扑及环境授权仍是独立门禁。
 
 1. 先独立提交来源预算；所有账号、错验证码/暂锁/未知账号同样消耗来源预算。超过30/60秒不继续密码核验。
 2. 在不查账号存在性的情况下确保一个同租户账号risk行存在。首次冲突仅限本行真实1062，重读最多8轮；数据库/取消错误不映射成正常登录拒绝。
@@ -34,7 +34,7 @@
 | IDENTITY-LOGIN-FAULT-001 | 真实事件1062、取消、坏schema/倒退时钟、外部事务 | owner原子回滚、已提交来源/挑战不补偿、明确故障、无秘密回显 |
 | IDENTITY-LOGIN-MIGRATION-001 | 新迁移反查操作、默认值与tenant隔离 | 仅两个列/owner事件表及索引；旧行默认失败关闭；append-only保护 |
 
-先写失败测试，再实现与真实MySQL验证。不将T03/父DTC/JWT/可用页面或生产验收标完成。
+先写失败测试，再实现与真实MySQL验证。不将T03/父DTC或生产验收标完成。当前身份HTTP/拒绝/本地Provisioning和受控浏览器结果见[独立测试记录](28-t03-authenticated-http-tests.md)。
 
 ## 已取得的目标测试证据
 
@@ -50,4 +50,4 @@
 
 本片没有Host登录装配、不向匿名客户端开放内部结果；不返回密码策略/真实拒绝原因枚举给匿名调用者。生产迁移需要DBA审批，升级会默认禁用旧凭据行、限制旧会话，须提前列受控重新认证/逐账户迁移方案，不能为无中断盲改默认true。回滚代码优先保留安全事件和限制列，Down会删除证据/状态，不自动执行。真实测试只应用授权隔离`wes_test`。
 
-相较前片，login/改密的新family竞态已用同一凭据版本CAS关闭；风险、挑战和真实密码也已由单一owner协调，而非独立Accepted拼装。用户禁用管理、受权安全事件查询/保留与容量治理、真实泄漏服务、完整账号/部门目录、JWT/受信代理/验证码渲染/HTTP/前端E2E仍待完成。现场H及生产部署许可不变；内部613测试不替代这些门禁。
+相较前片，login/改密的新family竞态已用同一凭据版本CAS关闭；风险、挑战和真实密码也已由单一owner协调，而非独立Accepted拼装。身份JWT/HTTP、验证码PNG、本地目录bootstrap、具名页面及真实浏览器登录/管理路径现已通过软件验证；T03仍未整体完成，真实泄漏语料与服务表现、365天保留/容量治理、生产可信代理和密钥/迁移批准、现场H与生产部署许可仍未关闭。内部测试及[当前回归台账](readiness-register.md)不替代这些门禁。

@@ -75,18 +75,20 @@
 | T02真实MySQL基础切片 | 已实现并验证，见[Provider记录](03-mysql-provider-foundation.md) | 测试隔离、迁移幂等/事务/唯一键/tenant/乐观并发/清理已通过；保留生产权限与兼容限制，不计业务owner验收 |
 | T02软件运行时/架构基础门禁 | 已实现并验证，见[HTTP运行时记录](04-host-runtime-foundation.md) | 安全ProblemDetails/关联日志、真实依赖故障恢复、已知非法symbol反例通过；可供T03内部实施，完整父DTC/业务扩展与生产许可仍另验 |
 | T02部署级功能开关基础 | 首片已实现并验证，见[实施记录](26-deployment-feature-switches.md)及[测试记录](27-deployment-feature-switches-tests.md) | 严格启动配置校验、不可变快照和匿名白名单catalog已测；当前无运行能力owner，启用时明确失败；T02/DTC-SYS-008整体仍未完成 |
-| T03身份首片 | 内部会话/refresh/策略与真实并发已实现；整包仍实施中，见[记录](05-platform-session-core.md) | 登录预算/验证码耐久消费、凭据/JWT/审计/API/页面与E2E未接齐，不开放登录控制面，不误标T03完成 |
+| T03身份首片 | 内部身份owner、HTTP合同、JWT/cookie/会话、改密、受控本地bootstrap及具名页面已接通；66项定向测试和隔离HTTPS浏览器验收通过，见[HTTP实施](19-t03-authenticated-http.md)、[测试](28-t03-authenticated-http-tests.md) | T03仍未整体完成；真实生产secret/key ring/泄漏语料、代理拓扑、容量/保留及DBA/运维验收仍独立待办；不开放业务/设备控制，不误标T03完成 |
 | T03可信来源准入 | 内部耐久IP预算已实现并验证，见[来源准入记录](09-durable-login-source-admission.md)；不是整包完成 | 跨账号/租户30次/60秒、首次唯一键与第30次CAS并发、保存失败/取消/坏schema/时钟反例、独立owner迁移通过；账号预算/验证码/凭据/JWT/代理与HTTP页面链路仍未接齐 |
 | T03账号风险状态 | 内部耐久失败窗口/暂锁已实现并验证，见[账号风险记录](10-durable-account-login-risk.md)；不是整包完成 | 5领域与20迁移/真实DB测试通过；同租户账号3后验证码门槛、5后暂锁900秒、滚动边界与CAS保护；仍须完整owner处理冲突重新准入/真实失败不漏记、验证码一次消费、凭据/JWT/审计及HTTP页面，不把风险读取当签发许可 |
 | T03验证码生命周期 | 内部耐久签发/一次消费已实现并验证，见[验证码记录](11-durable-login-challenges.md)；不是整包完成 | 9领域/保护与24迁移/真实DB测试通过；120秒、正确/错误同绑定一次、跨绑定拒、MAC保护与并发最多一接受；渲染/秘密装配、限流容量、完整凭据/风险并发接线及HTTP/页面E2E仍未验收 |
 | T03当前会话登出 | 内部撤销/原子审计已实现并验证，见[登出记录](12-audited-current-session-logout.md)；不是整包完成 | 15项真实DB测试通过；当前自有family与一条版本链审计原子、幂等/refresh两方向竞争/审计SQL失败回滚、8次CAS耗尽明确失败；不含HTTP、改密/禁用全量撤销及完整登录链路 |
 | T03兼容凭据编码 | 内部编码器已实现并验证，见[编码器记录](13-compatible-password-codec.md)；不是账号/登录整包完成 | 17项测试通过；Seven兼容仅受限验证，新密码完整Unicode/SHA384增强BCrypt、显式scheme/规范成本格式及秘密输出保护；Clear证据仍由未来历史/泄漏owner取得，不能直接签发会话 |
 | T03耐久历史/受控改密 | 内部owner已实现并验证，见[改密记录](14-durable-password-change.md)；不是公开API/整包完成 | 7项领域/格式与30项迁移/真实DB测试通过；最近5个含当前值、逐原scheme历史检查、旧密/自有Active会话/版本复验，凭据与既有全部自有family撤销/审计原子；新family签发栅栏、外部泄漏检查、目录/禁用及HTTP/页面仍待接线 |
-| T03耐久登录协调/签发栅栏 | 内部完整协调用例已实现并验证，见[登录记录](15-coordinated-password-login.md)；非公开身份系统/整包完成 | 3项领域与28项迁移/真实DB测试通过；来源/挑战独立消费、账号门槛、未知账号dummy/真实新旧核密、在途失败事件合并、risk/凭据/新family显式原子事务；已关闭login/改密新family竞态；旧family持久限制并拒当前grants。禁用管理/JWT/HTTP/渲染/目录/页面E2E仍缺 |
-| T04权限/配置/审计内部基础 | 已实现并验证，见[详细思路与红绿证据](08-platform-access-settings-audit.md)；不是整包完成 | 29领域用例、36迁移/真实MySQL用例通过；当前role/session复验、字段scope/集合身份、角色可委派与原子审计、配置CAS与原子audit、受权审计查询已覆盖；T03完整身份链路、组织/用户/字典语言、HTTP/页面/E2E仍缺 |
+| T03耐久登录协调/签发栅栏 | 内部协调owner已实现；后续身份HTTP/JWT与具名页面已集成，见[登录记录](15-coordinated-password-login.md)、[HTTP合同](19-t03-authenticated-http.md) | 3项领域与28项迁移/真实DB测试通过；来源/挑战独立消费、账号门槛、未知账号dummy/真实新旧核密、在途失败事件合并、risk/凭据/new-family显式原子事务；已关闭login/改密new-family竞态。真实泄漏语料/生产密钥和代理、365天保留与容量治理、生产及现场H仍待批准；T03未整体完成 |
+| T04权限/配置/审计内部基础 | 已实现并验证，见[详细思路与红绿证据](08-platform-access-settings-audit.md)；不是整包完成 | 29领域用例、36迁移/真实MySQL用例通过；当前role/session复验、字段scope/集合身份、角色可委派与原子审计、配置CAS与原子audit、受权审计查询已覆盖；用户/部门/字典目录owner和具名HTTP/页面已接通，仍有完整T04命令集成及运维验收待办 |
 | T03/T04当前授权用户禁用 | 内部管理owner已实现并验证，见[禁用记录](16-audited-account-disable.md)；不是用户目录/API/整包 | 22项禁用与3项登录侧新增真实DB测试通过；当前Enabled字段权限、All/Own范围、禁用与全部family/audit显式原子事务、幂等/孤留修复、两个禁用和login/refresh两方向竞争、真实SQL回滚。启用/创建/重置、完整目录/部门与公开HTTP/页面仍缺 |
-| T03/T04受权登录安全事件查询 | 内部只读投影已实现并验证，见[查询记录](17-authorized-login-event-query.md)；非导出/页面 | 24项真实MySQL测试；当前All字段权限、时间/结果/关联筛选后稳定有界分页、隐藏字段不作oracle、100条实际门限/撤权/真实SQL失败/取消通过。Own/部门缺不可变归属时拒绝；保留/容量/导出治理、HTTP/页面仍缺 |
+| T03/T04受权登录安全事件查询 | 内部只读投影和受权HTTP/具名页面已接通，见[查询记录](17-authorized-login-event-query.md)、[HTTP合同](19-t03-authenticated-http.md) | 24项真实MySQL查询测试；All字段权限、筛选/有界分页、撤权、真实SQL失败/取消通过；保留/容量/导出治理与生产验收仍缺 |
 | T03登录页视觉实现 | 已完成独立UI切片，见[实现记录](24-ops-web-login-ui.md)及[测试记录](25-ops-web-login-ui-tests.md) | 仅呈现层；不视为T03认证/API/E2E整包验收；浏览器视口无横向溢出、登录页组件5项和Ops Web构建已通过 |
+| T03/T04具名运维页面与身份HTTP | 软件切片已通过，见[页面实施](20-t03-t04-operations-client.md)、[页面测试](31-t03-t04-operations-client-tests.md)及[T03 HTTP测试](28-t03-authenticated-http-tests.md) | Ops Web组件73项、严格构建、隔离HTTPS Chromium实名页面/写入/登出验收通过；200%人工缩放、真实PDA与生产环境仍未验收 |
+| T04目录及命令回执 | 目录owner/API/页面已集成，owner回执持久化primitive已验证；**T04整体仍partial**。见[目录实施](18-t04-directory.md)、[目录测试](29-t04-directory-tests.md)、[回执实施](23-t04-command-receipts.md)、[回执测试](30-t04-command-receipts-tests.md) | 目录与相关授权持久层106项、回执专用工程31项通过；回执未接入全部合资格HTTP写操作，清理调度与生产迁移/运维仍未验收 |
 | 功能开关后续集成 | 设计见[功能开关设计](../detailed-design/feature-switches.md)，T02配置/catalog首片已验证 | T06客户端菜单接入、可选能力owner注册、T30诊断及T32全组合验收仍待依赖计划执行 |
 | T05..T16 | 未开始 | 按原DAG逐项；不得因内部基础/会话测试通过就跳过完整T03/T04及各自硬依赖 |
 | T17 Route纯内核 | 软件工作包验收完成，见[实现、红绿及审查证据](07-route-kernel.md)；不是完整Route/WCS验收 | FourWay/Stacker各自私有topology/physical mapping与确定性候选路径；连接物理语义/设备归属缺陷先红后修复，最终SPEC/CODE审查PASS；228 Route测试与父集成通过；预约/派发/反馈及H分别由后续包验收 |

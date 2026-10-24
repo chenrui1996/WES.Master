@@ -16,7 +16,9 @@ public enum SettingDecision
     /// <summary>The type/range or approved fixed rule rejects the value.</summary>
     InvalidValue,
     /// <summary>Physical evidence is missing; client configuration cannot establish it.</summary>
-    Unverified
+    Unverified,
+    /// <summary>The operation UUID already identifies a different nonsecret request.</summary>
+    IdempotencyConflict
 }
 
 /// <summary>Tenant-owned typed nonsecret setting. Hardware evidence and secrets have no writable value path here.</summary>

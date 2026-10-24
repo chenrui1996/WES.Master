@@ -1,6 +1,6 @@
 # T03/T04 受权登录安全事件查询
 
-- 状态：实施中；Platform内部只读投影，不是导出/HTTP/审计页面交付
+- 状态：内部只读投影已验证，后续身份HTTP/具名审计页面已接入；不是导出/保留治理交付
 - 依据：[PAGE-PLAT-008/FUNC-PLAT-006/DTC-PLAT-008](../detailed-design/platform-and-security.md)、[已实现登录事件owner](15-coordinated-password-login.md)、[当前受权审计查询](08-platform-access-settings-audit.md)
 
 ## 范围与选择
@@ -25,7 +25,7 @@
 | IDENTITY-LOGIN-EVENT-AUTH-001 | 无权限、Own/Department、缺必需列、跨scope字段、legacy/idle、角色撤销 | 明确拒绝；可用All字段独立裁剪，不用隐藏字段筛选泄露存在性 |
 | IDENTITY-LOGIN-EVENT-FAULT-001 | 坏参数/跨租户、取消、真实SQL坏表、dirty/外层事务 | 显式异常、无成功形空结果、不清调用者状态 |
 
-先运行可编译行为桩观察实际断言失败，再实现并在授权wes_test验证；实际红绿/全量证据在完成后追加。生产/页面/现场H门禁保持不变。
+先运行可编译行为桩观察实际断言失败，再实现并在授权wes_test验证；受权HTTP/具名页面由后续集成提供，整体证据见[身份HTTP记录](19-t03-authenticated-http.md)及[运维页面记录](20-t03-t04-operations-client.md)。生产/现场H门禁保持不变。
 
 ## 实测证据与复跑
 
@@ -40,4 +40,4 @@ dotnet format WES.slnx --no-restore --verify-no-changes
 
 最终fresh Release构建0 warning/error；全量Architecture29、Modules145、Persistence260、Route228，共662 passed、0 failed、0 skipped。format与IDE诊断通过；模型/文档映射/DAG在提交前独立复验。100是实际取页阈值，不只测试参数101被拒；过滤结果在源数据中确有其他tenant/结果/边界记录。
 
-发布仅增加内部查询，无迁移、无新默认grant、不开放Host。回滚不删除安全历史，不影响现有登录/禁用写owner。此片关闭“受权安全事件查询”缺口；365天保留/容量治理、导出及其审计、HTTP/页面仍缺，不能将这些24测试或全量662冒称完整父DTC/T03/T04交付。
+本owner片仅增加内部查询，无迁移、无新默认grant；后续Host已接入受权查询，客户端仅展示当前服务端投影。回滚不删除安全历史，不影响现有登录/禁用写owner。365天保留/容量治理及导出审计仍缺；不能将这些24项测试、单项HTTP/页面集成或全量回归冒称完整父DTC/T03/T04交付。

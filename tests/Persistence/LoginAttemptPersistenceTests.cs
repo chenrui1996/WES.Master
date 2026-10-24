@@ -596,6 +596,10 @@ public sealed class LoginAttemptPersistenceTests : IAsyncLifetime
             legacy ? PasswordHashScheme.SevenBcryptV1 : PasswordHashScheme.BcryptSha384V1, legacy ? Legacy : Modern), Start);
         credential.SetEnabled(enabled, Start);
         seed.PasswordCredentials.Add(credential);
+        var department = new DirectoryDepartment(seed.TenantId, "fixture", "Fixture department");
+        seed.DirectoryTenants.Add(new DirectoryTenant(seed.TenantId, "Fixture tenant"));
+        seed.Departments.Add(department);
+        seed.DirectoryUsers.Add(new DirectoryUser(seed.TenantId, _user, Account, "Fixture subject", department.Id));
         await seed.SaveChangesAsync();
         return credential.Version;
     }
@@ -660,6 +664,7 @@ public sealed class LoginAttemptPersistenceTests : IAsyncLifetime
                 database.LoginChallenges.RemoveRange(await database.LoginChallenges.ToListAsync());
                 database.Memberships.RemoveRange(await database.Memberships.ToListAsync());
                 database.Roles.RemoveRange(await database.Roles.ToListAsync());
+                await DirectoryTestFixture.RemoveAsync(database);
                 await database.SaveChangesAsync();
             }
             await using var source = Sources();

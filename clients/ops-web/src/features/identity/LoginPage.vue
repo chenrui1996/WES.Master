@@ -12,6 +12,7 @@ const image = ref<string>();
 const expires = ref("");
 const busy = ref(false);
 const error = ref("");
+const passwordVisible = ref(false);
 watch([tenant, account], () => { challengeId.value = undefined; image.value = undefined; answer.value = ""; });
 async function signIn() {
   if (busy.value) return;
@@ -51,23 +52,59 @@ async function restore() {
 }
 </script>
 <template>
-  <section class="login-panel wes-page" aria-labelledby="login-title">
-    <header><p class="eyebrow">WES · 身份验证</p><h1 id="login-title">登录运行管理</h1></header>
-    <p>使用所属租户的账号。验证码错误或过期后需要重新获取，密码不会被浏览器应用缓存。</p>
-    <p v-if="error" role="alert" class="error">{{ error }}</p>
-    <form @submit.prevent="signIn" :aria-busy="busy">
-      <label for="tenant">租户标识</label><input id="tenant" v-model="tenant" :disabled="busy" required maxlength="36" autocomplete="organization" placeholder="由管理员提供的租户 UUID">
-      <label for="account">账号</label><input id="account" v-model="account" :disabled="busy" required maxlength="256" autocomplete="username">
-      <label for="password">密码</label><input id="password" v-model="password" :disabled="busy" type="password" required maxlength="512" autocomplete="current-password">
-      <div class="actions"><button type="button" @click="challenge" :disabled="busy || !tenant || !account">获取 / 更换验证码</button></div>
-      <template v-if="image">
-        <img :src="image" alt="六位验证码图片" width="220" height="64">
-        <label for="answer">验证码（{{ new Date(expires).toLocaleTimeString() }} 前一次有效）</label>
-        <input id="answer" v-model="answer" maxlength="6" autocomplete="off" autocapitalize="characters">
-      </template>
-      <div class="actions"><button type="submit" class="primary" :disabled="busy">{{ busy ? "正在处理" : "登录" }}</button>
-        <button type="button" @click="restore" :disabled="busy">恢复当前浏览器会话</button></div>
-    </form>
-    <p class="hint">首次启动没有默认账号。请由管理员通过受控初始化流程创建租户与账号。身份系统未配置时请联系部署管理员。</p>
+  <section class="login-panel login-shell wes-page" aria-labelledby="login-title">
+    <aside class="login-context" aria-label="访问边界说明">
+      <p class="login-mark">WES</p>
+      <p class="login-context-label">OPERATIONS CONSOLE</p>
+      <h2>受控软件环境</h2>
+      <p>此入口用于身份验证和运行管理，不代表现场控制许可。</p>
+      <ul>
+        <li>每项操作仍由服务端校验当前权限</li>
+        <li>离线时不会排队或重放写入</li>
+      </ul>
+    </aside>
+    <div class="login-content">
+      <header>
+        <p class="eyebrow">身份验证</p>
+        <h1 id="login-title">登录运行管理</h1>
+      </header>
+      <p id="login-help" class="login-intro">使用所属租户的账号。验证码错误或过期后需要重新获取；密码不会由此页面保存到浏览器存储。</p>
+      <p v-if="error" id="login-error" role="alert" class="error">{{ error }}</p>
+      <form @submit.prevent="signIn" :aria-busy="busy" :aria-describedby="error ? 'login-help login-error' : 'login-help'">
+        <div class="login-field">
+          <label for="tenant">租户标识</label>
+          <input id="tenant" v-model="tenant" :disabled="busy" required maxlength="36" autocomplete="organization" placeholder="由管理员提供的租户 UUID">
+        </div>
+        <div class="login-field">
+          <label for="account">账号</label>
+          <input id="account" v-model="account" :disabled="busy" required maxlength="256" autocomplete="username">
+        </div>
+        <div class="login-field">
+          <label for="password">密码</label>
+          <div class="password-control">
+            <input id="password" v-model="password" :disabled="busy" :type="passwordVisible ? 'text' : 'password'" required maxlength="512" autocomplete="current-password">
+            <button type="button" class="password-toggle" :disabled="busy" :aria-pressed="passwordVisible"
+              :aria-label="passwordVisible ? '隐藏密码' : '显示密码'" @click="passwordVisible = !passwordVisible">
+              {{ passwordVisible ? "隐藏" : "显示" }}
+            </button>
+          </div>
+        </div>
+        <div class="login-challenge">
+          <button type="button" @click="challenge" :disabled="busy || !tenant || !account">获取 / 更换验证码</button>
+        </div>
+        <template v-if="image">
+          <img class="login-captcha" :src="image" alt="六位验证码图片" width="220" height="64">
+          <div class="login-field">
+            <label for="answer">验证码（{{ new Date(expires).toLocaleTimeString() }} 前一次有效）</label>
+            <input id="answer" v-model="answer" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false">
+          </div>
+        </template>
+        <div class="login-actions">
+          <button type="submit" class="primary" :disabled="busy">{{ busy ? "正在处理" : "登录" }}</button>
+          <button type="button" @click="restore" :disabled="busy">恢复当前浏览器会话</button>
+        </div>
+      </form>
+      <p class="hint login-hint">首次启动没有默认账号。请由管理员通过受控初始化流程创建租户与账号。身份系统未配置时请联系部署管理员。</p>
+    </div>
   </section>
 </template>

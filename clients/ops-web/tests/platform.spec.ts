@@ -5,11 +5,14 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
   page.on("pageerror", error => failures.push(error.message));
   await page.goto("/login");
   await expect(page.getByRole("heading", { name: "登录运行管理" })).toBeVisible();
+  await expect(page.locator(".login-main .wes-page")).toHaveCount(1);
+  await expect(page.locator(".app-layout")).toHaveCount(0);
   await page.getByLabel("租户标识").fill(process.env.WES_E2E_TENANT!);
   await page.getByLabel("账号", { exact: true }).fill("fixture");
   await page.getByLabel("密码", { exact: true }).fill("WES reference fixture password");
   await page.getByRole("button", { name: "登录", exact: true }).click();
   await expect(page.getByRole("heading", { name: "会话与安全", exact: true })).toBeVisible();
+  await expect(page.locator(".workspace .wes-page")).toHaveCount(1);
   expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length }))).toEqual({ local: 0, session: 0 });
   await page.setViewportSize({ width: 1440, height: 900 });
   const nav = page.getByRole("navigation", { name: "管理导航" });
@@ -40,6 +43,10 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
     await page.getByRole("navigation", { name: "管理导航" }).getByRole("link", { name: link!, exact: true }).click();
     expect((await response).status()).toBe(200);
     await expect(page.getByRole("main").getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(page.locator(".workspace .wes-page")).toHaveCount(1);
+    const tables = page.locator(".table-scroll");
+    expect(await tables.count()).toBeGreaterThan(0);
+    await expect(tables.first()).toBeVisible();
     for (const width of [768, 1024, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

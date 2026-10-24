@@ -1,0 +1,93 @@
+<script setup lang="ts">
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import ColumnSettings from "../../components/ColumnSettings.vue";
+import { useColumns } from "../../components/useColumns";
+import { api, isRecord, sessionState } from "../identity/identity-api";
+interface AuditRow { id: string; occurredAt: string; actorId: string | null; targetId: string | null; correlationId: string | null; action: number | null; beforeVersion: string | null; afterVersion: string | null }
+interface EventRow { id: string; occurredAt: string; kind: number | null; correlationId: string | null; accountDigest: string | null; sourceDigest: string | null; sessionId: string | null }
+const mode = ref("audit"); const from = ref(new Date(Date.now() - 86400000).toISOString().slice(0, 16));
+const to = ref(new Date().toISOString().slice(0, 16)); const offset = ref(0);
+const kind = ref(""); const action = ref(""); const correlation = ref(""); const rows = ref<(AuditRow | EventRow)[]>([]);
+const error = ref(""); const busy = ref(false); let controller = new AbortController(); let sequence = 0;
+const fields = computed(() => new Set(sessionState.subject?.grants.filter(grant => grant.permission === "platform.audit.read").flatMap(grant => grant.fields) ?? []));
+const { available, selected, visible } = useColumns(() => [
+  { key: "id", label: "标识", field: "Id", required: true }, { key: "occurredAt", label: "发生时间（UTC）", field: "OccurredAt", required: true },
+  { key: "correlationId", label: "关联标识", field: "CorrelationId" },
+  ...(mode.value === "audit" ? [
+    { key: "actorId", label: "操作者", field: "ActorId" }, { key: "targetId", label: "目标", field: "TargetId" },
+    { key: "action", label: "动作码", field: "Action" }, { key: "beforeVersion", label: "原版本", field: "BeforeVersion" },
+    { key: "afterVersion", label: "后继版本", field: "AfterVersion" },
+  ] : [
+    { key: "kind", label: "事件码", field: "Kind" }, { key: "accountDigest", label: "账号假名绑定", field: "AccountDigest" },
+    { key: "sourceDigest", label: "来源假名绑定", field: "SourceDigest" }, { key: "sessionId", label: "会话", field: "SessionId" },
+  ]),
+].filter(column => fields.value.has(column.field)));
+async function read() {
+  const request = ++sequence; rows.value = []; error.value = ""; busy.value = true;
+  const start = Date.parse(`${from.value}Z`); const end = Date.parse(`${to.value}Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
+    error.value = "请输入有效的 UTC 起止时间，结束时间必须晚于开始时间。"; busy.value = false; return;
+  }
+  const params = new URLSearchParams({ from: new Date(start).toISOString(), to: new Date(end).toISOString(), offset: String(offset.value), limit: "50" });
+  if (mode.value === "login-events" && kind.value && fields.value.has("Kind")) params.set("kind", kind.value);
+  if (mode.value === "audit" && action.value && fields.value.has("Action")) params.set("action", action.value);
+  if (correlation.value && fields.value.has("CorrelationId")) params.set("correlationId", correlation.value);
+  const fingerprint = `${mode.value}|${from.value}|${to.value}|${offset.value}|${kind.value}|${action.value}|${correlation.value}`;
+  try {
+    const data: unknown = await api(`/api/platform/${mode.value}?${params}`, { signal: controller.signal });
+    if (!isRecord(data) || data.authorized !== true || !Array.isArray(data.rows)) throw new Error("审计响应无效，请重新读取。");
+    const projected = data.rows.map((row: unknown) => {
+      if (!isRecord(row) || typeof row.id !== "string" || typeof row.occurredAt !== "string" || !Number.isFinite(Date.parse(row.occurredAt)))
+        throw new Error("审计行格式无效，已丢弃本页。");
+      const text = (key: string) => typeof row[key] === "string" ? row[key] : null;
+      if (mode.value === "audit") return { id: row.id, occurredAt: row.occurredAt, correlationId: text("correlationId"),
+        actorId: text("actorId"), targetId: text("targetId"), action: typeof row.action === "number" ? row.action : null,
+        beforeVersion: text("beforeVersion"), afterVersion: text("afterVersion") };
+      return { id: row.id, occurredAt: row.occurredAt, correlationId: text("correlationId"), accountDigest: text("accountDigest"),
+        sourceDigest: text("sourceDigest"), sessionId: text("sessionId"), kind: typeof row.kind === "number" ? row.kind : null };
+    });
+    if (request === sequence && fingerprint === `${mode.value}|${from.value}|${to.value}|${offset.value}|${kind.value}|${action.value}|${correlation.value}`)
+      rows.value = projected;
+  } catch (failure) { if (!controller.signal.aborted && request === sequence) error.value = failure instanceof Error ? failure.message : "审计读取失败。"; }
+  finally { if (request === sequence) busy.value = false; }
+}
+function cell(row: AuditRow | EventRow, key: string) {
+  if (key === "id") return row.id;
+  if (key === "occurredAt") return row.occurredAt;
+  if (key === "correlationId") return row.correlationId;
+  if ("actorId" in row) {
+    switch (key) { case "actorId": return row.actorId; case "targetId": return row.targetId; case "action": return row.action; case "beforeVersion": return row.beforeVersion; case "afterVersion": return row.afterVersion; }
+  } else {
+    switch (key) { case "kind": return row.kind; case "accountDigest": return row.accountDigest; case "sourceDigest": return row.sourceDigest; case "sessionId": return row.sessionId; }
+  }
+  return null;
+}
+watch([mode, from, to, kind, action, correlation], () => { sequence++; offset.value = 0; rows.value = []; });
+watch([() => sessionState.subject, () => sessionState.token], () => {
+  controller.abort(); controller = new AbortController(); sequence++;
+  rows.value = []; offset.value = 0; kind.value = ""; action.value = ""; correlation.value = ""; busy.value = false;
+  error.value = "身份或权限已变更，旧证据已清除，请重新查询。";
+}, { deep: true, flush: "sync" });
+onMounted(read); onUnmounted(() => { controller.abort(); sequence++; });
+</script>
+<template>
+  <section class="wes-page"><header><p class="eyebrow">只读证据</p><h1>审计与登录事件</h1><p>历史记录不可编辑、删除或批量改写。查询为当前权限下的实时分页，不是固定水位导出。</p></header>
+    <p v-if="error" class="error" role="alert">{{ error }}</p>
+    <form class="toolbar" @submit.prevent="offset = 0; read()">
+      <label for="audit-mode">证据类型<select id="audit-mode" v-model="mode"><option value="audit">业务审计</option><option value="login-events">登录安全事件（需 All 范围）</option></select></label>
+      <label for="audit-from">开始时间（UTC，含）<input id="audit-from" v-model="from" type="datetime-local" required></label>
+      <label for="audit-to">结束时间（UTC，不含）<input id="audit-to" v-model="to" type="datetime-local" required></label>
+      <label v-if="mode === 'login-events' && fields.has('Kind')" for="event-kind">事件码<input id="event-kind" v-model="kind" inputmode="numeric" pattern="[0-9]+"></label>
+      <label v-if="mode === 'audit' && fields.has('Action')" for="audit-action">审计动作码<input id="audit-action" v-model="action" inputmode="numeric" pattern="[0-9]+"></label>
+      <label v-if="fields.has('CorrelationId')" for="event-correlation">关联 UUID<input id="event-correlation" v-model="correlation" maxlength="36"></label>
+      <button :disabled="busy">查询证据</button>
+    </form><ColumnSettings :columns="available" v-model="selected" />
+    <div class="table-scroll" :aria-busy="busy"><table><caption>{{ mode === "audit" ? "不可改业务审计" : "登录安全事件" }}</caption>
+      <thead><tr><th v-for="column in visible" :key="column.key" scope="col">{{ column.label }}</th></tr></thead>
+      <tbody><tr v-for="row in rows" :key="row.id"><td v-for="column in visible" :key="column.key" class="identifier">{{ cell(row, column.key) ?? "未授权 / 不适用" }}</td></tr></tbody>
+    </table></div>
+    <p v-if="busy" role="status">正在读取当前权限下的证据</p><p v-else-if="!error && !rows.length" role="status">该区间没有当前可见记录。可以调整时间后重新查询。</p>
+    <div class="actions"><button :disabled="busy || offset === 0" @click="offset -= 50; read()">上一页</button><span>第 {{ offset / 50 + 1 }} 页 · 最多 50 条</span>
+      <button :disabled="busy || rows.length < 50" @click="offset += 50; read()">下一页</button></div>
+  </section>
+</template>

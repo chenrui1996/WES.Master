@@ -1,0 +1,262 @@
+<script setup lang="ts">
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
+import ColumnSettings from "../../components/ColumnSettings.vue";
+import { useColumns } from "../../components/useColumns";
+import { api, canRead, forgetIdentity, isRecord, sessionState } from "./identity-api";
+
+interface Family {
+  id: string; userId: string | null; version: string | null; client: number | null; current: boolean | null;
+  createdAt: string | null; lastActivityAt: string | null; expiresAt: string | null; revokedAt: string | null;
+  requiresPasswordChange: boolean | null; state: number | null;
+}
+const rows = ref<Family[]>([]);
+const mode = ref<"self" | "admin">("self");
+const loading = ref(false);
+const busy = ref(false);
+const error = ref("");
+const success = ref("");
+const pending = ref<Family | null>(null);
+const dialog = ref<HTMLDialogElement>();
+const cancel = ref<HTMLButtonElement>();
+const oldPassword = ref("");
+const newPassword = ref("");
+const repeat = ref("");
+const passwordBusy = ref(false);
+const filters = reactive({ state: "", from: "", to: "", userId: "", limit: "50" });
+const offset = ref(0);
+let generation = 0;
+let controller: AbortController | undefined;
+let returnFocus: HTMLElement | null = null;
+const adminAllowed = computed(() => canRead("platform.sessions.read"));
+const hasIdentity = computed(() => sessionState.subject !== null && sessionState.token !== null);
+function fieldAllowed(field: string) {
+  return mode.value === "self" || (sessionState.subject?.grants.some(grant =>
+    grant.permission === "platform.sessions.read" && grant.fields.includes(field)) ?? false);
+}
+const stateFilterAllowed = computed(() => fieldAllowed("State"));
+const userFilterAllowed = computed(() => mode.value === "admin" && fieldAllowed("UserId"));
+const definitions = [
+  { key: "id", label: "会话标识", required: true },
+  { key: "userId", label: "用户标识" }, { key: "client", label: "终端" },
+  { key: "createdAt", label: "创建时间" }, { key: "lastActivityAt", label: "最近活动" },
+  { key: "expiresAt", label: "绝对过期" }, { key: "revokedAt", label: "撤销时间" },
+  { key: "requiresPasswordChange", label: "需要改密" }, { key: "current", label: "是否当前" },
+  { key: "state", label: "状态" },
+] satisfies { key: keyof Family; label: string; required?: boolean }[];
+const { available, selected, visible } = useColumns(() => rows.value.length
+  ? definitions.filter(column => column.key === "id" || (mode.value === "self" && column.key !== "userId")
+    || rows.value.some(row => row[column.key] !== null)) : []);
+
+function parseRows(value: unknown, admin: boolean): Family[] {
+  const payload = admin && isRecord(value) && value.authorized === true ? value.rows : admin ? null : value;
+  if (!Array.isArray(payload)) throw new Error("会话响应格式无效，请重新读取。");
+  const parsed = payload.map((item: unknown): Family => {
+    if (!isRecord(item) || typeof item.id !== "string" || !item.id.trim())
+      throw new Error("会话响应格式无效，请重新读取。");
+    const record = item;
+    function read<T>(key: string, guard: (value: unknown) => value is T, nullable = admin): T | null {
+      const value = record[key];
+      if (value == null && nullable) return null;
+      if (!guard(value)) throw new Error("会话响应格式无效，请重新读取。");
+      return value;
+    }
+    const text = (value: unknown): value is string => typeof value === "string" && value.length > 0;
+    const date = (value: unknown): value is string => text(value) && Number.isFinite(Date.parse(value));
+    const boolean = (value: unknown): value is boolean => typeof value === "boolean";
+    return {
+      id: item.id, userId: read("userId", text, true), version: read("version", text),
+      client: read("client", (value): value is number => value === 0 || value === 1),
+      current: read("current", boolean), createdAt: read("createdAt", date), lastActivityAt: read("lastActivityAt", date),
+      expiresAt: read("expiresAt", date), revokedAt: read("revokedAt", date, true),
+      requiresPasswordChange: read("requiresPasswordChange", boolean),
+      state: read("state", (value): value is number => typeof value === "number" && [0, 1, 2, 3].includes(value)),
+    };
+  });
+  if (new Set(parsed.map(row => row.id)).size !== parsed.length) throw new Error("会话响应格式无效，请重新读取。");
+  return parsed;
+}
+function close() {
+  if (dialog.value?.open) dialog.value.close();
+  pending.value = null;
+  if (returnFocus?.isConnected) returnFocus.focus();
+  returnFocus = null;
+}
+function invalidate() {
+  generation++; controller?.abort(); rows.value = []; loading.value = false; close();
+}
+function failure(reason: unknown, fallback: string) { error.value = reason instanceof Error ? reason.message : fallback; }
+async function read() {
+  invalidate(); error.value = ""; success.value = "";
+  if (!hasIdentity.value || (mode.value === "admin" && !adminAllowed.value)) return;
+  const limit = Number(filters.limit);
+  const from = filters.from ? new Date(filters.from) : null;
+  const to = filters.to ? new Date(filters.to) : null;
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100 || !Number.isInteger(offset.value) || offset.value < 0) {
+    error.value = "每页条数须为 1 至 100 的整数。"; return;
+  }
+  if ((from && !Number.isFinite(from.getTime())) || (to && !Number.isFinite(to.getTime())) || (from && to && from >= to)) {
+    error.value = "创建时间范围无效，结束时间必须晚于开始时间。"; return;
+  }
+  if (filters.state && (!stateFilterAllowed.value || !["active", "idle", "expired", "revoked"].includes(filters.state))) {
+    error.value = "无权按此状态筛选。"; return;
+  }
+  if (filters.userId && (!userFilterAllowed.value || !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(filters.userId))) {
+    error.value = "用户标识须为当前可读的 UUID。"; return;
+  }
+  const query = new URLSearchParams({ offset: String(offset.value), limit: String(limit) });
+  if (filters.state) query.set("state", filters.state);
+  if (from) query.set("from", from.toISOString());
+  if (to) query.set("to", to.toISOString());
+  if (filters.userId) query.set("userId", filters.userId);
+  const current = generation;
+  const admin = mode.value === "admin";
+  controller = new AbortController(); loading.value = true;
+  try {
+    const value = await api<unknown>(`/api/identity/${admin ? "admin-sessions" : "sessions"}?${query}`, { signal: controller.signal });
+    if (current === generation) rows.value = parseRows(value, admin);
+  } catch (reason) {
+    if (current === generation) { rows.value = []; close(); failure(reason, "会话读取失败，请重试。"); }
+  } finally { if (current === generation) loading.value = false; }
+}
+function switchMode(value: "self" | "admin") {
+  if (busy.value || (value === "admin" && !adminAllowed.value)) return;
+  invalidate(); mode.value = value;
+  Object.assign(filters, { state: "", from: "", to: "", userId: "", limit: "50" });
+  offset.value = 0; void read();
+}
+function page(delta: number) {
+  offset.value = Math.max(0, offset.value + delta * Number(filters.limit)); void read();
+}
+function canRevoke(row: Family) {
+  return row.version !== null && row.state !== 3 && (mode.value === "self" || canRead("platform.sessions.revoke"));
+}
+async function confirm(row: Family, event: Event) {
+  if (busy.value || loading.value || !canRevoke(row)) return;
+  returnFocus = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+  pending.value = { ...row }; const current = generation;
+  await nextTick();
+  if (current !== generation || !pending.value) return;
+  dialog.value?.showModal(); cancel.value?.focus();
+}
+async function revoke() {
+  const target = pending.value;
+  if (!target || busy.value || !canRevoke(target) || !rows.value.some(row => row.id === target.id && row.version === target.version)) return;
+  const current = generation; busy.value = true; error.value = ""; success.value = "";
+  try {
+    await api(`/api/identity/sessions/${encodeURIComponent(target.id)}/revoke`, {
+      method: "POST", body: JSON.stringify({ expectedVersion: target.version }),
+    });
+    if (current !== generation) return;
+    close();
+    if (target.current === true) forgetIdentity();
+    else await read();
+    success.value = "所选会话已撤销。其他会话与已派发任务不会被误作取消。";
+  } catch (reason) {
+    if (current === generation) { invalidate(); failure(reason, "撤销未确认，请重新读取后手动重试。"); }
+  } finally { busy.value = false; }
+}
+async function changePassword() {
+  if (passwordBusy.value || !hasIdentity.value) return;
+  error.value = ""; success.value = "";
+  if (newPassword.value !== repeat.value) { error.value = "两次新密码不一致，请重新检查。"; return; }
+  const size = Array.from(newPassword.value).length;
+  if (size < 15 || size > 128) { error.value = "新密码须为 15 至 128 个 Unicode 字符。"; return; }
+  const subject = sessionState.subject;
+  const current = generation;
+  passwordBusy.value = true;
+  try {
+    await api("/api/identity/password", { method: "POST", body: JSON.stringify({
+      expectedVersion: subject?.credentialVersion, oldPassword: oldPassword.value, newPassword: newPassword.value,
+    }) });
+    oldPassword.value = ""; newPassword.value = ""; repeat.value = "";
+    if (sessionState.subject === subject) forgetIdentity();
+  } catch (reason) { if (current === generation) failure(reason, "改密未确认，请重新读取后手动重试。"); }
+  finally { passwordBusy.value = false; }
+}
+function display(row: Family, key: string) {
+  const value = row[key as keyof Family];
+  if (value === null) return "—";
+  if (key === "state") return ["活跃", "闲置", "已过期", "已撤销"][Number(value)] ?? "—";
+  if (key === "client") return value === 0 ? "Web" : "PDA";
+  if (typeof value === "boolean") return value ? "是" : "否";
+  if (["createdAt", "lastActivityAt", "expiresAt", "revokedAt"].includes(key))
+    return new Date(String(value)).toLocaleString("zh-CN", { hour12: false });
+  return String(value);
+}
+function summary(id: string) { return id.length > 24 ? `${id.slice(0, 12)}…${id.slice(-8)}` : id; }
+watch(filters, () => { invalidate(); offset.value = 0; error.value = ""; success.value = ""; }, { flush: "sync" });
+watch(() => JSON.stringify([sessionState.subject, sessionState.token]), () => {
+  invalidate(); error.value = ""; success.value = ""; offset.value = 0;
+  oldPassword.value = ""; newPassword.value = ""; repeat.value = "";
+  if (!adminAllowed.value) mode.value = "self";
+  Object.assign(filters, { state: "", from: "", to: "", userId: "", limit: "50" });
+}, { flush: "sync" });
+onMounted(read);
+onUnmounted(invalidate);
+</script>
+
+<template>
+  <section class="wes-page" aria-labelledby="sessions-title">
+    <header><p class="eyebrow">我的账号</p><h1 id="sessions-title">会话与安全</h1></header>
+    <p v-if="sessionState.subject?.requiresPasswordChange" class="notice" role="status">当前使用旧格式凭据，只有受限会话。请完成合规改密后重新登录，不能借此会话操作普通业务。</p>
+    <p v-if="error" role="alert" class="error">{{ error }}</p><p v-if="success" role="status">{{ success }}</p>
+    <nav class="toolbar" aria-label="会话范围">
+      <button type="button" :aria-pressed="mode === 'self'" :disabled="busy" @click="switchMode('self')">我的会话</button>
+      <button v-if="adminAllowed" type="button" data-test="admin-tab" :aria-pressed="mode === 'admin'" :disabled="busy" @click="switchMode('admin')">管理会话</button>
+    </nav>
+    <form data-test="session-filters" class="toolbar" aria-label="会话筛选" @submit.prevent="read">
+      <label v-if="stateFilterAllowed" for="session-state">状态
+        <select id="session-state" v-model="filters.state"><option value="">全部状态</option><option value="active">活跃</option>
+          <option value="idle">闲置</option><option value="expired">已过期</option><option value="revoked">已撤销</option></select>
+      </label>
+      <label for="session-from">创建起始（本地时间，含）<input id="session-from" v-model="filters.from" type="datetime-local"></label>
+      <label for="session-to">创建结束（本地时间，不含）<input id="session-to" v-model="filters.to" type="datetime-local"></label>
+      <label v-if="userFilterAllowed" for="session-user">用户 UUID<input id="session-user" v-model.trim="filters.userId" type="text"></label>
+      <label for="session-limit">每页条数（1–100）<input id="session-limit" v-model="filters.limit" type="number" min="1" max="100" step="1" required></label>
+      <button type="button" data-test="reload" :disabled="loading || busy" @click="read">重新读取会话</button>
+      <span v-if="loading" role="status">正在读取当前会话状态</span>
+    </form>
+    <p class="hint">筛选变更后请重新读取。状态由服务端判定；管理范围与字段以服务端当前授权为准。</p>
+    <ColumnSettings :columns="available" v-model="selected" />
+    <div class="table-scroll" :aria-busy="loading">
+      <table><caption>{{ mode === 'self' ? '当前账号的会话' : '当前授权范围内的管理会话' }}（第 {{ Math.floor(offset / Number(filters.limit || 50)) + 1 }} 页）</caption>
+        <thead><tr><th v-for="column in visible" :key="column.key" scope="col">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
+        <tbody><tr v-for="row in rows" :key="row.id">
+          <td v-for="column in visible" :key="column.key">
+            <template v-if="column.key === 'id'">
+              <span data-test="session-id" class="identifier" :title="row.id">{{ summary(row.id) }}</span>
+              <details><summary>完整会话标识</summary><span class="identifier">{{ row.id }}</span></details>
+            </template>
+            <template v-else>{{ display(row, column.key) }}</template>
+          </td>
+          <td><button v-if="canRevoke(row)" data-test="revoke" :disabled="busy || loading" @click="confirm(row, $event)">撤销此会话</button></td>
+        </tr></tbody>
+      </table>
+    </div>
+    <nav class="toolbar" aria-label="会话分页">
+      <button type="button" :disabled="loading || busy || offset === 0" @click="page(-1)">上一页</button>
+      <button type="button" data-test="next-page" :disabled="loading || busy || rows.length !== Number(filters.limit)" @click="page(1)">下一页</button>
+    </nav>
+    <p v-if="!loading && !error && !rows.length" role="status">当前没有可展示的会话。请重新读取，必要时重新登录。</p>
+    <fieldset class="editor"><legend>修改密码并撤销全部既有会话</legend>
+      <p>新密码不得包含泄漏值或最近 5 个已设置值（含当前值）。成功后所有浏览器 / PDA 会话需要重新登录。</p>
+      <form @submit.prevent="changePassword" :aria-busy="passwordBusy">
+        <label for="old-password">当前密码</label><input id="old-password" v-model="oldPassword" type="password" required autocomplete="current-password">
+        <label for="new-password">新密码（15 至 128 个 Unicode 字符）</label><input id="new-password" v-model="newPassword" type="password" required autocomplete="new-password">
+        <label for="repeat-password">再次输入新密码</label><input id="repeat-password" v-model="repeat" type="password" required autocomplete="new-password">
+        <div class="actions"><button type="submit" class="primary" :disabled="passwordBusy || !hasIdentity">确认改密并退出全部会话</button></div>
+      </form>
+    </fieldset>
+    <dialog ref="dialog" aria-labelledby="revoke-title" aria-describedby="revoke-description" @cancel="close" @close="pending = null">
+      <h2 id="revoke-title">撤销所选会话</h2><p id="revoke-description">只撤销会话 <span class="identifier">{{ pending?.id }}</span>。该终端后续请求将被拒绝，但不会撤回已经派发的业务或设备命令。</p>
+      <div class="actions"><button ref="cancel" @click="close">取消</button><button data-test="confirm-revoke" @click="revoke" :disabled="busy || !pending">确认撤销</button></div>
+    </dialog>
+  </section>
+</template>
+
+<style scoped>
+.toolbar { flex-wrap: wrap; }
+.identifier { overflow-wrap: anywhere; }
+dialog { max-width: min(36rem, calc(100vw - 2rem)); }
+details > summary { cursor: pointer; min-height: 2.75rem; padding-block: .5rem; }
+</style>

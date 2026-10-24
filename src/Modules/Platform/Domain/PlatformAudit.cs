@@ -8,7 +8,9 @@ public enum PlatformAuditAction
     /// <summary>A role was assigned to or removed from a subject.</summary>
     MembershipChanged,
     /// <summary>A typed nonsecret setting changed.</summary>
-    SettingChanged
+    SettingChanged,
+    /// <summary>A subject explicitly revoked their current session family.</summary>
+    SessionRevoked
 }
 
 /// <summary>Append-only audit fact staged with the owner mutation; no general request/payload string is accepted.</summary>

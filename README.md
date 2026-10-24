@@ -32,6 +32,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 登录续实施：[T03耐久登录协调与签发栅栏](docs/implementation/15-coordinated-password-login.md)，统一来源/账号/一次性挑战/真实凭据核验，risk与凭据CAS后才提交family和安全事件；旧格式会话持久受限，已关闭login/改密的新family竞态。全量613项通过，尚未公开HTTP/JWT或可用登录页面。
 
+管理续实施：[T03/T04当前授权禁用用户](docs/implementation/16-audited-account-disable.md)，实时复验Enabled字段/资源范围，禁用凭据、全部目标family撤销与版本审计显式原子提交；login/refresh两方向竞争及真实审计故障回滚已验证，最新全量638项通过。用户目录、公开API/页面及整包验收仍未完成。
+
 以下是本轮已整理的文档章节。每份功能规格都有测试设计，并在总追踪矩阵中关联需求 ID、设计章节、测试 ID 和验收结果；测试用例尚非自动化测试结果。
 
 | 文档组 | 内容 |

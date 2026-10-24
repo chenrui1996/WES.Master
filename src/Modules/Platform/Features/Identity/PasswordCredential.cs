@@ -50,7 +50,7 @@ public sealed class PasswordCredential
     {
         _ = ReadRecent();
         if (Normalize(now) < ChangedAt) throw new InvalidOperationException("Credential time cannot move backwards.");
-        if (Enabled == enabled) return;
+        // Even repairing an already disabled account with surviving families must fence concurrent credential operations.
         Enabled = enabled;
         Version = Guid.NewGuid().ToString("D");
     }

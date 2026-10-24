@@ -12,7 +12,9 @@ public enum PlatformAuditAction
     /// <summary>A subject explicitly revoked their current session family.</summary>
     SessionRevoked,
     /// <summary>The current subject changed their credential and revoked their existing session families.</summary>
-    PasswordChanged
+    PasswordChanged,
+    /// <summary>A current authorized manager disabled an account and revoked its existing families.</summary>
+    AccountDisabled
 }
 
 /// <summary>Append-only audit fact staged with the owner mutation; no general request/payload string is accepted.</summary>

@@ -83,6 +83,7 @@
 | T03耐久历史/受控改密 | 内部owner已实现并验证，见[改密记录](14-durable-password-change.md)；不是公开API/整包完成 | 7项领域/格式与30项迁移/真实DB测试通过；最近5个含当前值、逐原scheme历史检查、旧密/自有Active会话/版本复验，凭据与既有全部自有family撤销/审计原子；新family签发栅栏、外部泄漏检查、目录/禁用及HTTP/页面仍待接线 |
 | T03耐久登录协调/签发栅栏 | 内部完整协调用例已实现并验证，见[登录记录](15-coordinated-password-login.md)；非公开身份系统/整包完成 | 3项领域与28项迁移/真实DB测试通过；来源/挑战独立消费、账号门槛、未知账号dummy/真实新旧核密、在途失败事件合并、risk/凭据/新family显式原子事务；已关闭login/改密新family竞态；旧family持久限制并拒当前grants。禁用管理/JWT/HTTP/渲染/目录/页面E2E仍缺 |
 | T04权限/配置/审计内部基础 | 已实现并验证，见[详细思路与红绿证据](08-platform-access-settings-audit.md)；不是整包完成 | 29领域用例、36迁移/真实MySQL用例通过；当前role/session复验、字段scope/集合身份、角色可委派与原子审计、配置CAS与原子audit、受权审计查询已覆盖；T03完整身份链路、组织/用户/字典语言、HTTP/页面/E2E仍缺 |
+| T03/T04当前授权用户禁用 | 内部管理owner已实现并验证，见[禁用记录](16-audited-account-disable.md)；不是用户目录/API/整包 | 22项禁用与3项登录侧新增真实DB测试通过；当前Enabled字段权限、All/Own范围、禁用与全部family/audit显式原子事务、幂等/孤留修复、两个禁用和login/refresh两方向竞争、真实SQL回滚。启用/创建/重置、完整目录/部门与公开HTTP/页面仍缺 |
 | T05..T16 | 未开始 | 按原DAG逐项；不得因内部基础/会话测试通过就跳过完整T03/T04及各自硬依赖 |
 | T17 Route纯内核 | 软件工作包验收完成，见[实现、红绿及审查证据](07-route-kernel.md)；不是完整Route/WCS验收 | FourWay/Stacker各自私有topology/physical mapping与确定性候选路径；连接物理语义/设备归属缺陷先红后修复，最终SPEC/CODE审查PASS；228 Route测试与父集成通过；预约/派发/反馈及H分别由后续包验收 |
 | T18..T34 | 未开始 | 等待各自DAG前置；现场H/真实终端/生产DBA等门禁仍独立阻断，不用软件单测替代 |
@@ -144,3 +145,9 @@
 - 3项领域、28项迁移/真实DB验证通过，涵盖6并发错密、单挑战双请求、risk CAS及8次耗尽、首次PK竞争、login/改密两种提交顺序、角色与refresh不能绕过受限状态、独立消费不退款及核验后时钟倒退。
 - 最新全solution Release：Architecture29、Modules145、Persistence211、Route228，共613 passed、0 failed、0 skipped，0构建警告/错误；格式、IDE诊断、双context模型一致。
 - 613替代582；已关闭新family签发/改密竞态，用户禁用管理、受权登录事件查询/365天保留与容量治理、泄漏服务、完整账号目录、JWT/可信代理/HTTP/验证码渲染/页面E2E仍待完成。旧行迁移默认禁用/受限，生产升级需受控方案，不把测试库通过当部署许可。
+
+### 当前授权用户禁用验证
+
+- 行为桩18项9红9绿→实现18绿→扩展禁用22项及登录侧3项；两个相关类52项全部通过，含真实audit1062、取消及提交竞争，不伪造数据库并发异常。
+- 最新全solution Release：Architecture29、Modules145、Persistence236、Route228，共638 passed、0 failed、0 skipped，构建0 warning/error。首次与formatter并行时既有1秒探针恢复断言失败；不放宽门限，无并行formatter完整复跑通过。
+- 638替代613；内部禁用管理与login/refresh竞争缺口已关闭。受权登录事件查询/365天保留及容量治理、泄漏服务、目录/部门、JWT/可信代理/HTTP/渲染/页面E2E仍未完成；T03/T04整包、生产与现场H状态不变。

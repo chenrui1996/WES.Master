@@ -510,6 +510,85 @@ public sealed class LoginAttemptPersistenceTests : IAsyncLifetime
         Assert.Equal(2, await verify.LoginEvents.CountAsync());
     }
 
+    /// <summary>Disabled first rejects the in-flight login CAS; login first forces a fresh disable scan that includes its new family.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("CaseId", "IDENTITY-DISABLE-CONCURRENT-001")]
+    public async Task LoginAndDisableShareCredentialFenceInBothCommitOrders(bool loginFirst)
+    {
+        var version = await SeedCredentialAsync(false);
+        await SeedRiskAsync(0);
+        Guid currentId;
+        await using (var seed = Open())
+        {
+            var current = new Session(_tenant, _user, SessionClient.Web, Start, RefreshSecret.Generate().Digest);
+            currentId = current.Id;
+            var role = new AccessRole(_tenant, "manager", [new PermissionGrant("platform.users.write", DataScope.Own,
+                ImmutableHashSet<Guid>.Empty, ImmutableHashSet.Create("Enabled"))]);
+            seed.Roles.Add(role);
+            seed.Memberships.Add(new RoleMembership(_tenant, _user, role.Id));
+            seed.Sessions.Add(current);
+            await seed.SaveChangesAsync();
+        }
+        var staged = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var committed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var login = Open(interceptor: new OrderedCommit(loginFirst, staged, committed));
+        await using var disable = Open(interceptor: new OrderedCommit(!loginFirst, staged, committed));
+        await using var sources = Sources();
+        var context = new TenantContext(_tenant, _user, currentId);
+        var loginTask = Handler(login, sources).HandleAsync(Account, Password, _source, SessionClient.Web, Guid.NewGuid());
+        var disableTask = new DisableAccountHandler(disable, new FixedClock(Start.AddSeconds(1)),
+            NullLogger<DisableAccountHandler>.Instance).HandleAsync(context, _user, version, Guid.NewGuid());
+        await Task.WhenAll(loginTask, disableTask);
+        Assert.Equal(loginFirst, (await loginTask).Completed);
+        Assert.Equal(loginFirst ? AccountDisableDecision.VersionConflict : AccountDisableDecision.Completed, await disableTask);
+        if (loginFirst)
+        {
+            await using var retry = Open();
+            var currentVersion = (await retry.PasswordCredentials.AsNoTracking().SingleAsync()).Version;
+            Assert.Equal(AccountDisableDecision.Completed,
+                await new DisableAccountHandler(retry, new FixedClock(Start.AddSeconds(2)), NullLogger<DisableAccountHandler>.Instance)
+                    .HandleAsync(context, _user, currentVersion, Guid.NewGuid()));
+        }
+        await using var verify = Open();
+        Assert.False((await verify.PasswordCredentials.SingleAsync()).Enabled);
+        Assert.All(await verify.Sessions.ToListAsync(), family => Assert.NotNull(family.RevokedAt));
+        Assert.Empty(await new CurrentAuthorization(verify, new FixedClock(Start.AddSeconds(3))).ReadGrantsAsync(context));
+        Assert.False((await AttemptAsync(Password, Start.AddSeconds(3))).Completed);
+        await using var passwordChange = Open();
+        Assert.Equal(PasswordChangeDecision.Rejected,
+            (await new ChangePasswordHandler(passwordChange, new FixedClock(Start.AddSeconds(4)), NullLogger<ChangePasswordHandler>.Instance)
+                .HandleAsync(context, Guid.NewGuid().ToString("D"), Password, "new reviewed replacement password",
+                    PasswordEvidence.Clear, Guid.NewGuid())).Decision);
+    }
+
+    /// <summary>Fail-closed imported disabled credentials cannot use a surviving active family to change their password.</summary>
+    [Fact]
+    [Trait("CaseId", "IDENTITY-DISABLE-OWNER-001")]
+    public async Task DisabledCredentialRejectsPasswordChangeEvenWithAnActiveFamily()
+    {
+        var version = await SeedCredentialAsync(false, false);
+        Guid id;
+        await using (var seed = Open())
+        {
+            var session = new Session(_tenant, _user, SessionClient.Web, Start, RefreshSecret.Generate().Digest);
+            id = session.Id;
+            seed.Sessions.Add(session);
+            await seed.SaveChangesAsync();
+        }
+        await using var change = Open();
+        Assert.Equal(PasswordChangeDecision.Rejected,
+            (await new ChangePasswordHandler(change, new FixedClock(Start.AddSeconds(1)), NullLogger<ChangePasswordHandler>.Instance)
+                .HandleAsync(new TenantContext(_tenant, _user, id), version, Password,
+                    "new reviewed replacement password", PasswordEvidence.Clear, Guid.NewGuid())).Decision);
+        Assert.Empty(change.ChangeTracker.Entries());
+        await using var verify = Open();
+        Assert.Equal(version, (await verify.PasswordCredentials.SingleAsync()).Version);
+        Assert.Equal(SessionState.Active, (await verify.Sessions.SingleAsync()).StateAt(Start.AddSeconds(2)));
+        Assert.Empty(await verify.Audit.ToListAsync());
+    }
+
     private async Task<string> SeedCredentialAsync(bool legacy, bool enabled = true, Guid? tenant = null)
     {
         await using var seed = Open(tenant);

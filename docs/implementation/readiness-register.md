@@ -76,6 +76,7 @@
 | T02软件运行时/架构基础门禁 | 已实现并验证，见[HTTP运行时记录](04-host-runtime-foundation.md) | 安全ProblemDetails/关联日志、真实依赖故障恢复、已知非法symbol反例通过；可供T03内部实施，完整父DTC/业务扩展与生产许可仍另验 |
 | T03身份首片 | 内部会话/refresh/策略与真实并发已实现；整包仍实施中，见[记录](05-platform-session-core.md) | 登录预算/验证码耐久消费、凭据/JWT/审计/API/页面与E2E未接齐，不开放登录控制面，不误标T03完成 |
 | T03可信来源准入 | 内部耐久IP预算已实现并验证，见[来源准入记录](09-durable-login-source-admission.md)；不是整包完成 | 跨账号/租户30次/60秒、首次唯一键与第30次CAS并发、保存失败/取消/坏schema/时钟反例、独立owner迁移通过；账号预算/验证码/凭据/JWT/代理与HTTP页面链路仍未接齐 |
+| T03账号风险状态 | 内部耐久失败窗口/暂锁已实现并验证，见[账号风险记录](10-durable-account-login-risk.md)；不是整包完成 | 5领域与20迁移/真实DB测试通过；同租户账号3后验证码门槛、5后暂锁900秒、滚动边界与CAS保护；仍须完整owner处理冲突重新准入/真实失败不漏记、验证码一次消费、凭据/JWT/审计及HTTP页面，不把风险读取当签发许可 |
 | T04权限/配置/审计内部基础 | 已实现并验证，见[详细思路与红绿证据](08-platform-access-settings-audit.md)；不是整包完成 | 29领域用例、36迁移/真实MySQL用例通过；当前role/session复验、字段scope/集合身份、角色可委派与原子审计、配置CAS与原子audit、受权审计查询已覆盖；T03完整身份链路、组织/用户/字典语言、HTTP/页面/E2E仍缺 |
 | T05..T16 | 未开始 | 按原DAG逐项；不得因内部基础/会话测试通过就跳过完整T03/T04及各自硬依赖 |
 | T17 Route纯内核 | 软件工作包验收完成，见[实现、红绿及审查证据](07-route-kernel.md)；不是完整Route/WCS验收 | FourWay/Stacker各自私有topology/physical mapping与确定性候选路径；连接物理语义/设备归属缺陷先红后修复，最终SPEC/CODE审查PASS；228 Route测试与父集成通过；预约/派发/反馈及H分别由后续包验收 |
@@ -97,3 +98,9 @@
 - 新增T03耐久来源准入，未以TenantId=0放宽业务上下文。5领域与20迁移/真实MySQL用例通过。
 - 本次全solution Release：Architecture29、Modules104、Persistence94、Route228，共455 passed、0 failed、0 skipped，0构建警告/错误；既有测试行为保留，两个DbContext快照一致。
 - 此处455替代上一批430作为最新软件回归数量；T03/T04整体及后续未实施工作包仍不改完成状态。
+
+### 2026-10-24账号风险续实施
+
+- 新增租户内账号风险状态与Platform增量迁移，未修改TenantContext/来源上下文边界；记录包含完整身份尚缺的并发接线门禁。
+- 最新全solution Release：Architecture29、Modules109、Persistence114、Route228，共480 passed、0 failed、0 skipped，0构建警告/错误；locked restore、格式与双context快照一致。
+- 480替代上一批455作为当前软件回归数量，不代表T03整包或完整公网防滥用通过，完整计划勾选保持不变。

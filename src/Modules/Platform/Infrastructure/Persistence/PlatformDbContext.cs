@@ -31,6 +31,8 @@ public sealed class PlatformDbContext : DbContext
     public DbSet<VersionedSetting> Settings => Set<VersionedSetting>();
     /// <summary>Append-only owner audit facts, never raw request data.</summary>
     public DbSet<PlatformAudit> Audit => Set<PlatformAudit>();
+    /// <summary>Tenant-account risk independent of user existence, never global source budgets.</summary>
+    public DbSet<LoginAccountBudget> LoginAccounts => Set<LoginAccountBudget>();
 
     /// <summary>Maps only Platform-owned tables with UTC instants, tenant keys and explicit concurrency.</summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -38,6 +40,18 @@ public sealed class PlatformDbContext : DbContext
         var utc = new ValueConverter<DateTimeOffset, DateTime>(
             value => value.UtcDateTime,
             value => new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)));
+        var account = modelBuilder.Entity<LoginAccountBudget>();
+        account.ToTable("platform_login_accounts");
+        account.HasKey(item => new { item.TenantId, item.AccountDigest });
+        account.Property(item => item.TenantId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        account.Property(item => item.AccountDigest).HasColumnType("varchar(64)").HasMaxLength(64);
+        account.Property(item => item.Version).HasColumnType("varchar(36)").HasMaxLength(36).IsConcurrencyToken();
+        account.Property(item => item.LastFailureAt).HasConversion(utc).HasColumnType("datetime(6)");
+        account.Property(item => item.LockedUntil).HasConversion(utc).HasColumnType("datetime(6)");
+        account.Property<string>("FailuresData").HasColumnType("varchar(1024)").HasMaxLength(1024).IsRequired();
+        account.Ignore(item => item.Failures);
+        account.HasQueryFilter(item => item.TenantId == TenantId);
+
         var session = modelBuilder.Entity<Session>();
         session.ToTable("platform_sessions");
         session.HasKey(item => new { item.TenantId, item.Id });

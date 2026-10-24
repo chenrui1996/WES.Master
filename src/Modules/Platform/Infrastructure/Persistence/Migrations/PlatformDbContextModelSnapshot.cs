@@ -55,6 +55,38 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                     b.ToTable("platform_roles", (string)null);
                 });
 
+            modelBuilder.Entity("Wes.Platform.Domain.LoginAccountBudget", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("AccountDigest")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("FailuresData")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("varchar(1024)");
+
+                    b.Property<DateTime?>("LastFailureAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("LockedUntil")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "AccountDigest");
+
+                    b.ToTable("platform_login_accounts", (string)null);
+                });
+
             modelBuilder.Entity("Wes.Platform.Domain.PlatformAudit", b =>
                 {
                     b.Property<string>("TenantId")

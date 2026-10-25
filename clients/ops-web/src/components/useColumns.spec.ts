@@ -206,3 +206,29 @@ it("rejects out-of-range stored widths and reports the corrupt preference", asyn
   expect(values.get(preferenceKey)).toContain('"name":801');
   wrapper.unmount();
 });
+
+it("announces cross-tab updates to scoped preferences without applying them to current state", async () => {
+  const preferenceKey = "wes-ops-web:columns:v1:test:tenant-a:user-a:users:directory";
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => { values.set(key, value); },
+  };
+  sessionState.subject = {
+    tenantId: "tenant-a", userId: "user-a", sessionId: "session-a",
+    requiresPasswordChange: false, credentialVersion: null, grants: [],
+  };
+  const host = defineComponent({
+    setup() { return useColumns(() => [
+      { key: "id", label: "ID", required: true }, { key: "name", label: "Name" },
+    ], { environment: "test", pageId: "users", tableId: "directory", storageProvider: () => storage }); },
+    template: `<output>{{ selected.join(',') }}</output><p role="status">{{ preferenceWarning }}</p>`,
+  });
+  const wrapper = mount(host);
+  await flushPromises();
+  window.dispatchEvent(new StorageEvent("storage", { key: preferenceKey, newValue: '{"version":1,"selected":["name"]}' }));
+  await flushPromises();
+  expect(wrapper.get('[role="status"]').text()).toContain("其他标签页");
+  expect(wrapper.get("output").text()).toBe("id,name");
+  wrapper.unmount();
+});

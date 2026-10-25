@@ -1,4 +1,4 @@
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { isRecord, sessionState } from "../features/identity/identity-api";
 
 /** Column metadata only. Never persists rows, authorization or preferences across identities. */
@@ -68,6 +68,12 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
     return columnPreferenceKey(environment, subject.tenantId, subject.userId, options.pageId, tableId);
   });
   const storageProvider = options.storageProvider ?? (() => window.localStorage);
+  function onStorage(event: StorageEvent) {
+    if (event.key !== preferenceScope.value) return;
+    preferenceWarning.value = "检测到其他标签页修改了此表格偏好；当前页面未自动应用，请重新载入页面后确认。";
+  }
+  onMounted(() => window.addEventListener("storage", onStorage));
+  onUnmounted(() => window.removeEventListener("storage", onStorage));
 
   watch(available, (columns, previous) => {
     const permitted = new Set(columns.map(column => column.key));

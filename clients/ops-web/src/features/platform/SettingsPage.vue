@@ -1,18 +1,35 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import ColumnSettings from "../../components/ColumnSettings.vue";
+import QueryState from "../../components/QueryState.vue";
 import { useColumns } from "../../components/useColumns";
-import { api, canRead, isRecord, sessionState } from "../identity/identity-api";
+import { ApiError, api, canRead, isRecord, sessionState } from "../identity/identity-api";
 interface SettingRow { id: string; key: string | null; value: string | null; source: string | null; version: string | null; kind: string | null; state: string | null }
 interface DictionaryRow { id: string; category: string | null; code: string | null; languageKey: string | null; label: string | null; resolvedLanguage: string | null; missingTranslation: boolean | null; version: string | null }
 const rows = ref<SettingRow[]>([]); const entries = ref<DictionaryRow[]>([]);
 const error = ref(""); const message = ref(""); const busy = ref(false);
+const settingsLoading = ref(false); const settingsQueryError = ref("");
 const selected = ref<SettingRow | null>(null); const value = ref("");
 const category = ref("task"); const language = ref("zh-CN"); const offset = ref(0);
 const kind = ref(""); const settingOffset = ref(0); const missingTranslation = ref("");
 const entry = ref<DictionaryRow | null>(null); const label = ref(""); const deletePending = ref(false);
 const code = ref(""); const languageKey = ref("");
 let controller = new AbortController(); let readSequence = 0; let settingsSequence = 0;
+let successfulSettingsFingerprint: string | null = null;
+const settingsFingerprint = computed(() => JSON.stringify({
+  tenantId: sessionState.subject?.tenantId,
+  userId: sessionState.subject?.userId,
+  grants: sessionState.subject?.grants,
+  kind: kind.value,
+  offset: settingOffset.value,
+}));
+const settingsQueryState = computed(() => settingsLoading.value
+  ? rows.value.length ? "stale" : "loading"
+  : settingsQueryError.value ? rows.value.length ? "stale" : "error"
+  : rows.value.length ? "ready" : "empty");
+const settingsStaleMessage = computed(() => settingsLoading.value
+  ? "正在刷新；页面保留的是最近一次已加载的配置目录。"
+  : `刷新失败，仍保留最近一次已加载的配置目录：${settingsQueryError.value}`);
 const fields = computed(() => new Set(sessionState.subject?.grants.filter(grant => grant.permission === "platform.settings.read").flatMap(grant => grant.fields) ?? []));
 const { available, selected: selectedColumns, visible, preferenceWarning } = useColumns(() => [
   { key: "id", label: "标识", field: "Id", required: true }, { key: "key", label: "稳定键", field: "Key" },
@@ -42,15 +59,32 @@ function isEntry(row: unknown): row is DictionaryRow {
 async function readSettings() {
   if (!canRead("platform.settings.read")) return;
   const sequence = ++settingsSequence; const signal = controller.signal;
-  rows.value = []; selected.value = null; error.value = ""; busy.value = true;
+  const fingerprint = settingsFingerprint.value;
+  if (successfulSettingsFingerprint !== fingerprint) {
+    rows.value = []; selected.value = null; successfulSettingsFingerprint = null;
+  }
+  settingsQueryError.value = ""; settingsLoading.value = true; busy.value = true;
   try {
     const query = new URLSearchParams({ offset: String(settingOffset.value), limit: "50" });
     if (kind.value && fields.value.has("Key")) query.set("kind", kind.value);
     const projected = parseRows(await api(`/api/platform/settings?${query}`, { signal }), isSetting);
-    if (sequence === settingsSequence) rows.value = projected;
+    if (sequence === settingsSequence && fingerprint === settingsFingerprint.value) {
+      rows.value = projected; successfulSettingsFingerprint = fingerprint;
+    }
   }
-  catch (failure) { if (!signal.aborted && sequence === settingsSequence) problem(failure); }
-  finally { if (sequence === settingsSequence) busy.value = false; }
+  catch (failure) {
+    if (!signal.aborted && sequence === settingsSequence) {
+      settingsQueryError.value = failure instanceof Error ? failure.message : "请求未确认，请重新读取后重试。";
+      if (failure instanceof ApiError && [401, 403].includes(failure.status)) {
+        rows.value = []; selected.value = null; successfulSettingsFingerprint = null;
+      } else if (successfulSettingsFingerprint !== fingerprint) rows.value = [];
+    }
+  }
+  finally {
+    if (sequence === settingsSequence) {
+      settingsLoading.value = false; busy.value = false;
+    }
+  }
 }
 async function readDictionary() {
   const sequence = ++readSequence; const fingerprint = `${category.value}|${language.value}|${offset.value}|${missingTranslation.value}`;
@@ -109,10 +143,14 @@ function dictionaryCell(row: DictionaryRow, key: string) {
   switch (key) { case "id": return row.id; case "code": return row.code; case "languageKey": return row.languageKey; case "label": return row.label; case "resolvedLanguage": return row.resolvedLanguage ?? (row.missingTranslation ? "缺失：显示诊断键" : "未授权"); case "version": return row.version; default: return "未授权"; }
 }
 watch([category, language, missingTranslation], () => { readSequence++; offset.value = 0; entries.value = []; entry.value = null; label.value = ""; deletePending.value = false; });
-watch(kind, () => { settingsSequence++; settingOffset.value = 0; rows.value = []; selected.value = null; value.value = ""; busy.value = false; });
+watch(kind, () => {
+  settingsSequence++; settingOffset.value = 0; rows.value = []; selected.value = null; value.value = "";
+  successfulSettingsFingerprint = null; settingsLoading.value = false; settingsQueryError.value = ""; busy.value = false;
+});
 watch([() => sessionState.subject, () => sessionState.token], () => {
   controller.abort(); controller = new AbortController(); readSequence++; settingsSequence++;
   rows.value = []; entries.value = []; selected.value = null; entry.value = null; deletePending.value = false;
+  successfulSettingsFingerprint = null; settingsLoading.value = false; settingsQueryError.value = "";
   value.value = ""; label.value = ""; code.value = ""; languageKey.value = ""; message.value = ""; busy.value = false;
   kind.value = ""; missingTranslation.value = ""; offset.value = 0; settingOffset.value = 0;
   error.value = "身份或权限已变更，旧列表与编辑已清除，请重新读取。";
@@ -130,12 +168,17 @@ onMounted(readSettings); onUnmounted(() => { controller.abort(); readSequence++;
         <button :disabled="busy">查询配置</button>
       </form>
       <ColumnSettings :columns="available" v-model="selectedColumns" :preference-warning="preferenceWarning" />
-      <div class="table-scroll" :aria-busy="busy"><table><caption>配置值、来源与当前版本</caption>
-        <thead><tr><th v-for="column in visible" :key="column.key" scope="col">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
-        <tbody><tr v-for="row in rows" :key="row.id"><td v-for="column in visible" :key="column.key">{{ settingCell(row, column.key) ?? "未授权" }}</td>
-          <td><button v-if="row.kind !== 'H' && row.version && row.value !== null && canRead('platform.settings.write')" data-test="edit-setting"
-            @click="selected = row; value = row.value">编辑此版本</button><span v-else>只读 / 未核验</span></td></tr></tbody>
-      </table></div><p v-if="!busy && !rows.length">没有可展示的配置。未装配目录时请使用受控初始化，不会回填伪造默认行。</p>
+      <QueryState label="强类型配置目录" :state="settingsQueryState" :busy="settingsLoading"
+        :error-message="settingsQueryError" :stale-message="settingsStaleMessage" @retry="readSettings">
+        <template #empty><p>没有可展示的配置。未装配目录时请使用受控初始化，不会回填伪造默认行。</p></template>
+        <div class="table-scroll" :aria-busy="settingsLoading"><table><caption>配置值、来源与当前版本</caption>
+          <thead><tr><th v-for="column in visible" :key="column.key" scope="col">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
+          <tbody><tr v-for="row in rows" :key="row.id"><td v-for="column in visible" :key="column.key">{{ settingCell(row, column.key) ?? "未授权" }}</td>
+            <td><button v-if="row.kind !== 'H' && row.version && row.value !== null && canRead('platform.settings.write')" data-test="edit-setting"
+              :disabled="settingsLoading || settingsQueryState === 'stale'"
+              @click="selected = row; value = row.value">编辑此版本</button><span v-else>只读 / 未核验</span></td></tr></tbody>
+        </table></div>
+      </QueryState>
       <nav class="actions" aria-label="配置分页"><button :disabled="busy || settingOffset === 0" @click="settingOffset -= 50; readSettings()">上一页</button><span>第 {{ settingOffset / 50 + 1 }} 页，每页最多 50 条</span><button :disabled="busy || rows.length < 50" @click="settingOffset += 50; readSettings()">下一页</button></nav>
       <form v-if="selected" data-test="setting-form" class="editor" @submit.prevent="saveSetting">
         <h2>更改 {{ selected.key }}</h2><p>当前版本：{{ selected.version }}；来源：{{ selected.source }}；原值：{{ selected.value }}</p>

@@ -69,3 +69,60 @@ it("discards old rows and editor values on field revocation instead of restoring
   expect(wrapper.text()).not.toContain("613");
   wrapper.unmount();
 });
+
+it("preserves configuration rows as stale when the same-scope refresh fails", async () => {
+  setAccessToken("fixture", "2099-01-01T00:00:00Z");
+  sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false, credentialVersion: "v",
+    grants: [{ permission: "platform.settings.read", scope: 0, departments: [], fields: ["Id", "Key", "Value", "Source", "Version"] }] };
+  let failRefresh = false;
+  vi.stubGlobal("fetch", vi.fn(async () => failRefresh
+    ? new Response("unavailable", { status: 503 })
+    : new Response(JSON.stringify({ authorized: true, rows: [
+      { id: "p", key: "query.snapshotTtlSeconds", value: "600", source: "ApprovedBaseline", version: "v1", kind: "P", state: "Configured" },
+    ] }))));
+  const wrapper = mount(SettingsPage); await flushPromises();
+  expect(wrapper.text()).toContain("query.snapshotTtlSeconds");
+  failRefresh = true;
+  await wrapper.get("section[aria-labelledby='catalog-title'] > button").trigger("click");
+  await flushPromises();
+  expect(wrapper.find('[aria-label="强类型配置目录"] [role="status"]').text()).toContain("最近一次已加载");
+  expect(wrapper.text()).toContain("query.snapshotTtlSeconds");
+  wrapper.unmount();
+});
+
+it("clears configuration rows immediately when its filter changes", async () => {
+  setAccessToken("fixture", "2099-01-01T00:00:00Z");
+  sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false, credentialVersion: "v",
+    grants: [{ permission: "platform.settings.read", scope: 0, departments: [], fields: ["Id", "Key", "Value", "Source", "Version"] }] };
+  let resolveRefresh: ((response: Response) => void) | undefined;
+  vi.stubGlobal("fetch", vi.fn(async () => new Promise<Response>(resolve => { resolveRefresh = resolve; })));
+  const wrapper = mount(SettingsPage); await flushPromises();
+  // Resolve the mount-time request before starting a separate same-page filter query.
+  resolveRefresh?.(new Response(JSON.stringify({ authorized: true, rows: [
+    { id: "p", key: "query.snapshotTtlSeconds", value: "600", source: "ApprovedBaseline", version: "v1", kind: "P", state: "Configured" },
+  ] })));
+  await flushPromises();
+  await wrapper.get('[name="filterSettingKind"]').setValue("H");
+  await flushPromises();
+  expect(wrapper.text()).not.toContain("query.snapshotTtlSeconds");
+  wrapper.unmount();
+});
+
+it("discards settings rows when a refresh is forbidden instead of preserving stale data", async () => {
+  setAccessToken("fixture", "2099-01-01T00:00:00Z");
+  sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false, credentialVersion: "v",
+    grants: [{ permission: "platform.settings.read", scope: 0, departments: [], fields: ["Id", "Key", "Value", "Source", "Version"] }] };
+  let forbidden = false;
+  vi.stubGlobal("fetch", vi.fn(async () => forbidden
+    ? new Response('{"code":"Forbidden"}', { status: 403 })
+    : new Response(JSON.stringify({ authorized: true, rows: [
+      { id: "p", key: "query.snapshotTtlSeconds", value: "600", source: "ApprovedBaseline", version: "v1", kind: "P", state: "Configured" },
+    ] }))));
+  const wrapper = mount(SettingsPage); await flushPromises();
+  forbidden = true;
+  await wrapper.get("section[aria-labelledby='catalog-title'] > button").trigger("click");
+  await flushPromises();
+  expect(wrapper.text()).not.toContain("query.snapshotTtlSeconds");
+  expect(wrapper.find('[aria-label="强类型配置目录"] [role="alert"]').exists()).toBe(true);
+  wrapper.unmount();
+});

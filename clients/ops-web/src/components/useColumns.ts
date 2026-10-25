@@ -44,7 +44,8 @@ function parsePreference(value: string): StoredColumnPreference | null {
     || parsed.fixedFirstColumn !== undefined && typeof parsed.fixedFirstColumn !== "boolean") return null;
   if (parsed.widths !== undefined && !isColumnWidths(parsed.widths)) return null;
   return { version: 1, selected: parsed.selected,
-    ...(parsed.widths === undefined ? {} : { widths: parsed.widths }) };
+    ...(parsed.widths === undefined ? {} : { widths: parsed.widths }),
+    ...(parsed.fixedFirstColumn === undefined ? {} : { fixedFirstColumn: parsed.fixedFirstColumn }) };
 }
 
 function isColumnWidths(value: unknown): value is Record<string, number> {

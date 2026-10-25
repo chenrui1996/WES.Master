@@ -18,15 +18,26 @@ it("supports visibility and keyboard ordering without offering revoked fields", 
       ], { environment: "test", pageId: "test", tableId: "columns" });
       return { ...columns, revoke: () => { fields.value = ["id"]; } };
     },
-    template: `<ColumnSettings :columns="available" v-model="selected" /><button @click="revoke">撤权</button><output>{{ visible.map(c => c.key).join(',') }}</output>`,
+    template: `<ColumnSettings :columns="available" v-model="selected" /><button data-test="revoke-fields" @click="revoke">撤权</button><output>{{ visible.map(c => c.key).join(',') }}</output>`,
   });
   const wrapper = mount(host);
   expect(wrapper.get("output").text()).toBe("id,name");
   await wrapper.get('[data-test="column-name"]').trigger("keydown", { key: "ArrowUp" });
+  expect(wrapper.get("output").text()).toBe("id,name");
+  await wrapper.get('[data-test="apply-columns"]').trigger("click");
   expect(wrapper.get("output").text()).toBe("name,id");
   await wrapper.get('input[value="name"]').setValue(false);
+  expect(wrapper.get("output").text()).toBe("name,id");
+  await wrapper.get('[data-test="cancel-columns"]').trigger("click");
+  expect(wrapper.get("output").text()).toBe("name,id");
+  await wrapper.get('input[value="name"]').setValue(false);
+  await wrapper.get('[data-test="apply-columns"]').trigger("click");
   expect(wrapper.get("output").text()).toBe("id");
-  await wrapper.get("button:last-of-type").trigger("click");
+  await wrapper.get('[data-test="restore-columns"]').trigger("click");
+  expect(wrapper.get("output").text()).toBe("id");
+  await wrapper.get('[data-test="apply-columns"]').trigger("click");
+  expect(wrapper.get("output").text()).toBe("id,name");
+  await wrapper.get('[data-test="revoke-fields"]').trigger("click");
   expect(wrapper.find('input[value="name"]').exists()).toBe(false);
   expect(wrapper.get("output").text()).toBe("id");
   wrapper.unmount();
@@ -65,12 +76,17 @@ it("applies and persists bounded per-column widths", async () => {
   });
   const wrapper = mount(host);
   await wrapper.get('[data-test="width-name"]').setValue("220");
-  expect(wrapper.get("output").text()).toBe("220px");
+  expect(wrapper.get("output").text()).toBe("auto");
   await wrapper.get('[data-test="fixed-first-column"]').setValue(true);
+  expect(wrapper.get('[data-test="fixed"]').text()).toBe("false");
+  await wrapper.get('[data-test="apply-columns"]').trigger("click");
+  expect(wrapper.get("output").text()).toBe("220px");
   expect(wrapper.get('[data-test="fixed"]').text()).toBe("true");
   expect(JSON.parse(localStorage.getItem("wes-ops-web:columns:v1:test:tenant-a:user-a:users:directory") ?? "{}"))
     .toEqual({ version: 1, selected: ["id", "name"], widths: { name: 220 }, fixedFirstColumn: true });
   await wrapper.get('[data-test="width-name"]').setValue("");
+  expect(wrapper.get("output").text()).toBe("220px");
+  await wrapper.get('[data-test="apply-columns"]').trigger("click");
   expect(wrapper.get("output").text()).toBe("auto");
   wrapper.unmount();
 });

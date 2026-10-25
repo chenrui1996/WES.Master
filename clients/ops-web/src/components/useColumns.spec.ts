@@ -167,7 +167,8 @@ it("loads and persists bounded widths only for currently authorized columns", as
       ], { environment: "test", pageId: "users", tableId: "directory", storageProvider: () => storage });
       return { ...columns, revoke: () => { showName.value = false; }, pin: () => { columns.fixedFirstColumn.value = true; } };
     },
-    template: `<output>{{ JSON.stringify(widths) }}</output><button @click="revoke">撤权</button><button @click="pin">固定首列</button>`,
+    template: `<output>{{ JSON.stringify(widths) }}</output><output data-test="fixed">{{ fixedFirstColumn }}</output>
+      <button @click="revoke">撤权</button><button @click="pin">固定首列</button>`,
   });
   const wrapper = mount(host);
   await flushPromises();
@@ -176,8 +177,14 @@ it("loads and persists bounded widths only for currently authorized columns", as
   await wrapper.get("button").trigger("click");
   await flushPromises();
   expect(wrapper.get("output").text()).toBe("{}");
+  expect(wrapper.get('[data-test="fixed"]').text()).toBe("true");
   expect(JSON.parse(values.get(preferenceKey) ?? "{}")).toEqual({ version: 1, selected: ["id"], fixedFirstColumn: true });
   wrapper.unmount();
+
+  const restored = mount(host);
+  await flushPromises();
+  expect(restored.get('[data-test="fixed"]').text()).toBe("true");
+  restored.unmount();
 });
 
 it("rejects out-of-range stored widths and reports the corrupt preference", async () => {

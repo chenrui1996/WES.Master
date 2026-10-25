@@ -12,8 +12,8 @@
 | 验证 | 结果 |
 |---|---|
 | `PlatformInbox` 定向测试 | 4 passed，0 failed |
-| Persistence Release 全量 | 332 passed，0 failed，0 skipped |
-| 全 solution Release 串行回归 | Architecture 29、Modules 218、Persistence 332、Route 228；共 807 passed、0 failed、0 skipped |
+| Persistence Release 全量 | 334 passed，0 failed，0 skipped |
+| 全 solution Release 串行回归 | Architecture 29、Modules 218、Persistence 334、Route 228；共 809 passed、0 failed、0 skipped |
 | 真实 Broker / consumer ACK 丢失 | 未执行；隔离数据库重投测试不代表 Broker 验收 |
 | Inbox 保留/清理 | 未实现；收据当前持久保留，防止过早清理导致副作用重复 |
 | 其它 Provider / owner | 未执行；不计为通过 |

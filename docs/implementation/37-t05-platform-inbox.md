@@ -14,7 +14,8 @@ Platform 增加 `platform_inbox_receipts`，主键为 tenant、稳定 consumer I
 
 ## 未完成边界
 
-- 尚无实际消息订阅/ACK 适配器、consumer 注册、自动 publisher 扫描器或 broker 崩溃窗口验证。
+- 尚无实际消息订阅/ACK 适配器、consumer 注册、托管 publisher 周期扫描或 broker 崩溃窗口验证。
+- Platform 有界 Outbox due scanner 见[Outbox实施记录](35-t05-platform-outbox.md)，尚未接入托管周期调度或运行时 transport。
 - Inbox 尚无经过批准的保留/清理 Job，当前不删除消费收据；不得通过删除记录触发重放。
 - 本首片只实现 Platform owner Inbox；其它业务 owner 的 Outbox/Inbox、授权查询/重放及 Messages 运维页仍未完成。
 - 只在隔离 MySQL 验证；没有真实 Broker、SQL Server/PostgreSQL、生产权限或容量证据。

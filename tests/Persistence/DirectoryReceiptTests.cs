@@ -361,6 +361,56 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         Assert.Null(message.LeaseId);
     }
 
+    /// <summary>T05: the owner dispatcher publishes only due rows and honors the requested bounded batch.</summary>
+    [Fact]
+    public async Task PlatformOutboxDispatcher_PublishesDueMessagesInBoundedBatches()
+    {
+        await CreateAsync();
+        await using var database = Open();
+        database.Audit.Add(new PlatformAudit(_tenant, _actor, Guid.NewGuid(), Guid.NewGuid(),
+            PlatformAuditAction.UserChanged, null, Guid.NewGuid().ToString("D"), _clock.Now));
+        await database.SaveChangesAsync();
+        var transport = new RecordingOutboxTransport(PlatformOutboxTransportOutcome.Acknowledged);
+        var dispatcher = new PlatformOutboxDispatcher(database, transport, _clock, TimeSpan.FromSeconds(30));
+
+        var firstBatch = await dispatcher.DispatchDueAsync(1);
+
+        Assert.Single(firstBatch);
+        Assert.Equal(PlatformOutboxPublishResult.Published, Assert.Single(firstBatch));
+        Assert.Equal(1, await database.OutboxMessages.CountAsync(message =>
+            message.Status == OutboxMessageStatus.Published));
+        Assert.Equal(1, await database.OutboxMessages.CountAsync(message =>
+            message.Status == OutboxMessageStatus.Pending));
+
+        var secondBatch = await dispatcher.DispatchDueAsync(10);
+        Assert.Equal(PlatformOutboxPublishResult.Published, Assert.Single(secondBatch));
+        Assert.Empty(await dispatcher.DispatchDueAsync(10));
+        Assert.Equal(2, await database.OutboxMessages.CountAsync(message =>
+            message.Status == OutboxMessageStatus.Published));
+    }
+
+    /// <summary>T05: scheduled retries stay dormant until their persisted due time.</summary>
+    [Fact]
+    public async Task PlatformOutboxDispatcher_DoesNotPublishBeforeRetryTime()
+    {
+        await CreateAsync();
+        await using var database = Open();
+        var retryingDispatcher = new PlatformOutboxDispatcher(database,
+            new RecordingOutboxTransport(PlatformOutboxTransportOutcome.TemporaryFailure),
+            _clock, TimeSpan.FromSeconds(30));
+
+        Assert.Equal(PlatformOutboxPublishResult.RetryScheduled,
+            Assert.Single(await retryingDispatcher.DispatchDueAsync(10)));
+        Assert.Empty(await retryingDispatcher.DispatchDueAsync(10));
+
+        _clock.Now += TimeSpan.FromSeconds(1);
+        var successfulDispatcher = new PlatformOutboxDispatcher(database,
+            new RecordingOutboxTransport(PlatformOutboxTransportOutcome.Acknowledged),
+            _clock, TimeSpan.FromSeconds(30));
+        Assert.Equal(PlatformOutboxPublishResult.Published,
+            Assert.Single(await successfulDispatcher.DispatchDueAsync(10)));
+    }
+
     /// <summary>T05: transient transport failures persist retry state without losing the original event.</summary>
     [Fact]
     public async Task PlatformOutboxPublisher_SchedulesRetryAfterTemporaryFailure()

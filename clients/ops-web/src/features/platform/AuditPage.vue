@@ -19,15 +19,20 @@ const staleMessage = computed(() => busy.value
   : `刷新失败，仍保留最近一次已加载的证据：${error.value}`);
 const fields = computed(() => new Set(sessionState.subject?.grants.filter(grant => grant.permission === "platform.audit.read").flatMap(grant => grant.fields) ?? []));
 const { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning } = useColumns(() => [
-  { key: "id", label: "标识", field: "Id", required: true }, { key: "occurredAt", label: "发生时间（UTC）", field: "OccurredAt", required: true },
-  { key: "correlationId", label: "关联标识", field: "CorrelationId" },
+  { key: "id", label: "标识", field: "Id", required: true, widthClass: "identity" as const },
+  { key: "occurredAt", label: "发生时间（UTC）", field: "OccurredAt", required: true, widthClass: "time" as const },
+  { key: "correlationId", label: "关联标识", field: "CorrelationId", widthClass: "identity" as const },
   ...(mode.value === "audit" ? [
-    { key: "actorId", label: "操作者", field: "ActorId" }, { key: "targetId", label: "目标", field: "TargetId" },
-    { key: "action", label: "动作码", field: "Action" }, { key: "beforeVersion", label: "原版本", field: "BeforeVersion" },
-    { key: "afterVersion", label: "后继版本", field: "AfterVersion" },
+    { key: "actorId", label: "操作者", field: "ActorId", widthClass: "identity" as const },
+    { key: "targetId", label: "目标", field: "TargetId", widthClass: "identity" as const },
+    { key: "action", label: "动作码", field: "Action", widthClass: "status" as const },
+    { key: "beforeVersion", label: "原版本", field: "BeforeVersion", widthClass: "identity" as const },
+    { key: "afterVersion", label: "后继版本", field: "AfterVersion", widthClass: "identity" as const },
   ] : [
-    { key: "kind", label: "事件码", field: "Kind" }, { key: "accountDigest", label: "账号假名绑定", field: "AccountDigest" },
-    { key: "sourceDigest", label: "来源假名绑定", field: "SourceDigest" }, { key: "sessionId", label: "会话", field: "SessionId" },
+    { key: "kind", label: "事件码", field: "Kind", widthClass: "status" as const },
+    { key: "accountDigest", label: "账号假名绑定", field: "AccountDigest", widthClass: "identity" as const },
+    { key: "sourceDigest", label: "来源假名绑定", field: "SourceDigest", widthClass: "identity" as const },
+    { key: "sessionId", label: "会话", field: "SessionId", widthClass: "identity" as const },
   ]),
 ].filter(column => fields.value.has(column.field)), { pageId: "platform-audit", tableId: () => mode.value });
 async function read() {

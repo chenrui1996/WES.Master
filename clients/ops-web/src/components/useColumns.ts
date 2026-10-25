@@ -2,9 +2,28 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { isRecord, sessionState } from "../features/identity/identity-api";
 
 /** Column metadata only. Never persists rows, authorization or preferences across identities. */
-export interface AuthorizedColumn { key: string; label: string; required?: boolean }
-export const MIN_COLUMN_WIDTH = 128;
-export const MAX_COLUMN_WIDTH = 800;
+export type ColumnWidthClass = "identity" | "status" | "numeric" | "time" | "description";
+export interface AuthorizedColumn {
+  key: string;
+  label: string;
+  required?: boolean;
+  widthClass?: ColumnWidthClass;
+}
+export interface ColumnWidthPreset { defaultWidth: number; minWidth: number; maxWidth: number }
+export const MIN_COLUMN_WIDTH = 100;
+export const MAX_COLUMN_WIDTH = 600;
+const MAX_STORED_COLUMN_WIDTH = 800;
+const columnWidthPresets: Record<ColumnWidthClass, ColumnWidthPreset> = {
+  identity: { defaultWidth: 200, minWidth: 160, maxWidth: MAX_COLUMN_WIDTH },
+  status: { defaultWidth: 120, minWidth: 100, maxWidth: MAX_COLUMN_WIDTH },
+  numeric: { defaultWidth: 120, minWidth: 100, maxWidth: MAX_COLUMN_WIDTH },
+  time: { defaultWidth: 200, minWidth: 180, maxWidth: MAX_COLUMN_WIDTH },
+  description: { defaultWidth: 240, minWidth: 180, maxWidth: MAX_COLUMN_WIDTH },
+};
+
+export function columnWidthPreset(column: AuthorizedColumn): ColumnWidthPreset {
+  return columnWidthPresets[column.widthClass ?? "identity"];
+}
 
 export interface ColumnPreferenceOptions {
   pageId: string;
@@ -50,7 +69,7 @@ function parsePreference(value: string): StoredColumnPreference | null {
 
 function isColumnWidths(value: unknown): value is Record<string, number> {
   return isRecord(value) && Object.values(value).every((width: unknown) =>
-    typeof width === "number" && Number.isInteger(width) && width >= MIN_COLUMN_WIDTH && width <= MAX_COLUMN_WIDTH);
+    typeof width === "number" && Number.isInteger(width) && width >= MIN_COLUMN_WIDTH && width <= MAX_STORED_COLUMN_WIDTH);
 }
 
 /** The caller supplies only fields present in the current server projection. Revocation drops preferences. */
@@ -121,8 +140,23 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
     for (const column of columns)
       if (column.required && !ordered.includes(column.key)) ordered.unshift(column.key);
     hydratedScope.value = key;
-    widths.value = Object.fromEntries(Object.entries(stored?.widths ?? {})
-      .filter(([columnKey]) => permitted.has(columnKey)));
+    const widthColumns = new Map(columns.map(column => [column.key, column]));
+    const storedWidths = Object.entries(stored?.widths ?? {});
+    const hasOutOfRangeWidth = storedWidths.some(([columnKey, width]) => {
+      const column = widthColumns.get(columnKey);
+      if (!column) return false;
+      const preset = columnWidthPreset(column);
+      return width < preset.minWidth || width > preset.maxWidth;
+    });
+    const validWidths = storedWidths.filter(([columnKey, width]) => {
+      const column = widthColumns.get(columnKey);
+      if (!column || !permitted.has(columnKey)) return false;
+      const preset = columnWidthPreset(column);
+      return width >= preset.minWidth && width <= preset.maxWidth;
+    });
+    if (hasOutOfRangeWidth)
+      preferenceWarning.value = "部分列宽超出当前字段范围，已恢复为基准宽度。";
+    widths.value = Object.fromEntries(validWidths);
     fixedFirstColumn.value = stored?.fixedFirstColumn ?? false;
     selected.value = ordered;
   }, { immediate: true, flush: "sync" });
@@ -136,8 +170,12 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
       if (column.required && !normalized.includes(column.key)) normalized.unshift(column.key);
     try {
       const normalizedWidths = Object.fromEntries(Object.entries(widthValues)
-        .filter(([columnKey, width]) => permitted.has(columnKey)
-          && Number.isInteger(width) && width >= MIN_COLUMN_WIDTH && width <= MAX_COLUMN_WIDTH));
+        .filter(([columnKey, width]) => {
+          const column = available.value.find(item => item.key === columnKey);
+          if (!column || !permitted.has(columnKey) || !Number.isInteger(width)) return false;
+          const preset = columnWidthPreset(column);
+          return width >= preset.minWidth && width <= preset.maxWidth;
+        }));
       storageProvider().setItem(key, JSON.stringify({ version: 1, selected: normalized,
         ...(Object.keys(normalizedWidths).length ? { widths: normalizedWidths } : {}),
         ...(pinFirst ? { fixedFirstColumn: true } : {}) }));
@@ -153,8 +191,10 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
     return column ? [column] : [];
   }));
   function widthStyle(key: string) {
-    const width = widths.value[key];
-    return width === undefined ? undefined : { width: `${width}px` };
+    const column = available.value.find(item => item.key === key);
+    if (!column) return undefined;
+    const width = widths.value[key] ?? columnWidthPreset(column).defaultWidth;
+    return { width: `${width}px` };
   }
   return { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning };
 }

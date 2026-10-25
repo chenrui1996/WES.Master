@@ -88,12 +88,12 @@ const canCreateUser = computed(() => departmentCandidates.value.some(department 
 const profileDepartments = computed(() => departmentCandidates.value.filter(department =>
   writable(mode.value === "create" ? createFields : profileFields, selectedUser.value ?? undefined, department.id)));
 const { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning } = useColumns(() => rows.value.length ? [
-  { key: "id", label: "用户标识", required: true },
-  ...rows.value.some(row => row.account !== null) ? [{ key: "account", label: "账号" }] : [],
-  ...rows.value.some(row => row.name !== null) ? [{ key: "name", label: "姓名" }] : [],
-  ...rows.value.some(row => row.departmentId !== null) ? [{ key: "departmentId", label: "部门" }] : [],
-  ...rows.value.some(row => row.enabled !== null) ? [{ key: "enabled", label: "状态" }] : [],
-  ...rows.value.some(row => row.roleIds !== null) ? [{ key: "roleIds", label: "角色" }] : [],
+  { key: "id", label: "用户标识", required: true, widthClass: "identity" },
+  ...rows.value.some(row => row.account !== null) ? [{ key: "account", label: "账号", widthClass: "identity" as const }] : [],
+  ...rows.value.some(row => row.name !== null) ? [{ key: "name", label: "姓名", widthClass: "identity" as const }] : [],
+  ...rows.value.some(row => row.departmentId !== null) ? [{ key: "departmentId", label: "部门", widthClass: "identity" as const }] : [],
+  ...rows.value.some(row => row.enabled !== null) ? [{ key: "enabled", label: "状态", widthClass: "status" as const }] : [],
+  ...rows.value.some(row => row.roleIds !== null) ? [{ key: "roleIds", label: "角色", widthClass: "description" as const }] : [],
 ] : [], { pageId: "platform-users", tableId: "directory" });
 function closeEditor() {
   mode.value = null; selectedUser.value = null;

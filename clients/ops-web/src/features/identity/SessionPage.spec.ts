@@ -185,7 +185,7 @@ it("reuses column visibility and keyboard ordering and never restores hidden val
   expect(wrapper.get("tbody").text()).toContain("Web");
   await wrapper.get('[data-test="column-state"]').trigger("keydown", { key: "ArrowUp" });
   expect(wrapper.get("tbody").text()).toContain("Web");
-  await wrapper.get('[data-test="apply-columns"]').trigger("click");
+  await wrapper.get("details.column-settings form").trigger("submit");
   expect(wrapper.get("tbody").text()).not.toContain("Web");
   const headers = wrapper.findAll("thead th").map(header => header.text());
   expect(headers.indexOf("状态")).toBeLessThan(headers.indexOf("是否当前"));

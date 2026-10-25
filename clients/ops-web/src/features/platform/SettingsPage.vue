@@ -51,15 +51,20 @@ const dictionaryStaleMessage = computed(() => dictionaryLoading.value
 const fields = computed(() => new Set(sessionState.subject?.grants.filter(grant => grant.permission === "platform.settings.read").flatMap(grant => grant.fields) ?? []));
 const { available, selected: selectedColumns, visible, widths: settingWidths, widthStyle: settingWidthStyle,
   fixedFirstColumn: settingsFixedFirstColumn, preferenceWarning } = useColumns(() => [
-  { key: "id", label: "标识", field: "Id", required: true }, { key: "key", label: "稳定键", field: "Key" },
-  { key: "value", label: "当前值", field: "Value" }, { key: "source", label: "来源", field: "Source" },
-  { key: "version", label: "版本", field: "Version" },
+  { key: "id", label: "标识", field: "Id", required: true, widthClass: "identity" as const },
+  { key: "key", label: "稳定键", field: "Key", widthClass: "identity" as const },
+  { key: "value", label: "当前值", field: "Value", widthClass: "description" as const },
+  { key: "source", label: "来源", field: "Source", widthClass: "identity" as const },
+  { key: "version", label: "版本", field: "Version", widthClass: "identity" as const },
 ].filter(column => fields.value.has(column.field)), { pageId: "platform-settings", tableId: "settings" });
 const dictionaryFields = computed(() => new Set(sessionState.subject?.grants.filter(grant => grant.permission === "platform.dictionary.read").flatMap(grant => grant.fields) ?? []));
 const dictColumns = useColumns(() => [
-  { key: "id", label: "标识", field: "Id", required: true }, { key: "code", label: "稳定业务码", field: "Code" },
-  { key: "languageKey", label: "语言键", field: "LanguageKey" }, { key: "label", label: "显示文本", field: "Label" },
-  { key: "resolvedLanguage", label: "实际回退语言", field: "Label" }, { key: "version", label: "版本", field: "Version" },
+  { key: "id", label: "标识", field: "Id", required: true, widthClass: "identity" as const },
+  { key: "code", label: "稳定业务码", field: "Code", widthClass: "identity" as const },
+  { key: "languageKey", label: "语言键", field: "LanguageKey", widthClass: "identity" as const },
+  { key: "label", label: "显示文本", field: "Label", widthClass: "description" as const },
+  { key: "resolvedLanguage", label: "实际回退语言", field: "Label", widthClass: "identity" as const },
+  { key: "version", label: "版本", field: "Version", widthClass: "identity" as const },
 ].filter(column => dictionaryFields.value.has(column.field)), { pageId: "platform-settings", tableId: "dictionary" });
 function problem(failure: unknown) { error.value = failure instanceof Error ? failure.message : "请求未确认，请重新读取后重试。"; }
 function parseRows<T>(data: unknown, guard: (row: unknown) => row is T): T[] {

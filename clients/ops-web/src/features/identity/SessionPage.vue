@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import ColumnSettings from "../../components/ColumnSettings.vue";
 import QueryState from "../../components/QueryState.vue";
-import { useColumns } from "../../components/useColumns";
+import { useColumns, type ColumnWidthClass } from "../../components/useColumns";
 import { api, ApiError, canRead, forgetIdentity, isRecord, sessionState } from "./identity-api";
 
 interface Family {
@@ -54,13 +54,17 @@ function fieldAllowed(field: string) {
 const stateFilterAllowed = computed(() => fieldAllowed("State"));
 const userFilterAllowed = computed(() => mode.value === "admin" && fieldAllowed("UserId"));
 const definitions = [
-  { key: "id", label: "会话标识", required: true },
-  { key: "userId", label: "用户标识" }, { key: "client", label: "终端" },
-  { key: "createdAt", label: "创建时间" }, { key: "lastActivityAt", label: "最近活动" },
-  { key: "expiresAt", label: "绝对过期" }, { key: "revokedAt", label: "撤销时间" },
-  { key: "requiresPasswordChange", label: "需要改密" }, { key: "current", label: "是否当前" },
-  { key: "state", label: "状态" },
-] satisfies { key: keyof Family; label: string; required?: boolean }[];
+  { key: "id", label: "会话标识", required: true, widthClass: "identity" },
+  { key: "userId", label: "用户标识", widthClass: "identity" },
+  { key: "client", label: "终端", widthClass: "status" },
+  { key: "createdAt", label: "创建时间", widthClass: "time" },
+  { key: "lastActivityAt", label: "最近活动", widthClass: "time" },
+  { key: "expiresAt", label: "绝对过期", widthClass: "time" },
+  { key: "revokedAt", label: "撤销时间", widthClass: "time" },
+  { key: "requiresPasswordChange", label: "需要改密", widthClass: "status" },
+  { key: "current", label: "是否当前", widthClass: "status" },
+  { key: "state", label: "状态", widthClass: "status" },
+] satisfies { key: keyof Family; label: string; required?: boolean; widthClass: ColumnWidthClass }[];
 const { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning } = useColumns(() => rows.value.length
   ? definitions.filter(column => column.key === "id" || (mode.value === "self" && column.key !== "userId")
     || rows.value.some(row => row[column.key] !== null)) : [], { pageId: "identity-sessions", tableId: "sessions" });

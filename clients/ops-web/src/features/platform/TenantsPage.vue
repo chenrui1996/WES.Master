@@ -51,10 +51,10 @@ const canWrite = computed(() => ["Name", "Enabled", "DefaultLanguage"].every(fie
 const canSwitch = computed(() => sessionState.subject?.grants.some(grant => grant.permission === "platform.tenants.switch"
   && grant.scope === 2 && grant.fields.includes("Id")) ?? false);
 const { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning } = useColumns(() => rows.value.length ? [
-  { key: "tenantId", label: "租户标识", required: true },
-  ...rows.value.some(row => row.name !== null) ? [{ key: "name", label: "租户名称" }] : [],
-  ...rows.value.some(row => row.enabled !== null) ? [{ key: "enabled", label: "状态" }] : [],
-  ...rows.value.some(row => row.defaultLanguage !== null) ? [{ key: "defaultLanguage", label: "默认语言" }] : [],
+  { key: "tenantId", label: "租户标识", required: true, widthClass: "identity" },
+  ...rows.value.some(row => row.name !== null) ? [{ key: "name", label: "租户名称", widthClass: "identity" as const }] : [],
+  ...rows.value.some(row => row.enabled !== null) ? [{ key: "enabled", label: "状态", widthClass: "status" as const }] : [],
+  ...rows.value.some(row => row.defaultLanguage !== null) ? [{ key: "defaultLanguage", label: "默认语言", widthClass: "identity" as const }] : [],
 ] : [], { pageId: "platform-tenants", tableId: "directory" });
 function closeEditor() {
   editor.value = null; Object.assign(form, { name: "", enabled: true, defaultLanguage: "" });

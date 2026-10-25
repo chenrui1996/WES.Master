@@ -187,10 +187,10 @@ it("loads and persists bounded widths only for currently authorized columns", as
   restored.unmount();
 });
 
-it("rejects out-of-range stored widths and reports the corrupt preference", async () => {
+it("drops widths above 600px while preserving the rest of the preference", async () => {
   const preferenceKey = "wes-ops-web:columns:v1:test:tenant-a:user-a:users:directory";
   const values = new Map<string, string>([[preferenceKey, JSON.stringify({
-    version: 1, selected: ["name"], widths: { name: 801 },
+    version: 1, selected: ["name"], widths: { name: 601 },
   })]]);
   const storage = {
     getItem: (key: string) => values.get(key) ?? null,
@@ -209,8 +209,43 @@ it("rejects out-of-range stored widths and reports the corrupt preference", asyn
   const wrapper = mount(host);
   await flushPromises();
   expect(wrapper.get("output").text()).toBe("{}");
-  expect(wrapper.get('[role="status"]').text()).toContain("格式无效");
-  expect(values.get(preferenceKey)).toContain('"name":801');
+  expect(wrapper.get('[role="status"]').text()).toContain("字段范围");
+  expect(values.get(preferenceKey)).toContain('"name":601');
+  wrapper.unmount();
+});
+
+it("drops saved widths below the authorized column category minimum", async () => {
+  const preferenceKey = "wes-ops-web:columns:v1:test:tenant-a:user-a:users:directory";
+  const values = new Map<string, string>([[preferenceKey, JSON.stringify({
+    version: 1, selected: ["id", "name", "occurredAt"], widths: { occurredAt: 160, name: 700 },
+  })]]);
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => { values.set(key, value); },
+  };
+  sessionState.subject = {
+    tenantId: "tenant-a", userId: "user-a", sessionId: "session-a",
+    requiresPasswordChange: false, credentialVersion: null, grants: [],
+  };
+  const host = defineComponent({
+    setup() {
+      const columns = useColumns(() => [
+        { key: "id", label: "ID", required: true, widthClass: "identity" },
+        { key: "name", label: "名称", widthClass: "identity" },
+        { key: "occurredAt", label: "时间", widthClass: "time" },
+      ], { environment: "test", pageId: "users", tableId: "directory", storageProvider: () => storage });
+      return { ...columns };
+    },
+    template: `<output>{{ JSON.stringify(widths) }}</output><output data-test="selected">{{ selected.join(',') }}</output>
+      <output data-test="width">{{ widthStyle('occurredAt')?.width }}</output>
+      <p role="status">{{ preferenceWarning }}</p>`,
+  });
+  const wrapper = mount(host);
+  await flushPromises();
+  expect(wrapper.get("output").text()).toBe("{}");
+  expect(wrapper.get('[data-test="selected"]').text()).toBe("id,name,occurredAt");
+  expect(wrapper.get('[data-test="width"]').text()).toBe("200px");
+  expect(wrapper.get('[role="status"]').text()).toContain("字段范围");
   wrapper.unmount();
 });
 

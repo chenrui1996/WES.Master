@@ -64,12 +64,12 @@ const managementFields = computed(() => new Set(sessionState.subject?.grants.fil
 const canWrite = computed(() => ["Rules", "Enabled"].every(field => managementFields.value.has(field)));
 const canCreate = computed(() => ["Code", "Rules", "Enabled"].every(field => managementFields.value.has(field)));
 const { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning } = useColumns(() => rows.value.length ? [
-  { key: "id", label: "角色标识", required: true },
-  ...rows.value.some(row => row.code !== null) ? [{ key: "code", label: "角色编码" }] : [],
-  ...rows.value.some(row => row.enabled !== null) ? [{ key: "enabled", label: "状态" }] : [],
-  ...rows.value.some(row => row.rules !== null) ? [{ key: "rules", label: "权限规则" }] : [],
+  { key: "id", label: "角色标识", required: true, widthClass: "identity" },
+  ...rows.value.some(row => row.code !== null) ? [{ key: "code", label: "角色编码", widthClass: "identity" as const }] : [],
+  ...rows.value.some(row => row.enabled !== null) ? [{ key: "enabled", label: "状态", widthClass: "status" as const }] : [],
+  ...rows.value.some(row => row.rules !== null) ? [{ key: "rules", label: "权限规则", widthClass: "description" as const }] : [],
   ...readFields.value.has("AffectedSubjects") && rows.value.some(row => row.affectedSubjects != null)
-    ? [{ key: "affectedSubjects", label: "关联用户数（查询快照）" }] : [],
+    ? [{ key: "affectedSubjects", label: "关联用户数（查询快照）", widthClass: "numeric" as const }] : [],
 ] : [], { pageId: "platform-roles", tableId: "directory" });
 function scopeName(scope: number) { return scope === 0 ? "本人" : scope === 1 ? "指定部门" : scope === 2 ? "当前租户全部" : "无效范围"; }
 function resetDraft() { Object.assign(draft, { permission: "", scope: 0, departments: [], fields: [] }); }

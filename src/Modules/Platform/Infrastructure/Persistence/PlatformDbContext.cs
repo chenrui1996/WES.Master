@@ -8,6 +8,8 @@ namespace Wes.Platform.Infrastructure.Persistence;
 /// <summary>Platform-owned persistence only. Every operational instance requires an explicit trusted tenant.</summary>
 public sealed partial class PlatformDbContext : DbContext
 {
+    private readonly HashSet<PlatformInboxReceipt> _inboxRetentionDeletes = [];
+
     /// <summary>Rejects absent tenant identity before any model, query, or database connection is used.</summary>
     public PlatformDbContext(DbContextOptions<PlatformDbContext> options, Guid tenantId) : base(options)
     {
@@ -46,6 +48,28 @@ public sealed partial class PlatformDbContext : DbContext
     public DbSet<PasswordCredential> PasswordCredentials => Set<PasswordCredential>();
     /// <summary>Append-only finite login security evidence, including unknown-account attempts.</summary>
     public DbSet<LoginSecurityEvent> LoginEvents => Set<LoginSecurityEvent>();
+
+    internal void StageInboxReceiptRetentionRemoval(
+        IReadOnlyCollection<PlatformInboxReceipt> receipts,
+        DateTimeOffset cutoff)
+    {
+        if (Database.CurrentTransaction is null)
+            throw new InvalidOperationException("Inbox retention requires an explicit owner transaction.");
+        if (receipts.Count > 200)
+            throw new ArgumentOutOfRangeException(nameof(receipts), "Inbox retention batches cannot exceed 200 receipts.");
+        foreach (var receipt in receipts)
+        {
+            if (receipt.TenantId != TenantId || receipt.ProcessedAt > cutoff
+                || Entry(receipt).State != EntityState.Unchanged)
+            {
+                throw new InvalidOperationException("Only tracked, expired Inbox receipts from this owner can be retained out.");
+            }
+        }
+
+        foreach (var receipt in receipts)
+            _inboxRetentionDeletes.Add(receipt);
+        InboxReceipts.RemoveRange(receipts);
+    }
 
     /// <summary>Maps only Platform-owned tables with UTC instants, tenant keys and explicit concurrency.</summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -278,7 +302,14 @@ public sealed partial class PlatformDbContext : DbContext
         foreach (var entry in ChangeTracker.Entries()
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
         {
-            if (entry.Entity is PlatformInboxReceipt or PlatformOutboxReplayReceipt
+            if (entry.Entity is PlatformInboxReceipt inboxReceipt
+                && entry.State != EntityState.Added
+                && (entry.State != EntityState.Deleted || !_inboxRetentionDeletes.Remove(inboxReceipt)))
+            {
+                throw new InvalidOperationException("Platform message receipts are append-only outside bounded Inbox retention.");
+            }
+
+            if (entry.Entity is PlatformOutboxReplayReceipt
                 && entry.State != EntityState.Added)
             {
                 throw new InvalidOperationException("Platform message receipts are append-only.");

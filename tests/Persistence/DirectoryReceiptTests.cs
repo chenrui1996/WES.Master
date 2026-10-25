@@ -88,6 +88,95 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         Assert.Contains(entity.GetProperties(), property => property.Name == "ProcessedAt");
     }
 
+    /// <summary>T05: bounded Inbox retention removes only this tenant's receipts at or beyond 90 days.</summary>
+    [Fact]
+    public async Task PlatformInboxRetention_RemovesExpiredReceiptsInBoundedTenantScopedBatches()
+    {
+        var now = _clock.Now;
+
+        async Task StoreReceiptAsync(Guid tenant, DateTimeOffset processedAt)
+        {
+            _clock.Now = processedAt;
+            await using var owner = Open(tenant: tenant);
+            var envelope = CreateInboxEnvelope() with { TenantId = tenant };
+            await new PlatformInboxConsumer(owner, _clock).ProcessAsync(
+                envelope, "platform.audit.retention", (_, _, _) => Task.CompletedTask);
+        }
+
+        await StoreReceiptAsync(_tenant, now - PlatformInboxRetention.Retention - TimeSpan.FromSeconds(1));
+        await StoreReceiptAsync(_tenant, now - PlatformInboxRetention.Retention);
+        await StoreReceiptAsync(_tenant, now - PlatformInboxRetention.Retention + TimeSpan.FromSeconds(1));
+        await StoreReceiptAsync(_otherTenant, now - PlatformInboxRetention.Retention - TimeSpan.FromDays(1));
+        _clock.Now = now;
+
+        await using (var missingTransaction = Open())
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                PlatformInboxRetention.RemoveExpiredAsync(missingTransaction, now));
+            await using var transaction = await missingTransaction.Database.BeginTransactionAsync();
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+                PlatformInboxRetention.RemoveExpiredAsync(missingTransaction, now, 0));
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+                PlatformInboxRetention.RemoveExpiredAsync(missingTransaction, now, 201));
+        }
+
+        await using (var rollback = Open())
+        {
+            await using var transaction = await rollback.Database.BeginTransactionAsync();
+            Assert.Equal(1, await PlatformInboxRetention.RemoveExpiredAsync(rollback, now, 1));
+            await rollback.SaveChangesAsync();
+            await transaction.RollbackAsync();
+        }
+
+        await using (var verifyRollback = Open())
+            Assert.Equal(3, await verifyRollback.InboxReceipts.CountAsync());
+
+        await using (var cleanup = Open())
+        {
+            await using var transaction = await cleanup.Database.BeginTransactionAsync();
+            Assert.Equal(1, await PlatformInboxRetention.RemoveExpiredAsync(cleanup, now, 1));
+            await cleanup.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        await using (var cleanup = Open())
+        {
+            await using var transaction = await cleanup.Database.BeginTransactionAsync();
+            Assert.Equal(1, await PlatformInboxRetention.RemoveExpiredAsync(cleanup, now, 1));
+            await cleanup.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+
+        await using (var verify = Open())
+        {
+            var remaining = await verify.InboxReceipts.ToListAsync();
+            var receipt = Assert.Single(remaining);
+            Assert.Equal(now - PlatformInboxRetention.Retention + TimeSpan.FromSeconds(1), receipt.ProcessedAt);
+        }
+        await using var verifyOtherTenant = Open(tenant: _otherTenant);
+        Assert.Single(await verifyOtherTenant.InboxReceipts.ToListAsync());
+    }
+
+    /// <summary>T05: ordinary owner writes cannot delete Inbox receipts outside the retention primitive.</summary>
+    [Fact]
+    public async Task PlatformInboxReceipt_DirectDeletionRemainsRejected()
+    {
+        var envelope = CreateInboxEnvelope();
+        await using (var owner = Open())
+            await new PlatformInboxConsumer(owner, _clock).ProcessAsync(
+                envelope, "platform.audit.retention", (_, _, _) => Task.CompletedTask);
+
+        await using (var deletion = Open())
+        {
+            await using var transaction = await deletion.Database.BeginTransactionAsync();
+            deletion.InboxReceipts.Remove(await deletion.InboxReceipts.SingleAsync());
+            await Assert.ThrowsAsync<InvalidOperationException>(() => deletion.SaveChangesAsync());
+            await transaction.RollbackAsync();
+        }
+
+        await using var verify = Open();
+        Assert.Single(await verify.InboxReceipts.ToListAsync());
+    }
+
     /// <summary>T05: operator replay evidence is persisted owner-locally as an immutable idempotency receipt.</summary>
     [Fact]
     public async Task PlatformModel_ContainsOwnerLocalOutboxReplayReceipts()

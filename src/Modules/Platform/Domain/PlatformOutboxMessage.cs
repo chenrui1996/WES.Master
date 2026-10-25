@@ -79,18 +79,14 @@ public sealed class PlatformOutboxMessage
     public DateTimeOffset CreatedAt { get; private set; }
 
     /// <summary>Records a finite delivery failure and schedules only bounded, non-physical retries.</summary>
-    public void RecordFailure(DateTimeOffset failedAt, OutboxFailureCategory category)
+    public void RecordFailure(Guid leaseId, DateTimeOffset failedAt, OutboxFailureCategory category)
     {
         if (!Enum.IsDefined(category))
         {
             throw new ArgumentOutOfRangeException(nameof(category));
         }
 
-        if (Status is not (OutboxMessageStatus.Pending or OutboxMessageStatus.Leased))
-        {
-            throw new InvalidOperationException("Only pending or leased outbox messages can record a delivery failure.");
-        }
-
+        EnsureLease(leaseId, failedAt);
         if (failedAt < CreatedAt)
         {
             throw new ArgumentOutOfRangeException(nameof(failedAt));
@@ -116,6 +112,22 @@ public sealed class PlatformOutboxMessage
 
         NextAttemptAt = retryAt;
         Status = OutboxMessageStatus.Pending;
+    }
+
+    /// <summary>Marks a broker acknowledgement only while the caller still owns an unexpired lease.</summary>
+    public void MarkPublished(Guid leaseId, DateTimeOffset publishedAt)
+    {
+        EnsureLease(leaseId, publishedAt);
+        if (publishedAt < CreatedAt)
+        {
+            throw new ArgumentOutOfRangeException(nameof(publishedAt));
+        }
+
+        Attempts++;
+        PublishedAt = publishedAt;
+        LastErrorCategory = null;
+        Status = OutboxMessageStatus.Published;
+        ClearLease();
     }
 
     internal bool TryAcquireLease(Guid leaseId, DateTimeOffset now, TimeSpan duration)
@@ -186,6 +198,15 @@ public sealed class PlatformOutboxMessage
     {
         LeaseId = null;
         LeaseUntil = null;
+    }
+
+    private void EnsureLease(Guid leaseId, DateTimeOffset instant)
+    {
+        if (leaseId == Guid.Empty || Status != OutboxMessageStatus.Leased || LeaseId != leaseId
+            || LeaseUntil is null || instant >= LeaseUntil)
+        {
+            throw new InvalidOperationException("The active publisher lease is missing, expired, or owned by another publisher.");
+        }
     }
 }
 

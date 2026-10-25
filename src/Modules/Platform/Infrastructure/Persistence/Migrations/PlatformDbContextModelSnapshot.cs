@@ -498,6 +498,7 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                         .HasColumnType("varchar(32)");
 
                     b.Property<string>("LeaseId")
+                        .IsConcurrencyToken()
                         .HasMaxLength(36)
                         .HasColumnType("varchar(36)");
 

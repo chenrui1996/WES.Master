@@ -198,7 +198,8 @@ public sealed partial class PlatformDbContext : DbContext
         outbox.Property(item => item.Status).HasConversion<string>().HasColumnType("varchar(16)").HasMaxLength(16)
             .IsConcurrencyToken();
         outbox.Property(item => item.FirstFailureAt).HasConversion(utc).HasColumnType("datetime(6)");
-        outbox.Property(item => item.LeaseId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        outbox.Property(item => item.LeaseId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36)
+            .IsConcurrencyToken();
         outbox.Property(item => item.LeaseUntil).HasConversion(utc).HasColumnType("datetime(6)");
         outbox.Property(item => item.NextAttemptAt).HasConversion(utc).HasColumnType("datetime(6)");
         outbox.Property(item => item.PublishedAt).HasConversion(utc).HasColumnType("datetime(6)");

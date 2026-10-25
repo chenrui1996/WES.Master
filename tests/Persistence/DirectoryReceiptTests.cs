@@ -113,7 +113,10 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
 
         foreach (var (delay, index) in retryDelays.Select((delay, index) => (delay, index)))
         {
-            message.RecordFailure(failedAt, OutboxFailureCategory.BrokerUnavailable);
+            var leaseId = Guid.NewGuid();
+            Assert.True(await new PlatformOutboxLeaseStore(db).TryLeaseAsync(
+                message.EventId, leaseId, failedAt, TimeSpan.FromSeconds(30)));
+            message.RecordFailure(leaseId, failedAt, OutboxFailureCategory.BrokerUnavailable);
             await db.SaveChangesAsync();
 
             Assert.Equal(index + 1, message.Attempts);
@@ -124,7 +127,10 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
             failedAt = message.NextAttemptAt;
         }
 
-        message.RecordFailure(failedAt, OutboxFailureCategory.BrokerUnavailable);
+        var finalLeaseId = Guid.NewGuid();
+        Assert.True(await new PlatformOutboxLeaseStore(db).TryLeaseAsync(
+            message.EventId, finalLeaseId, failedAt, TimeSpan.FromSeconds(30)));
+        message.RecordFailure(finalLeaseId, failedAt, OutboxFailureCategory.BrokerUnavailable);
         await db.SaveChangesAsync();
         await db.Entry(message).ReloadAsync();
         Assert.Equal(6, message.Attempts);
@@ -169,6 +175,37 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         Assert.Equal(recoveredLeaseId, message.LeaseId);
     }
 
+    /// <summary>T05: an expired publisher lease cannot acknowledge after another publisher has reclaimed it.</summary>
+    [Fact]
+    public async Task OutboxMessage_RejectsStaleLeaseAcknowledgement()
+    {
+        await CreateAsync();
+        Guid eventId;
+        await using (var lookup = Open())
+        {
+            eventId = await lookup.OutboxMessages.Select(message => message.EventId).SingleAsync();
+        }
+
+        var staleLeaseId = Guid.NewGuid();
+        var currentLeaseId = Guid.NewGuid();
+        await using var database = Open();
+        var leases = new PlatformOutboxLeaseStore(database);
+        Assert.True(await leases.TryLeaseAsync(eventId, staleLeaseId, _clock.Now, TimeSpan.FromSeconds(30)));
+        Assert.True(await leases.TryLeaseAsync(eventId, currentLeaseId,
+            _clock.Now + TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30)));
+        var message = await database.OutboxMessages.SingleAsync();
+
+        Assert.Throws<InvalidOperationException>(() => message.MarkPublished(
+            staleLeaseId, _clock.Now + TimeSpan.FromSeconds(31)));
+
+        message.MarkPublished(currentLeaseId, _clock.Now + TimeSpan.FromSeconds(31));
+        await database.SaveChangesAsync();
+        Assert.Equal(OutboxMessageStatus.Published, message.Status);
+        Assert.Equal(_clock.Now + TimeSpan.FromSeconds(31), message.PublishedAt);
+        Assert.Null(message.LeaseId);
+        Assert.Null(message.LeaseUntil);
+    }
+
     /// <summary>T05: an expired automatic retry budget is quarantined before a publisher can claim it.</summary>
     [Fact]
     public async Task OutboxLeaseStore_QuarantinesExpiredRetryBudget()
@@ -177,7 +214,10 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         await using (var database = Open())
         {
             var message = await database.OutboxMessages.SingleAsync();
-            message.RecordFailure(_clock.Now, OutboxFailureCategory.BrokerUnavailable);
+            var leaseId = Guid.NewGuid();
+            Assert.True(await new PlatformOutboxLeaseStore(database).TryLeaseAsync(
+                message.EventId, leaseId, _clock.Now, TimeSpan.FromSeconds(30)));
+            message.RecordFailure(leaseId, _clock.Now, OutboxFailureCategory.BrokerUnavailable);
             await database.SaveChangesAsync();
         }
 
@@ -798,7 +838,9 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         var leaseIndex = Assert.Single(leaseOperations.OfType<CreateIndexOperation>());
         Assert.Equal("platform_outbox_messages", leaseIndex.Table);
         Assert.Equal(new[] { "TenantId", "Status", "LeaseUntil", "EventId" }, leaseIndex.Columns);
-        Assert.Equal(20, db.Model.FindEntityType("Wes.Platform.Domain.PlatformOutboxMessage")!.GetProperties().Count());
+        var outboxModel = db.Model.FindEntityType("Wes.Platform.Domain.PlatformOutboxMessage")!;
+        Assert.Equal(20, outboxModel.GetProperties().Count());
+        Assert.True(outboxModel.FindProperty(nameof(PlatformOutboxMessage.LeaseId))!.IsConcurrencyToken);
         Assert.False(db.Database.HasPendingModelChanges());
     }
 

@@ -1,0 +1,57 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { forgetIdentity, sessionState } from "./features/identity/identity-api";
+import { moduleCatalog } from "./features/module-catalog";
+import { router } from "./router";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  forgetIdentity();
+});
+
+describe("module-aware routes", () => {
+  it("redirects direct navigation to a disabled module before checking permissions", async () => {
+    sessionState.subject = {
+      tenantId: "tenant", userId: "user", sessionId: "session",
+      requiresPasswordChange: false, credentialVersion: "version", grants: [],
+    };
+    vi.spyOn(moduleCatalog, "load").mockResolvedValue(true);
+    vi.spyOn(moduleCatalog, "isEnabled").mockReturnValue(false);
+
+    await router.push("/admin/users");
+
+    expect(router.currentRoute.value.path).toBe("/module-unavailable");
+    expect(router.currentRoute.value.query).toMatchObject({
+      module: "Platform", reason: "disabled", returnUrl: "/admin/users",
+    });
+  });
+
+  it("routes catalog failures to an explicit unavailable state", async () => {
+    sessionState.subject = {
+      tenantId: "tenant", userId: "user", sessionId: "session",
+      requiresPasswordChange: false, credentialVersion: "version", grants: [],
+    };
+    vi.spyOn(moduleCatalog, "load").mockResolvedValue(false);
+    const isEnabled = vi.spyOn(moduleCatalog, "isEnabled");
+
+    await router.push("/admin/audit");
+
+    expect(router.currentRoute.value.path).toBe("/module-unavailable");
+    expect(router.currentRoute.value.query.reason).toBe("catalog");
+    expect(isEnabled).not.toHaveBeenCalled();
+  });
+
+  it("does not gate the login or session routes on the module catalog", async () => {
+    const load = vi.spyOn(moduleCatalog, "load");
+    await router.push("/login");
+    expect(router.currentRoute.value.path).toBe("/login");
+    expect(load).not.toHaveBeenCalled();
+
+    sessionState.subject = {
+      tenantId: "tenant", userId: "user", sessionId: "session",
+      requiresPasswordChange: false, credentialVersion: "version", grants: [],
+    };
+    await router.push("/account/sessions");
+    expect(router.currentRoute.value.path).toBe("/account/sessions");
+    expect(load).not.toHaveBeenCalled();
+  });
+});

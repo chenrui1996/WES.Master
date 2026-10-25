@@ -90,8 +90,8 @@
 | T03/T04具名运维页面与身份HTTP | 软件切片已通过，见[页面实施](20-t03-t04-operations-client.md)、[页面测试](31-t03-t04-operations-client-tests.md)、[T03 HTTP测试](28-t03-authenticated-http-tests.md)、[账号禁用HTTP测试](32-t03-account-disable-http-tests.md)及[账号禁用页面切片](33-t03-account-disable-ops-web.md) | Ops Web页面新增版本化P设置真实写入/刷新/审计断言和凭据禁用确认闭环；严格构建、隔离HTTPS Chromium通过；200%人工缩放、真实PDA与生产环境仍未验收 |
 | T04目录及命令回执 | 目录owner/API/页面与具名非机密写回执已集成；**T04整体仍partial**。见[目录实施](18-t04-directory.md)、[目录测试](29-t04-directory-tests.md)、[回执实施](23-t04-command-receipts.md)、[回执测试](30-t04-command-receipts-tests.md) | 目录与相关授权持久层106项、回执专用工程31项及HTTP回执6项通过；成员重放以最小受影响角色ID证据精确复验当前授权，真实MySQL覆盖已移除角色失去委派时拒绝及无关角色不阻断部分授权重放；生产清理调度、DBA/运维及人工验收仍未关闭 |
 | T05 Platform Outbox/Inbox 原子首片 | 部分完成，见[Outbox实施](35-t05-platform-outbox.md)、[Outbox测试](36-t05-platform-outbox-tests.md)、[Inbox实施](37-t05-platform-inbox.md)、[Inbox测试](38-t05-platform-inbox-tests.md)及[消息运维](39-t05-platform-message-operations.md) | Platform安全审计允许列表与业务/审计共用owner事务生成Outbox；有限失败类别退避、15分钟预算、单消息并发lease claim、旧lease fencing、单消息publisher、有界到期扫描、tenant/consumer/event唯一Inbox及owner事务消费幂等已实现；`platform.messages.read`安全元数据查询及`platform.messages.replay`受权、同operation幂等、expected-attempt fencing的Platform审计事件重放已实现。隔离MySQL/HTTPS定向测试通过；完整串行Release 816 passed、0 failed、0 skipped。托管publisher周期调度、真实Broker/运行时注册、Inbox清理、其他owner Outbox/Inbox及Notifications聚合页仍未实现；生产与三Provider门禁未通过 |
-| 功能开关后续集成 | 设计见[功能开关设计](../detailed-design/feature-switches.md)，T02配置/catalog首片已验证 | T06客户端菜单接入、可选能力owner注册、T30诊断及T32全组合验收仍待依赖计划执行 |
-| T06..T16 | 未开始 | 按原DAG逐项；T06与T05在T04软件基线后可独立并行；后续工作仍遵守各自硬依赖 |
+| 功能开关后续集成 | T06客户端模块catalog已接入导航与直接路由，见[实施记录](41-t06-query-state-and-module-catalog.md)及[测试记录](42-t06-query-state-and-module-catalog-tests.md) | 运行能力owner注册、T30诊断及T32全组合验收仍待依赖计划执行 |
+| T06..T16 | T06共享查询状态与模块目录首片已实现，T06整体及T07..T16未完成 | 按原DAG逐项；T06与T05在T04软件基线后可独立并行；后续工作仍遵守各自硬依赖 |
 | T17 Route纯内核 | 软件工作包验收完成，见[实现、红绿及审查证据](07-route-kernel.md)；不是完整Route/WCS验收 | FourWay/Stacker各自私有topology/physical mapping与确定性候选路径；连接物理语义/设备归属缺陷先红后修复，最终SPEC/CODE审查PASS；228 Route测试与父集成通过；预约/派发/反馈及H分别由后续包验收 |
 | T18..T34 | 未开始 | 等待各自DAG前置；现场H/真实终端/生产DBA等门禁仍独立阻断，不用软件单测替代 |
 
@@ -170,6 +170,12 @@
 - 严格配置路径校验、不可变快照与匿名白名单catalog已有6项定向测试；禁用所有模块UI开关时，真实身份HTTP仍通过认证/授权集成测试。
 - 首轮全套回归中旧运行时测试fixture缺少必填Features，16项启动失败；补齐测试配置后定向17项与最终串行Release全套通过。
 - 当前全solution为Architecture29、Modules217、Persistence316、Route228，共790 passed、0 failed、0 skipped。后续运行能力owner、T06菜单集成及T30/T32仍未验收；790不代表完整DTC-SYS-008或T02完成。
+
+### T06共享查询状态与模块catalog首片
+
+- 共享`QueryState`覆盖loading/error/empty/stale/ready；Audit保持同一查询与身份范围的上一组结果，在刷新失败时显示错误并保留数据，筛选/身份变化仍清除旧结果。
+- Ops Web严格校验匿名模块catalog的完整allowlist、重复/未知代码与启用值；HTTP/JSON/网络错误时不创建默认开放配置。导航同时要求模块开关和现有权限，Platform直达路由在权限判定前检查模块状态；关闭/不可用均转至明确状态页。登录、会话入口和API授权保持独立。
+- 共享查询快照合同/查询密集交互、599/600秒固定快照边界，以及其余T06验收未实现；本记录只确认可审核前端切片，不代表T06完成。结果与命令见[测试记录](42-t06-query-state-and-module-catalog-tests.md)。
 
 ### 当前授权账号禁用HTTP adapter
 

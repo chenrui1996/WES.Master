@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import ColumnSettings from "../../components/ColumnSettings.vue";
+import QueryState from "../../components/QueryState.vue";
 import { useColumns } from "../../components/useColumns";
 import { api, isRecord, sessionState } from "../identity/identity-api";
 interface AuditRow { id: string; occurredAt: string; actorId: string | null; targetId: string | null; correlationId: string | null; action: number | null; beforeVersion: string | null; afterVersion: string | null }
@@ -9,6 +10,13 @@ const mode = ref("audit"); const from = ref(new Date(Date.now() - 86400000).toIS
 const to = ref(new Date().toISOString().slice(0, 16)); const offset = ref(0);
 const kind = ref(""); const action = ref(""); const correlation = ref(""); const rows = ref<(AuditRow | EventRow)[]>([]);
 const error = ref(""); const busy = ref(false); let controller = new AbortController(); let sequence = 0;
+const queryState = computed(() => busy.value
+  ? rows.value.length ? "stale" : "loading"
+  : error.value ? rows.value.length ? "stale" : "error"
+    : rows.value.length ? "ready" : "empty");
+const staleMessage = computed(() => busy.value
+  ? "正在刷新；页面保留的是最近一次已加载的证据。"
+  : `刷新失败，仍保留最近一次已加载的证据：${error.value}`);
 const fields = computed(() => new Set(sessionState.subject?.grants.filter(grant => grant.permission === "platform.audit.read").flatMap(grant => grant.fields) ?? []));
 const { available, selected, visible } = useColumns(() => [
   { key: "id", label: "标识", field: "Id", required: true }, { key: "occurredAt", label: "发生时间（UTC）", field: "OccurredAt", required: true },
@@ -23,10 +31,10 @@ const { available, selected, visible } = useColumns(() => [
   ]),
 ].filter(column => fields.value.has(column.field)));
 async function read() {
-  const request = ++sequence; rows.value = []; error.value = ""; busy.value = true;
+  const request = ++sequence; error.value = ""; busy.value = true;
   const start = Date.parse(`${from.value}Z`); const end = Date.parse(`${to.value}Z`);
   if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
-    error.value = "请输入有效的 UTC 起止时间，结束时间必须晚于开始时间。"; busy.value = false; return;
+    rows.value = []; error.value = "请输入有效的 UTC 起止时间，结束时间必须晚于开始时间。"; busy.value = false; return;
   }
   const params = new URLSearchParams({ from: new Date(start).toISOString(), to: new Date(end).toISOString(), offset: String(offset.value), limit: "50" });
   if (mode.value === "login-events" && kind.value && fields.value.has("Kind")) params.set("kind", kind.value);
@@ -72,7 +80,6 @@ onMounted(read); onUnmounted(() => { controller.abort(); sequence++; });
 </script>
 <template>
   <section class="wes-page"><header><p class="eyebrow">只读证据</p><h1>审计与登录事件</h1><p>历史记录不可编辑、删除或批量改写。查询为当前权限下的实时分页，不是固定水位导出。</p></header>
-    <p v-if="error" class="error" role="alert">{{ error }}</p>
     <form class="toolbar" @submit.prevent="offset = 0; read()">
       <label for="audit-mode">证据类型<select id="audit-mode" v-model="mode"><option value="audit">业务审计</option><option value="login-events">登录安全事件（需 All 范围）</option></select></label>
       <label for="audit-from">开始时间（UTC，含）<input id="audit-from" v-model="from" type="datetime-local" required></label>
@@ -82,11 +89,14 @@ onMounted(read); onUnmounted(() => { controller.abort(); sequence++; });
       <label v-if="fields.has('CorrelationId')" for="event-correlation">关联 UUID<input id="event-correlation" v-model="correlation" maxlength="36"></label>
       <button :disabled="busy">查询证据</button>
     </form><ColumnSettings :columns="available" v-model="selected" />
-    <div class="table-scroll" :aria-busy="busy"><table><caption>{{ mode === "audit" ? "不可改业务审计" : "登录安全事件" }}</caption>
-      <thead><tr><th v-for="column in visible" :key="column.key" scope="col">{{ column.label }}</th></tr></thead>
-      <tbody><tr v-for="row in rows" :key="row.id"><td v-for="column in visible" :key="column.key" class="identifier">{{ cell(row, column.key) ?? "未授权 / 不适用" }}</td></tr></tbody>
-    </table></div>
-    <p v-if="busy" role="status">正在读取当前权限下的证据</p><p v-else-if="!error && !rows.length" role="status">该区间没有当前可见记录。可以调整时间后重新查询。</p>
+    <QueryState label="当前权限下的证据" :state="queryState" :busy="busy" :error-message="error"
+      :stale-message="staleMessage" @retry="read">
+      <template #empty>该区间没有当前可见记录。可以调整时间后重新查询。</template>
+      <div class="table-scroll"><table><caption>{{ mode === "audit" ? "不可改业务审计" : "登录安全事件" }}</caption>
+        <thead><tr><th v-for="column in visible" :key="column.key" scope="col">{{ column.label }}</th></tr></thead>
+        <tbody><tr v-for="row in rows" :key="row.id"><td v-for="column in visible" :key="column.key" class="identifier">{{ cell(row, column.key) ?? "未授权 / 不适用" }}</td></tr></tbody>
+      </table></div>
+    </QueryState>
     <div class="actions"><button :disabled="busy || offset === 0" @click="offset -= 50; read()">上一页</button><span>第 {{ offset / 50 + 1 }} 页 · 最多 50 条</span>
       <button :disabled="busy || rows.length < 50" @click="offset += 50; read()">下一页</button></div>
   </section>

@@ -5,6 +5,8 @@ import DensityControl from "./components/DensityControl.vue";
 import LoginPage from "./features/identity/LoginPage.vue";
 import { useSessionActivity } from "./features/identity/useSessionActivity";
 import { api, canRead, forgetIdentity, sessionState } from "./features/identity/identity-api";
+import { moduleCatalog } from "./features/module-catalog";
+import { getNavigation } from "./features/navigation";
 import { useVisualPreferences, type DensityMode } from "./features/visual-preferences";
 const route = useRoute();
 const router = useRouter();
@@ -12,20 +14,14 @@ const loginTenant = ref("");
 const activity = useSessionActivity();
 const online = ref(navigator.onLine);
 const error = ref("");
+const catalogReloading = ref(false);
 const navigationCollapsed = ref(true);
 const visualPreferences = useVisualPreferences(import.meta.env.MODE);
 const density = computed({
   get: () => visualPreferences.density.value,
   set: (mode: DensityMode) => visualPreferences.setDensity(mode),
 });
-const navigation = computed(() => [
-  { path: "/account/sessions", name: "会话与安全", short: "会", permitted: true },
-  { path: "/admin/users", name: "用户与部门", short: "用", permitted: canRead("platform.users.read") },
-  { path: "/admin/roles", name: "角色与权限", short: "角", permitted: canRead("platform.roles.read") },
-  { path: "/admin/tenants", name: "租户", short: "租", permitted: canRead("platform.tenants.read") },
-  { path: "/admin/configuration", name: "配置与语言", short: "配", permitted: canRead("platform.settings.read") || canRead("platform.dictionary.read") },
-  { path: "/admin/audit", name: "审计与登录事件", short: "审", permitted: canRead("platform.audit.read") },
-].filter(item => item.permitted));
+const navigation = computed(() => getNavigation(moduleCatalog.isEnabled.bind(moduleCatalog), canRead));
 function go(path: string) {
   if (!navigation.value.some(item => item.path === path)) path = "/account/sessions";
   void router.push(path).catch(failure => { error.value = failure instanceof Error ? failure.message : "导航失败，请重试。"; });
@@ -33,12 +29,18 @@ function go(path: string) {
 function connection() { online.value = navigator.onLine; }
 function interaction(event: Event) { if (event.isTrusted) void activity.interact(); }
 function startTargetTenantLogin(tenantId: string) { loginTenant.value = tenantId; void router.replace("/login"); }
+async function reloadModuleCatalog() {
+  catalogReloading.value = true;
+  try { await moduleCatalog.load(true); }
+  finally { catalogReloading.value = false; }
+}
 async function logout() {
   error.value = "";
   try { await api("/api/identity/logout", { method: "POST" }); forgetIdentity(); }
   catch (failure) { error.value = failure instanceof Error ? failure.message : "登出未确认，请重试。"; }
 }
 onMounted(() => { addEventListener("pointerdown", interaction); addEventListener("keydown", interaction); addEventListener("online", connection); addEventListener("offline", connection); });
+onMounted(() => { void moduleCatalog.load(); });
 onUnmounted(() => { removeEventListener("pointerdown", interaction); removeEventListener("keydown", interaction); removeEventListener("online", connection); removeEventListener("offline", connection); });
 </script>
 <template>
@@ -66,7 +68,15 @@ onUnmounted(() => { removeEventListener("pointerdown", interaction); removeEvent
         <span aria-hidden="true">{{ navigationCollapsed ? "›" : "‹" }}</span>
         <span class="nav-toggle-label">{{ navigationCollapsed ? "展开导航" : "收起导航" }}</span>
       </button>
-      <nav id="operations-navigation" aria-label="管理导航">
+      <p v-if="moduleCatalog.state.status === 'loading' || moduleCatalog.state.status === 'unloaded'"
+        role="status" class="hint">正在读取部署模块配置…</p>
+      <div v-else-if="moduleCatalog.state.status === 'error'" role="alert" class="error">
+        <p>{{ moduleCatalog.state.error }}</p>
+        <button type="button" :disabled="catalogReloading" @click="reloadModuleCatalog">
+          {{ catalogReloading ? "正在读取…" : "重新读取模块配置" }}
+        </button>
+      </div>
+      <nav v-else id="operations-navigation" aria-label="管理导航">
         <a v-for="item in navigation" :key="item.path" :href="item.path"
           :aria-label="item.name" :title="item.name"
           :aria-current="route.path === item.path ? 'page' : undefined" @click.prevent="go(item.path)">

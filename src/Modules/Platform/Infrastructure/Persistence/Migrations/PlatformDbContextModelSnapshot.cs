@@ -450,6 +450,43 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                     b.ToTable("platform_audit", (string)null);
                 });
 
+            modelBuilder.Entity("Wes.Platform.Domain.PlatformInboxReceipt", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Consumer")
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<string>("EventId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("ContractName")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<string>("EnvelopeDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("char(64)");
+
+                    b.Property<DateTime>("ProcessedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("int");
+
+                    b.HasKey("TenantId", "Consumer", "EventId");
+
+                    b.HasIndex("TenantId", "ProcessedAt", "Consumer");
+
+                    b.ToTable("platform_inbox_receipts", (string)null);
+                });
+
             modelBuilder.Entity("Wes.Platform.Domain.PlatformOutboxMessage", b =>
                 {
                     b.Property<string>("TenantId")

@@ -18,9 +18,9 @@
 | Publisher lease 竞争/过期/fencing | 通过；两个 MySQL owner context 同时 claim 同一消息仅一个成功，过期 lease 可重新领取，旧 lease 无法 ACK；超预算待重试消息在 claim 时持久隔离 |
 | 单消息 publisher outcome | 通过；隔离 transport 替身覆盖 acknowledged、temporary retry、permanent quarantine；不代表真实 Broker |
 | SQLite/替代Provider或实际Broker | 未执行；不计为通过 |
-| Persistence Release 回归 | 327 passed，0 failed，0 skipped |
+| Persistence Release 回归 | 332 passed，0 failed，0 skipped；更新后的 Inbox 行为及迁移证据见[Inbox测试记录](38-t05-platform-inbox-tests.md) |
 | 浏览器登录事件时间窗 | 通过；测试显式查询 2026-10-24 UTC 整日，覆盖固定服务时钟 04:30 UTC，不再依赖执行日期 |
-| 全 solution Release 串行回归 | Architecture 29、Modules 218、Persistence 327、Route 228；共 802 passed、0 failed、0 skipped。使用 `-m:1` 避免多个真实 MySQL 测试程序集并行握手导致的基础设施不稳定 |
+| 全 solution Release 串行回归 | Architecture 29、Modules 218、Persistence 332、Route 228；共 807 passed、0 failed、0 skipped。使用 `-m:1` 避免多个真实 MySQL 测试程序集并行握手导致的基础设施不稳定 |
 
 事务失败回滚沿用既有 `FailAfterAuditSql` / `DatabaseAuditFailure` owner 回归；它们验证失败不提交 setting/role 或审计。此记录不代表真实 RabbitMQ 故障窗口、consumer ACK 丢失/重复、重试 deadline、授权重放、性能或生产恢复已验收。
 

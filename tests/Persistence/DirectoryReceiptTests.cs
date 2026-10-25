@@ -73,6 +73,133 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         Assert.Contains(entity.GetProperties(), property => property.Name == "Payload");
     }
 
+    /// <summary>T05: the owner inbox deduplicates event delivery per consumer.</summary>
+    [Fact]
+    public async Task PlatformModel_ContainsOwnerLocalInboxReceipts()
+    {
+        await using var db = Open();
+        var entity = db.Model.FindEntityType("Wes.Platform.Domain.PlatformInboxReceipt");
+
+        Assert.NotNull(entity);
+        Assert.Equal("platform_inbox_receipts", entity.GetTableName());
+        Assert.Contains(entity.GetProperties(), property => property.Name == "EventId");
+        Assert.Contains(entity.GetProperties(), property => property.Name == "Consumer");
+        Assert.Contains(entity.GetProperties(), property => property.Name == "ProcessedAt");
+    }
+
+    /// <summary>T05: an inbox marker and consumer-side changes roll back together on handler failure.</summary>
+    [Fact]
+    public async Task PlatformInboxConsumer_HandlerFailureRollsBackReceiptAndEffects()
+    {
+        var envelope = CreateInboxEnvelope();
+        await using var db = Open();
+        var consumer = new PlatformInboxConsumer(db, _clock);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => consumer.ProcessAsync(
+            envelope, "platform.audit.indexer", (owner, _, _) =>
+            {
+                owner.Audit.Add(new PlatformAudit(_tenant, _actor, Guid.NewGuid(), Guid.NewGuid(),
+                    PlatformAuditAction.UserChanged, null, Guid.NewGuid().ToString("D"), _clock.Now));
+                throw new InvalidOperationException("handler failure");
+            }));
+
+        await using var verify = Open();
+        Assert.Empty(await verify.InboxReceipts.ToListAsync());
+        Assert.Empty(await verify.Audit.ToListAsync());
+        Assert.Empty(await verify.OutboxMessages.ToListAsync());
+    }
+
+    /// <summary>T05: a committed consumer effect is applied once when the broker redelivers an event.</summary>
+    [Fact]
+    public async Task PlatformInboxConsumer_RedeliveryDoesNotRepeatOwnerEffect()
+    {
+        var envelope = CreateInboxEnvelope();
+        var calls = 0;
+
+        async Task<PlatformInboxConsumeResult> ConsumeAsync()
+        {
+            await using var db = Open();
+            var consumer = new PlatformInboxConsumer(db, _clock);
+            return await consumer.ProcessAsync(envelope, "platform.audit.indexer", (owner, _, _) =>
+            {
+                calls++;
+                owner.Audit.Add(new PlatformAudit(_tenant, _actor, Guid.NewGuid(), Guid.NewGuid(),
+                    PlatformAuditAction.UserChanged, null, Guid.NewGuid().ToString("D"), _clock.Now));
+                return Task.CompletedTask;
+            });
+        }
+
+        Assert.Equal(PlatformInboxConsumeResult.Processed, await ConsumeAsync());
+        Assert.Equal(PlatformInboxConsumeResult.Duplicate, await ConsumeAsync());
+        Assert.Equal(1, calls);
+
+        await using (var tamperedDatabase = Open())
+        {
+            var consumer = new PlatformInboxConsumer(tamperedDatabase, _clock);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => consumer.ProcessAsync(
+                envelope with { Payload = "{\"changed\":true}" }, "platform.audit.indexer",
+                (_, _, _) => Task.CompletedTask));
+        }
+
+        await using var verify = Open();
+        Assert.Single(await verify.InboxReceipts.ToListAsync());
+        Assert.Single(await verify.Audit.ToListAsync());
+        Assert.Single(await verify.OutboxMessages.ToListAsync());
+    }
+
+    /// <summary>T05: simultaneous delivery commits one effect and treats the losing insert as a duplicate.</summary>
+    [Fact]
+    public async Task PlatformInboxConsumer_ConcurrentRedeliveryCommitsOneOwnerEffect()
+    {
+        var envelope = CreateInboxEnvelope();
+        var handlersStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handlerCalls = 0;
+
+        async Task<PlatformInboxConsumeResult> ConsumeAsync()
+        {
+            await using var db = Open();
+            var consumer = new PlatformInboxConsumer(db, _clock);
+            return await consumer.ProcessAsync(envelope, "platform.audit.indexer", async (owner, _, token) =>
+            {
+                if (Interlocked.Increment(ref handlerCalls) == 2)
+                    handlersStarted.SetResult();
+                await handlersStarted.Task.WaitAsync(TimeSpan.FromSeconds(10), token);
+                owner.Audit.Add(new PlatformAudit(_tenant, _actor, Guid.NewGuid(), Guid.NewGuid(),
+                    PlatformAuditAction.UserChanged, null, Guid.NewGuid().ToString("D"), _clock.Now));
+            });
+        }
+
+        var results = await Task.WhenAll(ConsumeAsync(), ConsumeAsync());
+
+        Assert.Equal(2, handlerCalls);
+        Assert.Contains(PlatformInboxConsumeResult.Processed, results);
+        Assert.Contains(PlatformInboxConsumeResult.Duplicate, results);
+        await using var verify = Open();
+        Assert.Single(await verify.InboxReceipts.ToListAsync());
+        Assert.Single(await verify.Audit.ToListAsync());
+        Assert.Single(await verify.OutboxMessages.ToListAsync());
+    }
+
+    /// <summary>T05: the Inbox table migration adds only the receipt table and its retention/query index.</summary>
+    [Fact]
+    public void PlatformInboxMigration_IsAdditiveAndMatchesTheModel()
+    {
+        using var db = Open();
+        var assembly = db.GetService<IMigrationsAssembly>();
+        var migration = assembly.Migrations.Single(x => x.Key.EndsWith("_PlatformInboxReceipts", StringComparison.Ordinal));
+        var operations = assembly.CreateMigration(migration.Value, db.Database.ProviderName!).UpOperations;
+
+        Assert.All(operations, operation => Assert.True(operation is CreateTableOperation or CreateIndexOperation));
+        var table = Assert.Single(operations.OfType<CreateTableOperation>());
+        Assert.Equal("platform_inbox_receipts", table.Name);
+        Assert.Equal(new[]
+        {
+            "Consumer", "ContractName", "EnvelopeDigest", "EventId", "ProcessedAt", "SchemaVersion", "TenantId"
+        }, table.Columns.Select(column => column.Name).Order(StringComparer.Ordinal));
+        Assert.Equal(new[] { "TenantId", "Consumer", "EventId" }, table.PrimaryKey!.Columns);
+        Assert.False(db.Database.HasPendingModelChanges());
+    }
+
     /// <summary>T05: committed Platform changes and their non-secret event enter the owner outbox together.</summary>
     [Fact]
     public async Task CreateUser_CommitsAuditAndSafeOutboxEventTogether()
@@ -928,6 +1055,10 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         return await Service(db).CreateUserAsync(_context, "TARGET", name, _department, Guid.NewGuid());
     }
 
+    private PlatformOutboxEnvelope CreateInboxEnvelope() =>
+        new(_tenant, Guid.NewGuid(), "platform.audit", 1, "Platform", Guid.NewGuid(),
+            Guid.NewGuid().ToString("D"), Guid.NewGuid(), null, _clock.Now, "{}");
+
     private DirectoryService Service(PlatformDbContext db) => new(db, _clock, new DirectoryOperation(_operation));
 
     private PlatformDbContext Open(IInterceptor? interceptor = null, Guid? tenant = null)
@@ -949,6 +1080,8 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         foreach (var tenant in new[] { _tenant, _otherTenant })
         {
             await using var db = Open(tenant: tenant);
+            db.InboxReceipts.RemoveRange(await db.InboxReceipts.ToListAsync());
+            db.OutboxMessages.RemoveRange(await db.OutboxMessages.ToListAsync());
             await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM platform_audit WHERE TenantId = {tenant.ToString("D")}");
             db.CommandReceipts.RemoveRange(await db.CommandReceipts.ToListAsync());
             db.DictionaryReferences.RemoveRange(await db.DictionaryReferences.ToListAsync());

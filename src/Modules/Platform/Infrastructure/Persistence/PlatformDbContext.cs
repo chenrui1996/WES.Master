@@ -34,6 +34,8 @@ public sealed partial class PlatformDbContext : DbContext
     public DbSet<PlatformAudit> Audit => Set<PlatformAudit>();
     /// <summary>Platform-owned durable events staged in the same transaction as their source facts.</summary>
     public DbSet<PlatformOutboxMessage> OutboxMessages => Set<PlatformOutboxMessage>();
+    /// <summary>Platform-owned idempotency receipts committed atomically with consumer effects.</summary>
+    public DbSet<PlatformInboxReceipt> InboxReceipts => Set<PlatformInboxReceipt>();
     /// <summary>Tenant-account risk independent of user existence, never global source budgets.</summary>
     public DbSet<LoginAccountBudget> LoginAccounts => Set<LoginAccountBudget>();
     /// <summary>One-shot tenant challenges; never raw answers or global risk state.</summary>
@@ -209,6 +211,19 @@ public sealed partial class PlatformDbContext : DbContext
         outbox.HasIndex(item => new { item.TenantId, item.Status, item.LeaseUntil, item.EventId });
         outbox.HasIndex(item => new { item.TenantId, item.CreatedAt, item.EventId });
         outbox.HasQueryFilter(item => item.TenantId == TenantId);
+
+        var inbox = modelBuilder.Entity<PlatformInboxReceipt>();
+        inbox.ToTable("platform_inbox_receipts");
+        inbox.HasKey(item => new { item.TenantId, item.Consumer, item.EventId });
+        inbox.Property(item => item.TenantId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        inbox.Property(item => item.Consumer).HasColumnType("varchar(128)").HasMaxLength(128);
+        inbox.Property(item => item.EventId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        inbox.Property(item => item.ContractName).HasColumnType("varchar(128)").HasMaxLength(128);
+        inbox.Property(item => item.SchemaVersion).IsRequired();
+        inbox.Property(item => item.EnvelopeDigest).HasColumnType("char(64)").HasMaxLength(64);
+        inbox.Property(item => item.ProcessedAt).HasConversion(utc).HasColumnType("datetime(6)");
+        inbox.HasIndex(item => new { item.TenantId, item.ProcessedAt, item.Consumer });
+        inbox.HasQueryFilter(item => item.TenantId == TenantId);
     }
 
     /// <summary>Protects every synchronous write path from cross-tenant attachment or owner changes.</summary>

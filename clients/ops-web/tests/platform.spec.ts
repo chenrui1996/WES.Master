@@ -130,6 +130,29 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
       await expect(settingsTable.locator(".table-fixed-notice")).toBeVisible();
       await expect.poll(() => keyHeader.evaluate(element => getComputedStyle(element).insetInlineEnd)).toBe("auto");
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      for (const width of [721, 720]) {
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const frameWidth = await settingsTable.evaluate(element => element.clientWidth);
+          if (frameWidth === width) break;
+          const viewportWidth = await page.evaluate(() => window.innerWidth);
+          await page.setViewportSize({
+            width: Math.max(375, Math.round(viewportWidth + width - frameWidth)),
+            height: 900,
+          });
+        }
+        await expect.poll(() => settingsTable.evaluate(element => element.clientWidth)).toBe(width);
+        const identityHeader = settingsTable.getByRole("columnheader", { name: "标识", exact: true });
+        if (width === 721) {
+          await expect(settingsTable.locator(".table-fixed-notice")).toBeHidden();
+          await expect(identityHeader).toHaveClass(/table-pinned-left/);
+          await expect.poll(() => identityHeader.evaluate(element => getComputedStyle(element).insetInlineStart)).toBe("0px");
+        } else {
+          await expect(settingsTable.locator(".table-fixed-notice")).toBeVisible();
+          await expect(identityHeader).toHaveClass(/table-pinned-left/);
+          await expect.poll(() => identityHeader.evaluate(element => getComputedStyle(element).insetInlineStart)).toBe("auto");
+        }
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      }
       await page.setViewportSize({ width: 1440, height: 900 });
       const zoomEquivalent = await page.context().newCDPSession(page);
       await zoomEquivalent.send("Emulation.setDeviceMetricsOverride", {

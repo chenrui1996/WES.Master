@@ -17,7 +17,7 @@
 | 会话同范围刷新失败保留stale且禁用撤销；默认主标识固定、行操作列固定类、过滤变化/身份变化和管理权限拒绝不保留旧结果 | `npm test -- --run src/features/identity/SessionPage.spec.ts` | 1个测试文件、19项通过，0失败 |
 | Ops Web完整Vitest套件 | `npm test -- --run` | 已验证：17个测试文件、121项通过，0失败 |
 | Vue/TypeScript类型检查与生产打包 | `npm run build` | `vue-tsc --noEmit`通过；Vite生产构建成功 |
-| 真实隔离HTTPS Host与Chromium列固定/响应式验收 | `dotnet test tests\Modules\Wes.Modules.Tests.csproj --no-restore -c Release --filter 'FullyQualifiedName~RealBrowserUsesHttpsOwnerIdentityAndAllNamedPlatformPages' --verbosity minimal` | 1项通过；测试内只拦截模块catalog并启用Platform，登录、权限页面与API写入仍通过隔离HTTPS Host。1600px验证右固定列160px偏移及操作列sticky；375px验证固定提示、取消吸附及无根级横向溢出；CDP设置720px CSS视口及DPR 2，覆盖1440px屏幕200%缩放对应的布局宽度、固定列停用及无溢出。该测试不模拟浏览器UI缩放动作。 |
+| 真实隔离HTTPS Host与Chromium列固定/响应式验收 | `dotnet test tests\Modules\Wes.Modules.Tests.csproj --no-restore -c Release --filter 'FullyQualifiedName~RealBrowserUsesHttpsOwnerIdentityAndAllNamedPlatformPages' --verbosity minimal` | 1项通过；测试内只拦截模块catalog并启用Platform，登录、权限页面与API写入仍通过隔离HTTPS Host。1600px验证右固定列160px偏移及操作列sticky；375px验证固定提示及无根级横向溢出；通过调整视口使表格内容区精确为721/720px，验证721px保留必需标识列吸附、720px停用吸附并显示提示；CDP设置720px CSS视口及DPR 2，覆盖1440px屏幕200%缩放对应的布局宽度。该测试不模拟浏览器UI缩放动作。 |
 
 ## 未覆盖
 

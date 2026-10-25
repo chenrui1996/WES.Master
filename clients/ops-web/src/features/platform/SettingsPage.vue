@@ -9,6 +9,7 @@ interface DictionaryRow { id: string; category: string | null; code: string | nu
 const rows = ref<SettingRow[]>([]); const entries = ref<DictionaryRow[]>([]);
 const error = ref(""); const message = ref(""); const busy = ref(false);
 const settingsLoading = ref(false); const settingsQueryError = ref("");
+const dictionaryLoading = ref(false); const dictionaryQueryError = ref("");
 const selected = ref<SettingRow | null>(null); const value = ref("");
 const category = ref("task"); const language = ref("zh-CN"); const offset = ref(0);
 const kind = ref(""); const settingOffset = ref(0); const missingTranslation = ref("");
@@ -16,6 +17,7 @@ const entry = ref<DictionaryRow | null>(null); const label = ref(""); const dele
 const code = ref(""); const languageKey = ref("");
 let controller = new AbortController(); let readSequence = 0; let settingsSequence = 0;
 let successfulSettingsFingerprint: string | null = null;
+let successfulDictionaryFingerprint: string | null = null;
 const settingsFingerprint = computed(() => JSON.stringify({
   tenantId: sessionState.subject?.tenantId,
   userId: sessionState.subject?.userId,
@@ -30,6 +32,22 @@ const settingsQueryState = computed(() => settingsLoading.value
 const settingsStaleMessage = computed(() => settingsLoading.value
   ? "正在刷新；页面保留的是最近一次已加载的配置目录。"
   : `刷新失败，仍保留最近一次已加载的配置目录：${settingsQueryError.value}`);
+const dictionaryFingerprint = computed(() => JSON.stringify({
+  tenantId: sessionState.subject?.tenantId,
+  userId: sessionState.subject?.userId,
+  grants: sessionState.subject?.grants,
+  category: category.value,
+  language: language.value,
+  offset: offset.value,
+  missingTranslation: missingTranslation.value,
+}));
+const dictionaryQueryState = computed(() => dictionaryLoading.value
+  ? entries.value.length ? "stale" : "loading"
+  : dictionaryQueryError.value ? entries.value.length ? "stale" : "error"
+  : entries.value.length ? "ready" : "empty");
+const dictionaryStaleMessage = computed(() => dictionaryLoading.value
+  ? "正在刷新；页面保留的是最近一次已加载的字典目录。"
+  : `刷新失败，仍保留最近一次已加载的字典目录：${dictionaryQueryError.value}`);
 const fields = computed(() => new Set(sessionState.subject?.grants.filter(grant => grant.permission === "platform.settings.read").flatMap(grant => grant.fields) ?? []));
 const { available, selected: selectedColumns, visible, preferenceWarning } = useColumns(() => [
   { key: "id", label: "标识", field: "Id", required: true }, { key: "key", label: "稳定键", field: "Key" },
@@ -87,17 +105,34 @@ async function readSettings() {
   }
 }
 async function readDictionary() {
-  const sequence = ++readSequence; const fingerprint = `${category.value}|${language.value}|${offset.value}|${missingTranslation.value}`;
-  entries.value = []; entry.value = null; deletePending.value = false; error.value = ""; busy.value = true;
+  const sequence = ++readSequence; const fingerprint = dictionaryFingerprint.value;
+  if (successfulDictionaryFingerprint !== fingerprint) {
+    entries.value = []; successfulDictionaryFingerprint = null;
+  }
+  entry.value = null; deletePending.value = false; dictionaryQueryError.value = "";
+  dictionaryLoading.value = true; busy.value = true;
   try {
     const query = new URLSearchParams({
       category: category.value, language: language.value, offset: String(offset.value), limit: "50",
     });
     if (missingTranslation.value && dictionaryFields.value.has("Label")) query.set("missingTranslation", missingTranslation.value);
     const data = parseRows(await api(`/api/platform/dictionary?${query}`, { signal: controller.signal }), isEntry);
-    if (sequence === readSequence && fingerprint === `${category.value}|${language.value}|${offset.value}|${missingTranslation.value}`) entries.value = data;
-  } catch (failure) { if (!controller.signal.aborted && sequence === readSequence) problem(failure); }
-  finally { if (sequence === readSequence) busy.value = false; }
+    if (sequence === readSequence && fingerprint === dictionaryFingerprint.value) {
+      entries.value = data; successfulDictionaryFingerprint = fingerprint;
+    }
+  } catch (failure) {
+    if (!controller.signal.aborted && sequence === readSequence) {
+      dictionaryQueryError.value = failure instanceof Error ? failure.message : "请求未确认，请重新读取后重试。";
+      if (failure instanceof ApiError && [401, 403].includes(failure.status)) {
+        entries.value = []; entry.value = null; successfulDictionaryFingerprint = null;
+      } else if (successfulDictionaryFingerprint !== fingerprint) entries.value = [];
+    }
+  }
+  finally {
+    if (sequence === readSequence) {
+      dictionaryLoading.value = false; busy.value = false;
+    }
+  }
 }
 async function saveSetting() {
   if (!selected.value?.version) return;
@@ -142,7 +177,11 @@ function settingCell(row: SettingRow, key: string) {
 function dictionaryCell(row: DictionaryRow, key: string) {
   switch (key) { case "id": return row.id; case "code": return row.code; case "languageKey": return row.languageKey; case "label": return row.label; case "resolvedLanguage": return row.resolvedLanguage ?? (row.missingTranslation ? "缺失：显示诊断键" : "未授权"); case "version": return row.version; default: return "未授权"; }
 }
-watch([category, language, missingTranslation], () => { readSequence++; offset.value = 0; entries.value = []; entry.value = null; label.value = ""; deletePending.value = false; });
+watch([category, language, missingTranslation], () => {
+  readSequence++; offset.value = 0; entries.value = []; successfulDictionaryFingerprint = null;
+  entry.value = null; label.value = ""; deletePending.value = false;
+  dictionaryLoading.value = false; dictionaryQueryError.value = "";
+});
 watch(kind, () => {
   settingsSequence++; settingOffset.value = 0; rows.value = []; selected.value = null; value.value = "";
   successfulSettingsFingerprint = null; settingsLoading.value = false; settingsQueryError.value = ""; busy.value = false;
@@ -150,7 +189,9 @@ watch(kind, () => {
 watch([() => sessionState.subject, () => sessionState.token], () => {
   controller.abort(); controller = new AbortController(); readSequence++; settingsSequence++;
   rows.value = []; entries.value = []; selected.value = null; entry.value = null; deletePending.value = false;
-  successfulSettingsFingerprint = null; settingsLoading.value = false; settingsQueryError.value = "";
+  successfulSettingsFingerprint = null; successfulDictionaryFingerprint = null;
+  settingsLoading.value = false; settingsQueryError.value = "";
+  dictionaryLoading.value = false; dictionaryQueryError.value = "";
   value.value = ""; label.value = ""; code.value = ""; languageKey.value = ""; message.value = ""; busy.value = false;
   kind.value = ""; missingTranslation.value = ""; offset.value = 0; settingOffset.value = 0;
   error.value = "身份或权限已变更，旧列表与编辑已清除，请重新读取。";
@@ -196,13 +237,18 @@ onMounted(readSettings); onUnmounted(() => { controller.abort(); readSequence++;
       </form><p>显示顺序：请求语言 → 当前租户默认语言 → [诊断语言键]。回退不改变业务状态码。</p>
       <ColumnSettings :columns="dictColumns.available.value" v-model="dictColumns.selected.value"
         :preference-warning="dictColumns.preferenceWarning.value" />
-      <div class="table-scroll" :aria-busy="busy"><table><caption>当前分类的稳定业务码</caption>
-        <thead><tr><th v-for="column in dictColumns.visible.value" :key="column.key" scope="col">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
-        <tbody><tr v-for="row in entries" :key="row.id"><td v-for="column in dictColumns.visible.value" :key="column.key">{{ dictionaryCell(row, column.key) ?? "未授权" }}</td>
-          <td><button v-if="row.version && canRead('platform.dictionary.write')" @click="entry = row; label = row.label ?? ''; deletePending = false">选择字典项</button></td></tr></tbody>
-      </table></div>
-      <div class="actions"><button :disabled="busy || offset === 0" @click="offset -= 50; readDictionary()">上一页</button><span>从 {{ offset + 1 }} 条起；每页最多 50 条</span>
-        <button :disabled="busy || entries.length < 50" @click="offset += 50; readDictionary()">下一页</button></div>
+      <QueryState label="字典与语言目录" :state="dictionaryQueryState" :busy="dictionaryLoading"
+        :error-message="dictionaryQueryError" :stale-message="dictionaryStaleMessage" @retry="readDictionary">
+        <template #empty><p>当前分类没有可展示的字典项。</p></template>
+        <div class="table-scroll" :aria-busy="dictionaryLoading"><table><caption>当前分类的稳定业务码</caption>
+          <thead><tr><th v-for="column in dictColumns.visible.value" :key="column.key" scope="col">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
+          <tbody><tr v-for="row in entries" :key="row.id"><td v-for="column in dictColumns.visible.value" :key="column.key">{{ dictionaryCell(row, column.key) ?? "未授权" }}</td>
+            <td><button v-if="row.version && canRead('platform.dictionary.write')" :disabled="dictionaryLoading || dictionaryQueryState === 'stale'"
+              @click="entry = row; label = row.label ?? ''; deletePending = false">选择字典项</button></td></tr></tbody>
+        </table></div>
+        <div class="actions"><button :disabled="busy || offset === 0" @click="offset -= 50; readDictionary()">上一页</button><span>从 {{ offset + 1 }} 条起；每页最多 50 条</span>
+          <button :disabled="busy || entries.length < 50" @click="offset += 50; readDictionary()">下一页</button></div>
+      </QueryState>
       <form v-if="canRead('platform.dictionary.write')" class="editor" @submit.prevent="createDictionary">
         <fieldset><legend>在当前分类创建稳定码（不创建翻译）</legend><label for="dictionary-code">业务码</label><input id="dictionary-code" v-model="code" required maxlength="64">
           <label for="dictionary-key">语言键</label><input id="dictionary-key" v-model="languageKey" required maxlength="128">

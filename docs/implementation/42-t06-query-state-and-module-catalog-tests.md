@@ -13,8 +13,8 @@
 | 列偏好环境/主体/租户/page/table隔离、仅保存列ID、必显列、损坏存储提示、当前schema撤权规范化；ColumnSettings错误提示 | `npm test -- --run src/components/useColumns.spec.ts src/components/ColumnSettings.spec.ts` | 2个测试文件、7项通过，0失败 |
 | 用户目录相同scope刷新失败保留结果且禁用旧版本行操作；筛选变化立即清除旧结果；既有用户目录用例 | `npm test -- --run src/features/platform/UsersPage.spec.ts` | 1个测试文件、16项通过，0失败 |
 | 角色及租户目录相同scope刷新失败保留结果、危险行操作失效；既有用例 | `npm test -- --run src/features/platform/RolesPage.spec.ts src/features/platform/TenantsPage.spec.ts` | 2个测试文件、16项通过，0失败 |
-| 强类型配置目录同scope失败保留stale、筛选变化清空旧行、403丢弃受限数据；现有设置用例 | `npm test -- --run src/features/platform/SettingsPage.spec.ts` | 1个测试文件、6项通过，0失败 |
-| Ops Web完整Vitest套件 | `npm test -- --run` | 17个测试文件、103项通过，0失败 |
+| 强类型配置目录同scope失败保留stale、筛选变化清空旧行、403丢弃受限数据；字典目录同scope刷新失败保留stale；现有设置用例 | `npm test -- --run src/features/platform/SettingsPage.spec.ts` | 1个测试文件、7项通过，0失败 |
+| Ops Web完整Vitest套件 | `npm test -- --run` | 17个测试文件、104项通过，0失败 |
 | Vue/TypeScript类型检查与生产打包 | `npm run build` | `vue-tsc --noEmit`通过；Vite生产构建成功 |
 
 ## 未覆盖

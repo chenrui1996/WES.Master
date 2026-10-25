@@ -126,3 +126,27 @@ it("discards settings rows when a refresh is forbidden instead of preserving sta
   expect(wrapper.find('[aria-label="强类型配置目录"] [role="alert"]').exists()).toBe(true);
   wrapper.unmount();
 });
+
+it("preserves dictionary rows as stale when the same-scope query fails", async () => {
+  setAccessToken("fixture", "2099-01-01T00:00:00Z");
+  sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false, credentialVersion: "v",
+    grants: [{ permission: "platform.dictionary.read", scope: 0, departments: [], fields: ["Id", "Category", "Code", "LanguageKey", "Label", "Version"] }] };
+  let failDictionary = false;
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (url.startsWith("/api/platform/dictionary") && failDictionary) return new Response("unavailable", { status: 503 });
+    if (url.startsWith("/api/platform/dictionary")) return new Response(JSON.stringify({ authorized: true, rows: [
+      { id: "entry", category: "task", code: "picking", languageKey: "dictionary.task.picking", label: "拣选", resolvedLanguage: "zh-CN", missingTranslation: false, version: "v1" },
+    ] }));
+    return new Response(JSON.stringify({ authorized: true, rows: [] }));
+  }));
+  const wrapper = mount(SettingsPage);
+  await wrapper.get('[data-test="dictionary-filters"]').trigger("submit");
+  await flushPromises();
+  expect(wrapper.text()).toContain("picking");
+  failDictionary = true;
+  await wrapper.get('[data-test="dictionary-filters"]').trigger("submit");
+  await flushPromises();
+  expect(wrapper.find('[aria-label="字典与语言目录"] [role="status"]').text()).toContain("最近一次已加载");
+  expect(wrapper.text()).toContain("picking");
+  wrapper.unmount();
+});

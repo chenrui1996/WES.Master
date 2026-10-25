@@ -37,6 +37,46 @@ it("shows the loaded department hierarchy and submits a separate exact-version p
   expect(writes).toEqual([{ url: "/api/platform/departments/d3/parent", body: { expectedVersion: "child-version", parentId: null } }]);
   wrapper.unmount();
 });
+
+it("preserves same-scope query results and reports a failed refresh as stale", async () => {
+  let userReads = 0;
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (url.includes("/api/platform/users?")) {
+      userReads++;
+      return userReads === 1
+        ? new Response(JSON.stringify({ authorized: true, rows: [user] }))
+        : new Response(JSON.stringify({ code: "Unavailable", correlationId: "refresh-fixture" }), { status: 503 });
+    }
+    return new Response(JSON.stringify({ authorized: true, rows: url.includes("/departments") ? departments : [] }));
+  }));
+  const wrapper = mount(UsersPage);
+  await flushPromises();
+  expect(wrapper.text()).toContain("ALICE");
+
+  await wrapper.get('[aria-label="用户筛选"]').trigger("submit");
+  await flushPromises();
+
+  expect(wrapper.text()).toContain("ALICE");
+  expect(wrapper.get('[role="status"]').text()).toContain("refresh-fixture");
+  expect(wrapper.get('[data-test="edit-user"]').attributes("disabled")).toBeDefined();
+  wrapper.unmount();
+});
+
+it("clears prior query rows as soon as the filter scope changes", async () => {
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(JSON.stringify({
+    authorized: true,
+    rows: url.includes("/api/platform/users?") ? [user] : url.includes("/departments") ? departments : [],
+  }))));
+  const wrapper = mount(UsersPage);
+  await flushPromises();
+  expect(wrapper.text()).toContain("ALICE");
+
+  await wrapper.get('[name="filterAccount"]').setValue("BOB");
+
+  expect(wrapper.text()).not.toContain("ALICE");
+  wrapper.unmount();
+});
+
 afterEach(() => { vi.unstubAllGlobals(); forgetIdentity(); });
 it("makes later authorized department and role candidates selectable without dropping the first page", async () => {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(JSON.stringify({ authorized: true, rows:
@@ -255,7 +295,7 @@ it("never treats a forbidden directory as empty or retains old rows", async () =
   await wrapper.get('form[aria-label="用户筛选"]').trigger("submit");
   await flushPromises();
   expect(wrapper.text()).not.toContain("ALICE");
-  expect(wrapper.get('[role="alert"]').text()).toContain("DirectoryDenied");
+  expect(wrapper.get('[aria-label="用户目录"] [role="alert"]').text()).toContain("DirectoryDenied");
   expect(wrapper.text()).not.toContain("尚无可读用户");
   expect(wrapper.find('[data-test="column-account"]').exists()).toBe(false);
   wrapper.unmount();

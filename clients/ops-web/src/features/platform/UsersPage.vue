@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 import ColumnSettings from "../../components/ColumnSettings.vue";
+import QueryState from "../../components/QueryState.vue";
 import { useColumns } from "../../components/useColumns";
 import { api, ApiError, canRead, sessionState } from "../identity/identity-api";
 import { useDirectoryCandidates } from "./useDirectoryCandidates";
@@ -20,6 +21,7 @@ const rolesReady = ref(false);
 const loading = ref(false);
 const busy = ref(false);
 const error = ref("");
+const queryError = ref("");
 const candidateError = ref("");
 const message = ref("");
 const online = ref(navigator.onLine);
@@ -34,7 +36,31 @@ const parentEditor = ref<DepartmentRow | null>(null);
 const parentValue = ref("");
 let generation = 0;
 let controller: AbortController | undefined;
+const lastSuccessfulQuery = ref<string | null>(null);
 const hasIdentity = computed(() => sessionState.subject !== null && sessionState.token !== null);
+function queryFingerprint() {
+  return JSON.stringify({
+    tenantId: sessionState.subject?.tenantId,
+    userId: sessionState.subject?.userId,
+    grants: sessionState.subject?.grants,
+    offset: offset.value,
+    filters,
+  });
+}
+const currentQuery = computed(queryFingerprint);
+const queryState = computed(() => loading.value
+  ? rows.value.length ? "stale" : "loading"
+  : queryError.value ? rows.value.length ? "stale" : "error"
+    : rows.value.length || error.value ? "ready" : "empty");
+const queryStale = computed(() => loading.value || queryError.value.length > 0);
+const emptyMessage = computed(() => lastSuccessfulQuery.value !== currentQuery.value
+  ? "筛选条件已更改，请提交筛选以读取对应用户。"
+  : filters.account || filters.name || filters.departmentId || filters.enabled
+    ? "无匹配用户，请清除筛选。"
+    : "尚无可读用户，可新建用户档案。");
+const staleMessage = computed(() => loading.value
+  ? "正在刷新；页面保留的是最近一次已加载的用户目录。"
+  : `刷新失败，仍保留最近一次已加载的用户目录：${queryError.value}`);
 const departmentCandidates = computed(() => departments.value.filter(row => row.enabled === true));
 const roleCandidates = computed(() => roles.value.filter(row => row.enabled === true));
 const departmentMap = computed(() => new Map(departments.value.map(row => [row.id, row])));
@@ -73,11 +99,15 @@ function closeEditor() {
   mode.value = null; selectedUser.value = null;
   Object.assign(form, { account: "", name: "", departmentId: "", enabled: true, password: "", roleIds: [] });
 }
-function clear() {
-  generation++; controller?.abort(); rows.value = []; departmentCatalog.reset(); roleCatalog.reset(); rolesReady.value = false;
+function clear(preserveRows = false) {
+  generation++; controller?.abort();
+  if (!preserveRows) {
+    rows.value = []; lastSuccessfulQuery.value = null;
+  }
+  departmentCatalog.reset(); roleCatalog.reset(); rolesReady.value = false;
   closeEditor(); departmentEditor.value = null; parentEditor.value = null; parentValue.value = "";
   Object.assign(departmentForm, { code: "", name: "", enabled: true, parentId: "" });
-  loading.value = false; busy.value = false;
+  loading.value = false; busy.value = false; queryError.value = "";
 }
 function fail(reason: unknown) {
   if (reason instanceof ApiError && [403, 412, 428].includes(reason.status)) clear();
@@ -86,7 +116,10 @@ function fail(reason: unknown) {
 }
 async function load() {
   if (!hasIdentity.value || !canRead("platform.users.read")) return;
-  clear(); error.value = ""; candidateError.value = "关联候选读取失败或无权查看。请重新读取；未加载的关联不能提交。"; message.value = "";
+  const queryKey = currentQuery.value;
+  const preserveRows = rows.value.length > 0 && lastSuccessfulQuery.value === queryKey;
+  clear(preserveRows); error.value = ""; queryError.value = "";
+  candidateError.value = "关联候选读取失败或无权查看。请重新读取；未加载的关联不能提交。"; message.value = "";
   const current = generation;
   controller = new AbortController();
   const signal = controller.signal;
@@ -116,7 +149,13 @@ async function load() {
     if (current !== generation) return;
     if (response.authorized !== true || !Array.isArray(response.rows)) throw new ApiError(403, "DirectoryDenied", "未提供");
     rows.value = response.rows;
-  } catch (reason) { if (current === generation) fail(reason); }
+    lastSuccessfulQuery.value = queryKey;
+  } catch (reason) {
+    if (current === generation) {
+      fail(reason);
+      queryError.value = error.value;
+    }
+  }
   finally {
     await candidateLoad;
     if (current === generation) loading.value = false;
@@ -148,7 +187,7 @@ function departmentAllowed(action: "read" | "write", fields: string[], id?: stri
 }
 function departmentWritable(fields: string[], id?: string) { return departmentAllowed("write", fields, id); }
 function open(next: NonNullable<typeof mode.value>, row?: UserRow) {
-  if (busy.value) return;
+  if (busy.value || queryStale.value) return;
   closeEditor(); departmentEditor.value = null; parentEditor.value = null; mode.value = next;
   selectedUser.value = row ? { ...row, roleIds: row.roleIds ? [...row.roleIds] : null } : null;
   if (row) Object.assign(form, { account: row.account ?? "", name: row.name ?? "",
@@ -242,9 +281,21 @@ function departmentName(id: string | null) {
 function page(delta: number) { if (busy.value || loading.value) return; offset.value = Math.max(0, offset.value + delta); void load(); }
 function connectivity() {
   online.value = navigator.onLine;
-  if (!online.value) { clear(); error.value = "当前离线，已清除编辑和关联选择。恢复连接后请重新读取。"; }
+  if (!online.value) {
+    clear();
+    error.value = "当前离线，已清除编辑和关联选择。恢复连接后请重新读取。";
+    queryError.value = error.value;
+  }
 }
 window.addEventListener("online", connectivity); window.addEventListener("offline", connectivity);
+watch(filters, () => {
+  if (lastSuccessfulQuery.value !== currentQuery.value) {
+    rows.value = [];
+    lastSuccessfulQuery.value = null;
+    queryError.value = "";
+    error.value = "";
+  }
+}, { flush: "sync" });
 watch([() => sessionState.subject, () => sessionState.token], () => {
   clear(); offset.value = 0; error.value = ""; candidateError.value = "关联候选读取失败或无权查看。请重新读取；未加载的关联不能提交。"; message.value = "";
   Object.assign(filters, { account: "", name: "", departmentId: "", enabled: "" });
@@ -261,7 +312,7 @@ onBeforeUnmount(() => {
     <p v-if="!hasIdentity || !canRead('platform.users.read')" role="status">无权读取用户目录，请使用有权账号登录。</p>
     <template v-else>
       <p v-if="!online" class="notice" role="status">当前离线，只能在恢复连接后重新读取。</p>
-      <p v-if="error" role="alert" class="error">{{ error }}</p>
+      <p v-if="error && !queryError" role="alert" class="error">{{ error }}</p>
       <p v-if="candidateError" role="alert" class="notice">{{ candidateError }}</p>
       <p v-if="message" role="status">{{ message }}</p>
       <form class="toolbar" aria-label="用户筛选" @submit.prevent="offset = 0; load()">
@@ -279,31 +330,35 @@ onBeforeUnmount(() => {
         <button v-if="moreDepartments" type="button" data-test="more-departments" :disabled="busy || loading || departmentCatalog.loading.value" @click="moreCandidates('departments')">加载更多部门候选</button>
         <button v-if="moreRoles" type="button" data-test="more-roles" :disabled="busy || loading || roleCatalog.loading.value" @click="moreCandidates('roles')">加载更多角色候选</button>
       </div>
-      <p v-if="loading" role="status">正在读取用户及关联候选。</p>
-      <template v-if="rows.length">
-        <ColumnSettings :columns="available" v-model="selected" />
-        <div class="table-scroll" tabindex="0" aria-label="用户目录">
-          <table><caption class="hint">当前页用户</caption><thead><tr><th v-for="column in visible" :key="column.key" scope="col">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
-            <tbody><tr v-for="row in rows" :key="row.id">
-              <td v-for="column in visible" :key="column.key">
-                <template v-if="column.key === 'id'">{{ row.id }}</template>
-                <template v-else-if="column.key === 'account'">{{ row.account ?? '未授权' }}</template>
-                <template v-else-if="column.key === 'name'">{{ row.name ?? '未授权' }}</template>
-                <template v-else-if="column.key === 'departmentId'">{{ departmentName(row.departmentId) }}</template>
-                <template v-else-if="column.key === 'enabled'">{{ row.enabled === null ? '未授权' : row.enabled ? '启用' : '停用' }}</template>
-                <template v-else-if="column.key === 'roleIds'">{{ row.roleIds === null ? '未授权' : row.roleIds.map(id => roles.find(role => role.id === id)?.code ?? id).join('、') || '未关联' }}</template>
-              </td>
-              <td><div class="row-actions">
-                <button v-if="row.version && row.name !== null && row.departmentId !== null && row.enabled !== null && writable(['Name', 'DepartmentId', 'Enabled'], row)" data-test="edit-user" @click="open('edit', row)">编辑</button>
-                <button v-if="row.version && row.enabled === true && writable(['Credential'], row)" data-test="credential-user" @click="open('credential', row)">设置初始凭据</button>
-                <button v-if="row.credentialVersion && row.enabled === true && writable(['Enabled'], row)" type="button" data-test="disable-credential" :disabled="busy || loading" @click="open('disable-credential', row)">停用登录凭据</button>
-                <button v-if="row.version && row.roleIds !== null && writable(['Roles'], row)" data-test="roles-user" @click="open('roles', row)">关联角色</button>
-              </div></td>
-            </tr></tbody>
-          </table>
-        </div>
-      </template>
-      <p v-else-if="!loading && !error" role="status">{{ filters.account || filters.name || filters.departmentId || filters.enabled ? '无匹配用户，请清除筛选。' : '尚无可读用户，可新建用户档案。' }}</p>
+      <QueryState label="用户目录" :state="queryState" :busy="loading" :error-message="queryError"
+        :stale-message="staleMessage" @retry="load">
+        <template #empty>
+          <p>{{ emptyMessage }}</p>
+        </template>
+        <template v-if="rows.length">
+          <ColumnSettings :columns="available" v-model="selected" />
+          <div class="table-scroll" tabindex="0" aria-label="用户目录">
+            <table><caption class="hint">当前页用户</caption><thead><tr><th v-for="column in visible" :key="column.key" scope="col">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
+              <tbody><tr v-for="row in rows" :key="row.id">
+                <td v-for="column in visible" :key="column.key">
+                  <template v-if="column.key === 'id'">{{ row.id }}</template>
+                  <template v-else-if="column.key === 'account'">{{ row.account ?? '未授权' }}</template>
+                  <template v-else-if="column.key === 'name'">{{ row.name ?? '未授权' }}</template>
+                  <template v-else-if="column.key === 'departmentId'">{{ departmentName(row.departmentId) }}</template>
+                  <template v-else-if="column.key === 'enabled'">{{ row.enabled === null ? '未授权' : row.enabled ? '启用' : '停用' }}</template>
+                  <template v-else-if="column.key === 'roleIds'">{{ row.roleIds === null ? '未授权' : row.roleIds.map(id => roles.find(role => role.id === id)?.code ?? id).join('、') || '未关联' }}</template>
+                </td>
+                <td><div class="row-actions">
+                  <button v-if="row.version && row.name !== null && row.departmentId !== null && row.enabled !== null && writable(['Name', 'DepartmentId', 'Enabled'], row)" data-test="edit-user" :disabled="busy || queryStale" @click="open('edit', row)">编辑</button>
+                  <button v-if="row.version && row.enabled === true && writable(['Credential'], row)" data-test="credential-user" :disabled="busy || queryStale" @click="open('credential', row)">设置初始凭据</button>
+                  <button v-if="row.credentialVersion && row.enabled === true && writable(['Enabled'], row)" type="button" data-test="disable-credential" :disabled="busy || queryStale" @click="open('disable-credential', row)">停用登录凭据</button>
+                  <button v-if="row.version && row.roleIds !== null && writable(['Roles'], row)" data-test="roles-user" :disabled="busy || queryStale" @click="open('roles', row)">关联角色</button>
+                </div></td>
+              </tr></tbody>
+            </table>
+          </div>
+        </template>
+      </QueryState>
       <nav class="actions" aria-label="用户分页"><button v-if="offset > 0" @click="page(-50)">上一页</button><span>第 {{ offset / 50 + 1 }} 页，每页最多 50 条</span><button v-if="rows.length === 50" @click="page(50)">下一页</button></nav>
       <form v-if="mode" data-test="user-form" class="editor" @submit.prevent="submitUser">
         <fieldset :disabled="busy"><legend>{{ mode === 'create' ? '新建用户' : mode === 'edit' ? '用户档案' : mode === 'credential' ? '初始登录凭据' : mode === 'disable-credential' ? '停用登录凭据' : '用户角色' }}</legend>

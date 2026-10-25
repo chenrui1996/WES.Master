@@ -10,7 +10,8 @@
 | 范围 | 命令 | 结果 |
 |---|---|---|
 | Catalog allowlist、无效结构/未知/重复模块、失败关闭与重试、并发读取；菜单过滤；直接导航、catalog失败、登录/会话路由；QueryState与Audit stale结果 | `npm test -- --run src/features/module-catalog.spec.ts src/features/navigation.spec.ts src/router.spec.ts src/components/QueryState.spec.ts src/features/platform/AuditPage.spec.ts` | 5个测试文件、17项通过，0失败 |
-| Ops Web完整Vitest套件 | `npm test -- --run` | 16个测试文件、90项通过，0失败 |
+| 用户目录相同scope刷新失败保留结果且禁用旧版本行操作；筛选变化立即清除旧结果；既有用户目录用例 | `npm test -- --run src/features/platform/UsersPage.spec.ts` | 1个测试文件、16项通过，0失败 |
+| Ops Web完整Vitest套件 | `npm test -- --run` | 16个测试文件、92项通过，0失败 |
 | Vue/TypeScript类型检查与生产打包 | `npm run build` | `vue-tsc --noEmit`通过；Vite生产构建成功 |
 
 ## 未覆盖

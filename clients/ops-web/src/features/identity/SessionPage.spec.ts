@@ -53,7 +53,7 @@ it("renders authoritative active and idle states without consulting expiry clock
   expect(wrapper.get("tbody").text()).not.toContain("已过期");
 });
 
-it("exposes loading, clears old rows and confirmation on read errors, and allows explicit retry", async () => {
+it("exposes stale rows without actions during same-scope refresh failure and allows explicit retry", async () => {
   const next = deferred();
   const fetcher = vi.fn().mockResolvedValueOnce(response([family])).mockReturnValueOnce(next.promise)
     .mockResolvedValueOnce(response([]));
@@ -62,10 +62,13 @@ it("exposes loading, clears old rows and confirmation on read errors, and allows
   await wrapper.get('[data-test="revoke"]').trigger("click");
   await wrapper.get('[data-test="reload"]').trigger("click");
   expect(wrapper.text()).toContain("正在读取");
-  expect(wrapper.find("tbody tr").exists()).toBe(false);
+  expect(wrapper.find("tbody tr").exists()).toBe(true);
+  expect(wrapper.get('[data-test="revoke"]').attributes("disabled")).toBeDefined();
   expect((wrapper.get("dialog").element as HTMLDialogElement).open).toBe(false);
   next.resolve(new Response(null, { status: 503 })); await flushPromises();
-  expect(wrapper.get('[role="alert"]').text()).toContain("503");
+  expect(wrapper.get('[aria-label="会话列表"] [role="status"]').text()).toContain("503");
+  expect(wrapper.find("tbody tr").exists()).toBe(true);
+  expect(wrapper.get('[data-test="revoke"]').attributes("disabled")).toBeDefined();
   await wrapper.get('[data-test="reload"]').trigger("click"); await flushPromises();
   expect(wrapper.text()).toContain("当前没有可展示");
 });

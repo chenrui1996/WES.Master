@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import ColumnSettings from "../../components/ColumnSettings.vue";
+import QueryState from "../../components/QueryState.vue";
 import { useColumns } from "../../components/useColumns";
-import { api, canRead, forgetIdentity, isRecord, sessionState } from "./identity-api";
+import { api, ApiError, canRead, forgetIdentity, isRecord, sessionState } from "./identity-api";
 
 interface Family {
   id: string; userId: string | null; version: string | null; client: number | null; current: boolean | null;
@@ -14,6 +15,7 @@ const mode = ref<"self" | "admin">("self");
 const loading = ref(false);
 const busy = ref(false);
 const error = ref("");
+const queryError = ref("");
 const success = ref("");
 const pending = ref<Family | null>(null);
 const dialog = ref<HTMLDialogElement>();
@@ -27,8 +29,24 @@ const offset = ref(0);
 let generation = 0;
 let controller: AbortController | undefined;
 let returnFocus: HTMLElement | null = null;
+let lastSuccessfulQuery: string | null = null;
 const adminAllowed = computed(() => canRead("platform.sessions.read"));
 const hasIdentity = computed(() => sessionState.subject !== null && sessionState.token !== null);
+const currentQuery = computed(() => JSON.stringify({
+  tenantId: sessionState.subject?.tenantId,
+  userId: sessionState.subject?.userId,
+  grants: sessionState.subject?.grants,
+  mode: mode.value,
+  filters,
+  offset: offset.value,
+}));
+const queryState = computed(() => loading.value
+  ? rows.value.length ? "stale" : "loading"
+  : queryError.value ? rows.value.length ? "stale" : "error"
+    : rows.value.length ? "ready" : "empty");
+const staleMessage = computed(() => loading.value
+  ? "正在刷新；页面保留的是最近一次已加载的会话列表。"
+  : `刷新失败，仍保留最近一次已加载的会话列表：${queryError.value}`);
 function fieldAllowed(field: string) {
   return mode.value === "self" || (sessionState.subject?.grants.some(grant =>
     grant.permission === "platform.sessions.read" && grant.fields.includes(field)) ?? false);
@@ -81,12 +99,16 @@ function close() {
   if (returnFocus?.isConnected) returnFocus.focus();
   returnFocus = null;
 }
-function invalidate() {
-  generation++; controller?.abort(); rows.value = []; loading.value = false; close();
+function invalidate(preserveRows = false) {
+  generation++; controller?.abort();
+  if (!preserveRows) { rows.value = []; lastSuccessfulQuery = null; }
+  loading.value = false; close();
 }
 function failure(reason: unknown, fallback: string) { error.value = reason instanceof Error ? reason.message : fallback; }
 async function read() {
-  invalidate(); error.value = ""; success.value = "";
+  const queryKey = currentQuery.value;
+  const preserveRows = rows.value.length > 0 && lastSuccessfulQuery === queryKey;
+  invalidate(preserveRows); error.value = ""; queryError.value = ""; success.value = "";
   if (!hasIdentity.value || (mode.value === "admin" && !adminAllowed.value)) return;
   const limit = Number(filters.limit);
   const from = filters.from ? new Date(filters.from) : null;
@@ -113,9 +135,18 @@ async function read() {
   controller = new AbortController(); loading.value = true;
   try {
     const value = await api<unknown>(`/api/identity/${admin ? "admin-sessions" : "sessions"}?${query}`, { signal: controller.signal });
-    if (current === generation) rows.value = parseRows(value, admin);
+    if (current === generation && queryKey === currentQuery.value) {
+      rows.value = parseRows(value, admin);
+      lastSuccessfulQuery = queryKey;
+    }
   } catch (reason) {
-    if (current === generation) { rows.value = []; close(); failure(reason, "会话读取失败，请重试。"); }
+    if (current === generation) {
+      close();
+      queryError.value = reason instanceof Error ? reason.message : "会话读取失败，请重试。";
+      if (reason instanceof ApiError && [401, 403].includes(reason.status)) {
+        rows.value = []; lastSuccessfulQuery = null;
+      } else if (lastSuccessfulQuery !== queryKey) rows.value = [];
+    }
   } finally { if (current === generation) loading.value = false; }
 }
 function switchMode(value: "self" | "admin") {
@@ -184,9 +215,9 @@ function display(row: Family, key: string) {
   return String(value);
 }
 function summary(id: string) { return id.length > 24 ? `${id.slice(0, 12)}…${id.slice(-8)}` : id; }
-watch(filters, () => { invalidate(); offset.value = 0; error.value = ""; success.value = ""; }, { flush: "sync" });
+watch(filters, () => { invalidate(); offset.value = 0; error.value = ""; queryError.value = ""; success.value = ""; }, { flush: "sync" });
 watch(() => JSON.stringify([sessionState.subject, sessionState.token]), () => {
-  invalidate(); error.value = ""; success.value = ""; offset.value = 0;
+  invalidate(); error.value = ""; queryError.value = ""; success.value = ""; offset.value = 0;
   oldPassword.value = ""; newPassword.value = ""; repeat.value = "";
   if (!adminAllowed.value) mode.value = "self";
   Object.assign(filters, { state: "", from: "", to: "", userId: "", limit: "50" });
@@ -218,26 +249,29 @@ onUnmounted(invalidate);
     </form>
     <p class="hint">筛选变更后请重新读取。状态由服务端判定；管理范围与字段以服务端当前授权为准。</p>
     <ColumnSettings :columns="available" v-model="selected" :preference-warning="preferenceWarning" />
-    <div class="table-scroll" :aria-busy="loading">
-      <table><caption>{{ mode === 'self' ? '当前账号的会话' : '当前授权范围内的管理会话' }}（第 {{ Math.floor(offset / Number(filters.limit || 50)) + 1 }} 页）</caption>
-        <thead><tr><th v-for="column in visible" :key="column.key" scope="col">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
-        <tbody><tr v-for="row in rows" :key="row.id">
-          <td v-for="column in visible" :key="column.key">
-            <template v-if="column.key === 'id'">
-              <span data-test="session-id" class="identifier" :title="row.id">{{ summary(row.id) }}</span>
-              <details><summary>完整会话标识</summary><span class="identifier">{{ row.id }}</span></details>
-            </template>
-            <template v-else>{{ display(row, column.key) }}</template>
-          </td>
-          <td><button v-if="canRevoke(row)" data-test="revoke" :disabled="busy || loading" @click="confirm(row, $event)">撤销此会话</button></td>
-        </tr></tbody>
-      </table>
-    </div>
+    <QueryState label="会话列表" :state="queryState" :busy="loading" :error-message="queryError"
+      :stale-message="staleMessage" @retry="read">
+      <template #empty><p>当前没有可展示的会话。请重新读取，必要时重新登录。</p></template>
+      <div class="table-scroll" :aria-busy="loading">
+        <table><caption>{{ mode === 'self' ? '当前账号的会话' : '当前授权范围内的管理会话' }}（第 {{ Math.floor(offset / Number(filters.limit || 50)) + 1 }} 页）</caption>
+          <thead><tr><th v-for="column in visible" :key="column.key" scope="col">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
+          <tbody><tr v-for="row in rows" :key="row.id">
+            <td v-for="column in visible" :key="column.key">
+              <template v-if="column.key === 'id'">
+                <span data-test="session-id" class="identifier" :title="row.id">{{ summary(row.id) }}</span>
+                <details><summary>完整会话标识</summary><span class="identifier">{{ row.id }}</span></details>
+              </template>
+              <template v-else>{{ display(row, column.key) }}</template>
+            </td>
+            <td><button v-if="canRevoke(row)" data-test="revoke" :disabled="busy || loading || queryState === 'stale'" @click="confirm(row, $event)">撤销此会话</button></td>
+          </tr></tbody>
+        </table>
+      </div>
+    </QueryState>
     <nav class="toolbar" aria-label="会话分页">
       <button type="button" :disabled="loading || busy || offset === 0" @click="page(-1)">上一页</button>
       <button type="button" data-test="next-page" :disabled="loading || busy || rows.length !== Number(filters.limit)" @click="page(1)">下一页</button>
     </nav>
-    <p v-if="!loading && !error && !rows.length" role="status">当前没有可展示的会话。请重新读取，必要时重新登录。</p>
     <fieldset class="editor"><legend>修改密码并撤销全部既有会话</legend>
       <p>新密码不得包含泄漏值或最近 5 个已设置值（含当前值）。成功后所有浏览器 / PDA 会话需要重新登录。</p>
       <form @submit.prevent="changePassword" :aria-busy="passwordBusy">

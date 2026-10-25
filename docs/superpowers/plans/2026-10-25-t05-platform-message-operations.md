@@ -138,7 +138,7 @@ Expected: replay endpoint test passes and full suite reports 816 passed, 0 faile
 
 Record file paths, migration, focused and full counts, and explicitly state that no real Broker, hosted scheduler, Notifications aggregator, other-owner adapter, alternate Provider, or production recovery drill was verified.
 
-- [ ] **Step 5: Commit and push the completed operations slice.**
+- [x] **Step 5: Commit and push the completed operations slice.**
 
 Stage only the files listed in these tasks. Commit with a Conventional Commit subject and append:
 

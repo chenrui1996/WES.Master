@@ -273,9 +273,14 @@ public sealed class PlatformAccessPersistenceTests : IAsyncLifetime
         Assert.Equal(version, audit.BeforeVersion);
         Assert.Equal(setting.Version, audit.AfterVersion);
         Assert.Equal(_actor, audit.ActorId);
+        var message = Assert.Single(await verify.OutboxMessages.AsNoTracking().ToListAsync());
+        using var payload = System.Text.Json.JsonDocument.Parse(message.Payload);
+        Assert.Equal(audit.Id, message.EventId);
+        Assert.Equal("SettingChanged", payload.RootElement.GetProperty("action").GetString());
         Assert.Equal(SettingDecision.InvalidValue,
             (await Handler(verify).HandleAsync(context, settingId, setting.Version, "secret", Guid.NewGuid())).Decision);
         Assert.Equal(1, await verify.Audit.CountAsync());
+        Assert.Equal(1, await verify.OutboxMessages.CountAsync());
     }
 
     /// <summary>Denied scope cannot mutate a global setting or discover its current version.</summary>
@@ -331,6 +336,8 @@ public sealed class PlatformAccessPersistenceTests : IAsyncLifetime
         Assert.Equal("600", (await verify.Settings.SingleAsync()).Value);
         Assert.Equal(version, (await verify.Settings.SingleAsync()).Version);
         Assert.Empty(await verify.Audit.ToListAsync());
+        Assert.Empty(await verify.OutboxMessages.ToListAsync());
+        Assert.Empty(await verify.OutboxMessages.ToListAsync());
     }
 
     /// <summary>A real duplicate-key audit failure rolls back the owner update, not only a pre-SQL test fault.</summary>
@@ -359,6 +366,8 @@ public sealed class PlatformAccessPersistenceTests : IAsyncLifetime
         Assert.Equal(version, setting.Version);
         Assert.Equal("600", setting.Value);
         Assert.Equal(duplicate.Id, (await verify.Audit.SingleAsync()).Id);
+        var outbox = Assert.Single(await verify.OutboxMessages.ToListAsync());
+        Assert.Equal(duplicate.Id, outbox.EventId);
     }
 
     /// <summary>A provider fault after an audit SQL command must not leave the audit or its associated mutation committed.</summary>
@@ -390,6 +399,8 @@ public sealed class PlatformAccessPersistenceTests : IAsyncLifetime
         }
         await using var verify = Open(_tenant);
         Assert.Empty(await verify.Audit.ToListAsync());
+        Assert.Empty(await verify.OutboxMessages.ToListAsync());
+        Assert.Empty(await verify.OutboxMessages.ToListAsync());
         if (role)
         {
             var unchanged = await verify.Roles.SingleAsync(item => item.Id == target);
@@ -423,6 +434,8 @@ public sealed class PlatformAccessPersistenceTests : IAsyncLifetime
         await using var verify = Open(_tenant);
         var setting = await verify.Settings.SingleAsync();
         var audit = await verify.Audit.SingleAsync();
+        var outbox = await verify.OutboxMessages.SingleAsync();
+        Assert.Equal(audit.Id, outbox.EventId);
         Assert.Equal(winner.Version, setting.Version);
         Assert.Equal(winner.Version, audit.AfterVersion);
         Assert.Equal(version, audit.BeforeVersion);

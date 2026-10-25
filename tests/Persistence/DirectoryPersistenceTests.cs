@@ -456,6 +456,7 @@ public sealed class DirectoryPersistenceTests : IAsyncLifetime
         await using var verify = Open();
         Assert.Single(await verify.DirectoryUsers.ToListAsync());
         Assert.Empty(await verify.Audit.ToListAsync());
+        Assert.Empty(await verify.OutboxMessages.ToListAsync());
     }
 
     private sealed class FailAfterSave : SaveChangesInterceptor

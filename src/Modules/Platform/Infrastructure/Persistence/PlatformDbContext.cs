@@ -32,6 +32,8 @@ public sealed partial class PlatformDbContext : DbContext
     public DbSet<VersionedSetting> Settings => Set<VersionedSetting>();
     /// <summary>Append-only owner audit facts, never raw request data.</summary>
     public DbSet<PlatformAudit> Audit => Set<PlatformAudit>();
+    /// <summary>Platform-owned durable events staged in the same transaction as their source facts.</summary>
+    public DbSet<PlatformOutboxMessage> OutboxMessages => Set<PlatformOutboxMessage>();
     /// <summary>Tenant-account risk independent of user existence, never global source budgets.</summary>
     public DbSet<LoginAccountBudget> LoginAccounts => Set<LoginAccountBudget>();
     /// <summary>One-shot tenant challenges; never raw answers or global risk state.</summary>
@@ -178,11 +180,35 @@ public sealed partial class PlatformDbContext : DbContext
         audit.Property(item => item.OccurredAt).HasConversion(utc).HasColumnType("datetime(6)");
         audit.HasIndex(item => new { item.TenantId, item.OccurredAt, item.Id });
         audit.HasQueryFilter(item => item.TenantId == TenantId);
+
+        var outbox = modelBuilder.Entity<PlatformOutboxMessage>();
+        outbox.ToTable("platform_outbox_messages");
+        outbox.HasKey(item => new { item.TenantId, item.EventId });
+        outbox.Property(item => item.TenantId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        outbox.Property(item => item.EventId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        outbox.Property(item => item.ContractName).HasColumnType("varchar(128)").HasMaxLength(128);
+        outbox.Property(item => item.SchemaVersion).IsRequired();
+        outbox.Property(item => item.Owner).HasColumnType("varchar(32)").HasMaxLength(32);
+        outbox.Property(item => item.AggregateId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        outbox.Property(item => item.AggregateVersion).HasColumnType("varchar(36)").HasMaxLength(36);
+        outbox.Property(item => item.CorrelationId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        outbox.Property(item => item.CausationId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        outbox.Property(item => item.OccurredAt).HasConversion(utc).HasColumnType("datetime(6)");
+        outbox.Property(item => item.Payload).HasColumnType("longtext").IsRequired();
+        outbox.Property(item => item.Status).HasConversion<string>().HasColumnType("varchar(16)").HasMaxLength(16);
+        outbox.Property(item => item.NextAttemptAt).HasConversion(utc).HasColumnType("datetime(6)");
+        outbox.Property(item => item.PublishedAt).HasConversion(utc).HasColumnType("datetime(6)");
+        outbox.Property(item => item.LastErrorCategory).HasColumnType("varchar(32)").HasMaxLength(32);
+        outbox.Property(item => item.CreatedAt).HasConversion(utc).HasColumnType("datetime(6)");
+        outbox.HasIndex(item => new { item.TenantId, item.Status, item.NextAttemptAt, item.EventId });
+        outbox.HasIndex(item => new { item.TenantId, item.CreatedAt, item.EventId });
+        outbox.HasQueryFilter(item => item.TenantId == TenantId);
     }
 
     /// <summary>Protects every synchronous write path from cross-tenant attachment or owner changes.</summary>
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
+        StageOutboxMessages();
         ValidateWriteScope();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
@@ -190,8 +216,24 @@ public sealed partial class PlatformDbContext : DbContext
     /// <summary>Protects asynchronous writes and propagates cancellation into the owner transaction.</summary>
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
+        StageOutboxMessages();
         ValidateWriteScope();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void StageOutboxMessages()
+    {
+        var stagedIds = ChangeTracker.Entries<PlatformOutboxMessage>()
+            .Select(entry => entry.Entity.EventId)
+            .ToHashSet();
+        foreach (var entry in ChangeTracker.Entries<PlatformAudit>()
+            .Where(entry => entry.State == EntityState.Added)
+            .ToArray())
+        {
+            var message = PlatformOutboxMessage.FromAudit(entry.Entity);
+            if (message is not null && stagedIds.Add(message.EventId))
+                OutboxMessages.Add(message);
+        }
     }
 
     private void ValidateWriteScope()

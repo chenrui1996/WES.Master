@@ -58,6 +58,42 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         await db.SaveChangesAsync();
     }
 
+    /// <summary>T05: each write owner persists its own durable event outbox.</summary>
+    [Fact]
+    public async Task PlatformModel_ContainsOwnerLocalOutboxEvents()
+    {
+        await using var db = Open();
+        var entity = db.Model.FindEntityType("Wes.Platform.Domain.PlatformOutboxMessage");
+
+        Assert.NotNull(entity);
+        Assert.Equal("platform_outbox_messages", entity.GetTableName());
+        Assert.Contains(entity.GetProperties(), property => property.Name == "EventId");
+        Assert.Contains(entity.GetProperties(), property => property.Name == "ContractName");
+        Assert.Contains(entity.GetProperties(), property => property.Name == "Payload");
+    }
+
+    /// <summary>T05: committed Platform changes and their non-secret event enter the owner outbox together.</summary>
+    [Fact]
+    public async Task CreateUser_CommitsAuditAndSafeOutboxEventTogether()
+    {
+        var result = await CreateAsync();
+        Assert.Equal(DirectoryDecision.Changed, result.Decision);
+
+        await using var db = Open();
+        var audit = Assert.Single(await db.Audit.ToListAsync());
+        var message = Assert.Single(await db.OutboxMessages.ToListAsync());
+        using var payload = System.Text.Json.JsonDocument.Parse(message.Payload);
+
+        Assert.Equal(audit.Id, message.EventId);
+        Assert.Equal("platform.audit", message.ContractName);
+        Assert.Equal(audit.TargetId, message.AggregateId);
+        Assert.Equal(audit.AfterVersion, message.AggregateVersion);
+        Assert.Equal(audit.CorrelationId, message.CorrelationId);
+        Assert.Equal(OutboxMessageStatus.Pending, message.Status);
+        Assert.Equal("UserChanged", payload.RootElement.GetProperty("action").GetString());
+        Assert.DoesNotContain("TARGET", message.Payload, StringComparison.Ordinal);
+    }
+
     /// <summary>RCPT-01: restart replay retains the first result, transition and audit exactly once.</summary>
     [Fact]
     public async Task CreateUser_RestartReplay_ReturnsOriginalWithOneEffect()
@@ -75,6 +111,8 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         Assert.Equal(_actor, receipt.ActorId);
         Assert.Equal(_operation, receipt.OperationId);
         Assert.Equal(64, receipt.Fingerprint.Length);
+        var message = Assert.Single(await db.OutboxMessages.ToListAsync());
+        Assert.Equal(OutboxMessageStatus.Pending, message.Status);
     }
 
     /// <summary>RCPT-02: an operation identity is not a last-writer-wins slot.</summary>
@@ -623,6 +661,34 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         Assert.Equal(new[] { "ActorId", "CreatedAt", "Fingerprint", "Kind", "OperationId", "ResultId", "ResultVersion", "TenantId" },
             table.Columns.Select(x => x.Name).Order(StringComparer.Ordinal));
         Assert.Equal(8, db.Model.FindEntityType(typeof(DirectoryCommandReceipt))!.GetProperties().Count());
+        Assert.False(db.Database.HasPendingModelChanges());
+    }
+
+    /// <summary>T05: the owner-local outbox migration adds only its durable event table and indexes.</summary>
+    [Fact]
+    public void PlatformOutboxMigration_IsAdditiveAndMatchesTheModel()
+    {
+        using var db = Open();
+        var assembly = db.GetService<IMigrationsAssembly>();
+        var migration = assembly.Migrations.Single(x => x.Key.EndsWith("_PlatformOutbox", StringComparison.Ordinal));
+        var operations = assembly.CreateMigration(migration.Value, db.Database.ProviderName!).UpOperations;
+
+        Assert.All(operations, operation => Assert.True(operation is CreateTableOperation or CreateIndexOperation));
+        var table = Assert.Single(operations.OfType<CreateTableOperation>());
+        Assert.Equal("platform_outbox_messages", table.Name);
+        Assert.Equal(new[]
+        {
+            "AggregateId", "AggregateVersion", "Attempts", "CausationId", "CorrelationId", "CreatedAt",
+            "EventId", "LastErrorCategory", "NextAttemptAt", "OccurredAt", "Owner", "Payload", "PublishedAt",
+            "SchemaVersion", "Status", "TenantId"
+        }, table.Columns.Select(column => column.Name).Order(StringComparer.Ordinal));
+        var contractMigration = assembly.Migrations.Single(x => x.Key.EndsWith("_PlatformOutboxContractName", StringComparison.Ordinal));
+        var contractOperations = assembly.CreateMigration(contractMigration.Value, db.Database.ProviderName!).UpOperations;
+        var addedColumn = Assert.Single(contractOperations.OfType<AddColumnOperation>());
+        Assert.Equal("platform_outbox_messages", addedColumn.Table);
+        Assert.Equal("ContractName", addedColumn.Name);
+        Assert.Single(contractOperations);
+        Assert.Equal(17, db.Model.FindEntityType("Wes.Platform.Domain.PlatformOutboxMessage")!.GetProperties().Count());
         Assert.False(db.Database.HasPendingModelChanges());
     }
 

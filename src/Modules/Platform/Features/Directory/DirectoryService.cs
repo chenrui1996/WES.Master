@@ -194,7 +194,8 @@ public sealed partial class DirectoryService(PlatformDbContext database, TimePro
     private DirectoryWriteResult Audit(TenantContext context, Guid id, string? before, string after,
         PlatformAuditAction action, Guid correlation)
     {
-        database.Audit.Add(new PlatformAudit(database.TenantId, context.ActorId, id, correlation, action, before, after, clock.GetUtcNow()));
+        var audit = new PlatformAudit(database.TenantId, context.ActorId, id, correlation, action, before, after, clock.GetUtcNow());
+        database.Audit.Add(audit);
         return new(DirectoryDecision.Changed, id, after);
     }
 

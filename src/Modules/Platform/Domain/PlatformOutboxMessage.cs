@@ -65,6 +65,10 @@ public sealed class PlatformOutboxMessage
     public int Attempts { get; private set; }
     /// <summary>First failed delivery instant; starts the bounded automatic retry budget.</summary>
     public DateTimeOffset? FirstFailureAt { get; private set; }
+    /// <summary>Current publisher lease identity, when this message is leased.</summary>
+    public Guid? LeaseId { get; private set; }
+    /// <summary>Current publisher lease expiry in UTC.</summary>
+    public DateTimeOffset? LeaseUntil { get; private set; }
     /// <summary>Earliest eligible retry instant.</summary>
     public DateTimeOffset NextAttemptAt { get; private set; }
     /// <summary>Successful broker publish instant, if acknowledged.</summary>
@@ -95,6 +99,7 @@ public sealed class PlatformOutboxMessage
         FirstFailureAt ??= failedAt;
         Attempts++;
         LastErrorCategory = category.ToString();
+        ClearLease();
 
         if (!category.IsTransient() || failedAt >= FirstFailureAt.Value.AddMinutes(15) || Attempts > RetryDelays.Length)
         {
@@ -111,6 +116,50 @@ public sealed class PlatformOutboxMessage
 
         NextAttemptAt = retryAt;
         Status = OutboxMessageStatus.Pending;
+    }
+
+    internal bool TryAcquireLease(Guid leaseId, DateTimeOffset now, TimeSpan duration)
+    {
+        if (leaseId == Guid.Empty)
+        {
+            throw new ArgumentException("A publisher lease requires an identity.", nameof(leaseId));
+        }
+
+        if (duration <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(duration));
+        }
+
+        if (Status == OutboxMessageStatus.Pending)
+        {
+            if (NextAttemptAt > now)
+            {
+                return false;
+            }
+        }
+        else if (Status == OutboxMessageStatus.Leased)
+        {
+            if (LeaseUntil is null || LeaseUntil > now)
+            {
+                return false;
+            }
+        }
+        else
+        {
+            return false;
+        }
+
+        if (FirstFailureAt is { } firstFailureAt && now >= firstFailureAt.AddMinutes(15))
+        {
+            Status = OutboxMessageStatus.Quarantined;
+            ClearLease();
+            return false;
+        }
+
+        Status = OutboxMessageStatus.Leased;
+        LeaseId = leaseId;
+        LeaseUntil = now + duration;
+        return true;
     }
 
     private sealed record PlatformAuditEvent(string Action, string? BeforeVersion, string AfterVersion);
@@ -132,6 +181,12 @@ public sealed class PlatformOutboxMessage
         PlatformAuditAction.DepartmentChanged or
         PlatformAuditAction.TenantChanged or
         PlatformAuditAction.DictionaryChanged;
+
+    private void ClearLease()
+    {
+        LeaseId = null;
+        LeaseUntil = null;
+    }
 }
 
 /// <summary>Finite durable message delivery states.</summary>

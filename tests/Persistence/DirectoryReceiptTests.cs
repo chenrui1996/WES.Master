@@ -133,6 +133,64 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         Assert.Equal(nameof(OutboxFailureCategory.BrokerUnavailable), message.LastErrorCategory);
     }
 
+    /// <summary>T05: competing owner-local publishers cannot claim the same event under different leases.</summary>
+    [Fact]
+    public async Task OutboxLeaseStore_CompetingPublishersAcquireOnlyOneLease()
+    {
+        await CreateAsync();
+        Guid eventId;
+        await using (var lookup = Open())
+        {
+            eventId = await lookup.OutboxMessages.Select(message => message.EventId).SingleAsync();
+        }
+
+        var firstLeaseId = Guid.NewGuid();
+        var secondLeaseId = Guid.NewGuid();
+        await using var firstDatabase = Open();
+        await using var secondDatabase = Open();
+        var firstPublisher = new PlatformOutboxLeaseStore(firstDatabase);
+        var secondPublisher = new PlatformOutboxLeaseStore(secondDatabase);
+
+        var claims = await Task.WhenAll(
+            firstPublisher.TryLeaseAsync(eventId, firstLeaseId, _clock.Now, TimeSpan.FromSeconds(30)),
+            secondPublisher.TryLeaseAsync(eventId, secondLeaseId, _clock.Now, TimeSpan.FromSeconds(30)));
+
+        Assert.Single(claims, claimed => claimed);
+        await using var verify = Open();
+        var message = await verify.OutboxMessages.SingleAsync();
+        Assert.Equal(OutboxMessageStatus.Leased, message.Status);
+        Assert.Contains(message.LeaseId, new Guid?[] { firstLeaseId, secondLeaseId });
+        Assert.Equal(_clock.Now + TimeSpan.FromSeconds(30), message.LeaseUntil);
+        await using var recoveryDatabase = Open();
+        var recoveredLeaseId = Guid.NewGuid();
+        Assert.True(await new PlatformOutboxLeaseStore(recoveryDatabase).TryLeaseAsync(
+            eventId, recoveredLeaseId, _clock.Now + TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30)));
+        await verify.Entry(message).ReloadAsync();
+        Assert.Equal(recoveredLeaseId, message.LeaseId);
+    }
+
+    /// <summary>T05: an expired automatic retry budget is quarantined before a publisher can claim it.</summary>
+    [Fact]
+    public async Task OutboxLeaseStore_QuarantinesExpiredRetryBudget()
+    {
+        await CreateAsync();
+        await using (var database = Open())
+        {
+            var message = await database.OutboxMessages.SingleAsync();
+            message.RecordFailure(_clock.Now, OutboxFailureCategory.BrokerUnavailable);
+            await database.SaveChangesAsync();
+        }
+
+        await using var claimDatabase = Open();
+        var messageId = await claimDatabase.OutboxMessages.Select(item => item.EventId).SingleAsync();
+        var claimed = await new PlatformOutboxLeaseStore(claimDatabase).TryLeaseAsync(
+            messageId, Guid.NewGuid(), _clock.Now + TimeSpan.FromMinutes(15), TimeSpan.FromSeconds(30));
+
+        Assert.False(claimed);
+        Assert.Equal(OutboxMessageStatus.Quarantined,
+            (await claimDatabase.OutboxMessages.SingleAsync()).Status);
+    }
+
     /// <summary>RCPT-01: restart replay retains the first result, transition and audit exactly once.</summary>
     [Fact]
     public async Task CreateUser_RestartReplay_ReturnsOriginalWithOneEffect()
@@ -733,7 +791,14 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         Assert.Equal("platform_outbox_messages", retryColumn.Table);
         Assert.Equal("FirstFailureAt", retryColumn.Name);
         Assert.Single(retryOperations);
-        Assert.Equal(18, db.Model.FindEntityType("Wes.Platform.Domain.PlatformOutboxMessage")!.GetProperties().Count());
+        var leaseMigration = assembly.Migrations.Single(x => x.Key.EndsWith("_PlatformOutboxPublisherLeases", StringComparison.Ordinal));
+        var leaseOperations = assembly.CreateMigration(leaseMigration.Value, db.Database.ProviderName!).UpOperations;
+        Assert.Equal(new[] { "LeaseId", "LeaseUntil" },
+            leaseOperations.OfType<AddColumnOperation>().Select(operation => operation.Name).Order(StringComparer.Ordinal));
+        var leaseIndex = Assert.Single(leaseOperations.OfType<CreateIndexOperation>());
+        Assert.Equal("platform_outbox_messages", leaseIndex.Table);
+        Assert.Equal(new[] { "TenantId", "Status", "LeaseUntil", "EventId" }, leaseIndex.Columns);
+        Assert.Equal(20, db.Model.FindEntityType("Wes.Platform.Domain.PlatformOutboxMessage")!.GetProperties().Count());
         Assert.False(db.Database.HasPendingModelChanges());
     }
 

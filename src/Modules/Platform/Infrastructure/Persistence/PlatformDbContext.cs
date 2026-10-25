@@ -195,13 +195,17 @@ public sealed partial class PlatformDbContext : DbContext
         outbox.Property(item => item.CausationId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
         outbox.Property(item => item.OccurredAt).HasConversion(utc).HasColumnType("datetime(6)");
         outbox.Property(item => item.Payload).HasColumnType("longtext").IsRequired();
-        outbox.Property(item => item.Status).HasConversion<string>().HasColumnType("varchar(16)").HasMaxLength(16);
+        outbox.Property(item => item.Status).HasConversion<string>().HasColumnType("varchar(16)").HasMaxLength(16)
+            .IsConcurrencyToken();
         outbox.Property(item => item.FirstFailureAt).HasConversion(utc).HasColumnType("datetime(6)");
+        outbox.Property(item => item.LeaseId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        outbox.Property(item => item.LeaseUntil).HasConversion(utc).HasColumnType("datetime(6)");
         outbox.Property(item => item.NextAttemptAt).HasConversion(utc).HasColumnType("datetime(6)");
         outbox.Property(item => item.PublishedAt).HasConversion(utc).HasColumnType("datetime(6)");
         outbox.Property(item => item.LastErrorCategory).HasColumnType("varchar(32)").HasMaxLength(32);
         outbox.Property(item => item.CreatedAt).HasConversion(utc).HasColumnType("datetime(6)");
         outbox.HasIndex(item => new { item.TenantId, item.Status, item.NextAttemptAt, item.EventId });
+        outbox.HasIndex(item => new { item.TenantId, item.Status, item.LeaseUntil, item.EventId });
         outbox.HasIndex(item => new { item.TenantId, item.CreatedAt, item.EventId });
         outbox.HasQueryFilter(item => item.TenantId == TenantId);
     }

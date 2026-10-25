@@ -14,9 +14,11 @@ Platform DbContext 保存新增 `PlatformAudit` 时，在同次 `SaveChanges` �
 
 当前另有 Outbox 失败状态转换：仅有限的 Broker 不可用/超时类别采用 1/5/30/120/600 秒退避，最多五次重试；初次发布加五次重试均失败后转 `Quarantined`。首次失败时刻持久化作为 15 分钟自动预算起点；永久合同/授权错误直接隔离。调用方仍须在事务中保存状态。该实体状态策略不等于已实现调度器，也没有 publisher 在投递前检查到期时间。
 
+Platform owner 另提供单消息 lease claim：按 tenant query filter 读取，并用 `Status` 乐观并发令牌争抢；同时竞争最多一个 claimant 成功。lease 到期可被重新领取，过自动预算的待重试消息在 claim 时持久隔离。此为 owner-local claim primitive，不包含定时扫描、Broker 发布/ACK、lease holder 发布完成校验或运行时注册。
+
 ## 未完成边界
 
-- 尚无 Inbox 表/去重消费者、publisher lease/并发领取、Broker 抽象或 RabbitMQ/MassTransit 运行时；上述重试转换尚未由实际 publisher 驱动。
+- 尚无 Inbox 表/去重消费者、定时 publisher/扫描器、Broker 抽象或 RabbitMQ/MassTransit 运行时；lease primitive 和上述重试转换尚未由实际 publisher 驱动。
 - 尚无 1/5/30/120/600 秒调度、15 分钟总 deadline、永久隔离、运维查询/授权重放或 MessagesPage。
 - 其它 owner 尚无本地 Outbox/Inbox；本片不可推断为跨模块事务或 exactly-once。
 - `Features:Capabilities:Outbox`/`MessageQueue` 仍因没有完整 runtime owner 而启动拒绝；当前不启用或宣称生产投递。

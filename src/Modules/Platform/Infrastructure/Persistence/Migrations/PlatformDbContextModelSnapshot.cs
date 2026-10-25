@@ -497,6 +497,13 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)");
 
+                    b.Property<string>("LeaseId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<DateTime?>("LeaseUntil")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<DateTime>("NextAttemptAt")
                         .HasColumnType("datetime(6)");
 
@@ -519,6 +526,7 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("Status")
+                        .IsConcurrencyToken()
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("varchar(16)");
@@ -526,6 +534,8 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                     b.HasKey("TenantId", "EventId");
 
                     b.HasIndex("TenantId", "CreatedAt", "EventId");
+
+                    b.HasIndex("TenantId", "Status", "LeaseUntil", "EventId");
 
                     b.HasIndex("TenantId", "Status", "NextAttemptAt", "EventId");
 

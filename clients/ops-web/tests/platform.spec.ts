@@ -169,6 +169,18 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
       await zoomEquivalent.send("Emulation.clearDeviceMetricsOverride");
       await zoomEquivalent.detach();
       await page.setViewportSize({ width: 1440, height: 900 });
+      const largeText = await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+      await page.setViewportSize({ width: 1024, height: 900 });
+      expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize)).toBe("32px");
+      expect(await page.evaluate(() => getComputedStyle(document.body).fontSize)).toBe("28px");
+      expect(await page.evaluate(() => getComputedStyle(document.querySelector("h1")!).fontSize)).toBe("40px");
+      await expect(page.getByRole("main").getByRole("heading", { level: 1 })).toBeVisible();
+      await expect(settingsTable).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      const tableOverflow = await settingsTable.evaluate(element => element.scrollWidth >= element.clientWidth);
+      expect(tableOverflow).toBe(true);
+      await largeText.evaluate(element => element.parentNode?.removeChild(element));
+      await page.setViewportSize({ width: 1440, height: 900 });
     }
   }
   const auditMode = page.getByLabel("证据类型");

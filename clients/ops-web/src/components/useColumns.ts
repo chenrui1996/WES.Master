@@ -77,7 +77,7 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
   const available = computed(source);
   const selected = ref<string[]>([]);
   const widths = ref<Record<string, number>>({});
-  const fixedFirstColumn = ref(false);
+  const fixedFirstColumn = ref(true);
   const preferenceWarning = ref<string | null>(null);
   const hydratedScope = ref<string | null>(null);
   const environment = options.environment ?? import.meta.env.MODE;
@@ -111,7 +111,7 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
     preferenceWarning.value = null;
     selected.value = [];
     widths.value = {};
-    fixedFirstColumn.value = false;
+    fixedFirstColumn.value = true;
   }, { flush: "sync" });
 
   watch(available, columns => {
@@ -157,7 +157,7 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
     if (hasOutOfRangeWidth)
       preferenceWarning.value = "部分列宽超出当前字段范围，已恢复为基准宽度。";
     widths.value = Object.fromEntries(validWidths);
-    fixedFirstColumn.value = stored?.fixedFirstColumn ?? false;
+    fixedFirstColumn.value = stored?.fixedFirstColumn ?? columns.some(column => column.required);
     selected.value = ordered;
   }, { immediate: true, flush: "sync" });
 

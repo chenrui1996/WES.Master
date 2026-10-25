@@ -199,7 +199,8 @@ onBeforeUnmount(() => { clear(); window.removeEventListener("online", connectivi
           <ColumnSettings :columns="available" v-model="selected" v-model:widths="widths"
             v-model:fixed-first-column="fixedFirstColumn" :preference-warning="preferenceWarning" />
           <div class="table-scroll" tabindex="0" aria-label="租户目录">
-          <table :class="{ 'table-fixed-first-column': fixedFirstColumn }"><caption class="hint">当前页可读租户</caption><thead><tr><th v-for="column in visible" :key="column.key" scope="col" :style="widthStyle(column.key)">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
+          <p class="table-fixed-notice" role="status">可视区域较窄，固定列暂时停用；请横向滚动查看，避免固定列遮挡内容。</p>
+          <table :class="{ 'table-fixed-first-column': fixedFirstColumn, 'table-fixed-actions': true }"><caption class="hint">当前页可读租户</caption><thead><tr><th v-for="column in visible" :key="column.key" scope="col" :style="widthStyle(column.key)">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
             <tbody><tr v-for="row in rows" :key="row.tenantId">
               <td v-for="column in visible" :key="column.key">
                 <template v-if="column.key === 'tenantId'">{{ row.tenantId }}<span v-if="row.tenantId === sessionState.subject?.tenantId">（当前）</span></template>

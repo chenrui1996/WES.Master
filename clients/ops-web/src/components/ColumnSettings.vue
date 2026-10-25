@@ -5,7 +5,7 @@ import { columnWidthPreset, type AuthorizedColumn } from "./useColumns";
 const props = defineProps<{ columns: AuthorizedColumn[]; preferenceWarning?: string | null }>();
 const selected = defineModel<string[]>({ required: true });
 const widths = defineModel<Record<string, number>>("widths", { default: () => ({}) });
-const fixedFirstColumn = defineModel<boolean>("fixedFirstColumn", { default: false });
+const fixedFirstColumn = defineModel<boolean>("fixedFirstColumn", { default: true });
 const settingsForm = ref<HTMLFormElement | null>(null);
 const draftSelected = ref([...selected.value]);
 const draftWidths = ref({ ...widths.value });
@@ -72,7 +72,7 @@ function cancel() {
 function restoreDefaults() {
   draftSelected.value = props.columns.map(column => column.key);
   draftWidths.value = {};
-  draftFixedFirstColumn.value = false;
+  draftFixedFirstColumn.value = true;
   clearWidthValidation();
 }
 </script>

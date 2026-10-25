@@ -643,6 +643,7 @@ label {
 }
 
 .table-scroll {
+  container: table-frame / inline-size;
   max-height: 60dvh;
   margin-top: var(--wes-space-4);
   overflow: auto;
@@ -687,6 +688,48 @@ th {
   inset-inline-start: 0;
   background: var(--wes-color-surface);
   box-shadow: 1px 0 var(--wes-color-border-soft);
+}
+
+.table-fixed-actions thead th:last-child {
+  position: sticky;
+  inset-inline-end: 0;
+  z-index: calc(var(--wes-z-sticky) + 1);
+  min-width: 10rem;
+  background: var(--wes-color-workspace);
+  box-shadow: -1px 0 var(--wes-color-border-soft);
+}
+
+.table-fixed-actions tbody td:last-child {
+  position: sticky;
+  inset-inline-end: 0;
+  z-index: 1;
+  min-width: 10rem;
+  background: var(--wes-color-surface);
+  box-shadow: -1px 0 var(--wes-color-border-soft);
+}
+
+.table-fixed-notice {
+  display: none;
+  margin: 0;
+  padding: var(--wes-space-2);
+  border-bottom: 1px solid var(--wes-color-border-soft);
+  color: var(--wes-color-muted);
+  background: var(--wes-color-workspace);
+}
+
+@container table-frame (max-width: 720px) {
+  .table-fixed-notice {
+    display: block;
+  }
+
+  .table-fixed-first-column thead th:first-child,
+  .table-fixed-first-column tbody td:first-child,
+  .table-fixed-actions thead th:last-child,
+  .table-fixed-actions tbody td:last-child {
+    inset-inline-start: auto;
+    inset-inline-end: auto;
+    box-shadow: none;
+  }
 }
 
 .app-layout[data-density="compact"] {

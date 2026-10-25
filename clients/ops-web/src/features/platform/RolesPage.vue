@@ -240,7 +240,8 @@ onBeforeUnmount(() => { clear(); window.removeEventListener("online", connectivi
           <ColumnSettings :columns="available" v-model="selected" v-model:widths="widths"
             v-model:fixed-first-column="fixedFirstColumn" :preference-warning="preferenceWarning" />
           <div class="table-scroll" tabindex="0" aria-label="角色目录">
-          <table :class="{ 'table-fixed-first-column': fixedFirstColumn }"><caption class="hint">当前页角色</caption><thead><tr><th v-for="column in visible" :key="column.key" scope="col" :style="widthStyle(column.key)">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
+          <p class="table-fixed-notice" role="status">可视区域较窄，固定列暂时停用；请横向滚动查看，避免固定列遮挡内容。</p>
+          <table :class="{ 'table-fixed-first-column': fixedFirstColumn, 'table-fixed-actions': true }"><caption class="hint">当前页角色</caption><thead><tr><th v-for="column in visible" :key="column.key" scope="col" :style="widthStyle(column.key)">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
             <tbody><tr v-for="row in rows" :key="row.id">
               <td v-for="column in visible" :key="column.key">
                 <template v-if="column.key === 'id'">{{ row.id }}</template>

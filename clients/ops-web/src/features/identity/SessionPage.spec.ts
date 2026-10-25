@@ -181,6 +181,8 @@ it("clears sensitive rows and pending requests immediately on permission or subj
 it("reuses column visibility and keyboard ordering and never restores hidden values in details", async () => {
   vi.stubGlobal("fetch", vi.fn(async () => response([family])));
   const wrapper = render(); await flushPromises();
+  expect(wrapper.get("table").classes()).toContain("table-fixed-first-column");
+  expect(wrapper.get("table").classes()).toContain("table-fixed-actions");
   await wrapper.get('[data-test="column-client"] input').setValue(false);
   expect(wrapper.get("tbody").text()).toContain("Web");
   await wrapper.get('[data-test="column-state"]').trigger("keydown", { key: "ArrowUp" });

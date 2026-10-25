@@ -36,16 +36,18 @@ it("loads scoped column preferences, enforces required fields, and persists only
       const columns = useColumns(() => schema.value, scope);
       return { ...columns };
     },
-    template: `<output>{{ selected.join(',') }}</output><button @click="selected = ['id']">ID only</button>`,
+    template: `<output>{{ selected.join(',') }}</output><output data-test="fixed">{{ fixedFirstColumn }}</output>
+      <button @click="selected = ['id']">ID only</button>`,
   });
 
   const wrapper = mount(host);
   await flushPromises();
   expect(wrapper.get("output").text()).toBe("name,id");
+  expect(wrapper.get('[data-test="fixed"]').text()).toBe("true");
   await wrapper.get("button").trigger("click");
   await flushPromises();
 
-  expect(JSON.parse(values.get(preferenceKey) ?? "{}")).toEqual({ version: 1, selected: ["id"] });
+  expect(JSON.parse(values.get(preferenceKey) ?? "{}")).toEqual({ version: 1, selected: ["id"], fixedFirstColumn: true });
   expect([...values.keys()]).toEqual([preferenceKey]);
   wrapper.unmount();
 });
@@ -141,7 +143,7 @@ it("drops revoked columns from live preferences when the authorized schema chang
 
   expect(wrapper.get("output").text()).toBe("id");
   expect(JSON.parse(values.get("wes-ops-web:columns:v1:test:tenant-a:user-a:users:directory") ?? "{}"))
-    .toEqual({ version: 1, selected: ["id"] });
+    .toEqual({ version: 1, selected: ["id"], fixedFirstColumn: true });
   wrapper.unmount();
 });
 

@@ -75,10 +75,12 @@ it("applies and persists bounded per-column widths", async () => {
       <output>{{ widthStyle('name')?.width ?? 'auto' }}</output><output data-test="fixed">{{ fixedFirstColumn }}</output>`,
   });
   const wrapper = mount(host);
+  expect((wrapper.get('[data-test="fixed-first-column"]').element as HTMLInputElement).checked).toBe(true);
   await wrapper.get('[data-test="width-name"]').setValue("220");
   expect(wrapper.get("output").text()).toBe("200px");
+  await wrapper.get('[data-test="fixed-first-column"]').setValue(false);
+  expect(wrapper.get('[data-test="fixed"]').text()).toBe("true");
   await wrapper.get('[data-test="fixed-first-column"]').setValue(true);
-  expect(wrapper.get('[data-test="fixed"]').text()).toBe("false");
   await wrapper.get("form").trigger("submit");
   expect(wrapper.get("output").text()).toBe("220px");
   expect(wrapper.get('[data-test="fixed"]').text()).toBe("true");

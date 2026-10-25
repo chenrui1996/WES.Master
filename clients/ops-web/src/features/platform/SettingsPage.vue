@@ -219,7 +219,8 @@ onMounted(readSettings); onUnmounted(() => { controller.abort(); readSequence++;
       <QueryState label="强类型配置目录" :state="settingsQueryState" :busy="settingsLoading"
         :error-message="settingsQueryError" :stale-message="settingsStaleMessage" @retry="readSettings">
         <template #empty><p>没有可展示的配置。未装配目录时请使用受控初始化，不会回填伪造默认行。</p></template>
-        <div class="table-scroll" :aria-busy="settingsLoading"><table :class="{ 'table-fixed-first-column': settingsFixedFirstColumn }"><caption>配置值、来源与当前版本</caption>
+        <div class="table-scroll" :aria-busy="settingsLoading"><p class="table-fixed-notice" role="status">可视区域较窄，固定列暂时停用；请横向滚动查看，避免固定列遮挡内容。</p>
+          <table :class="{ 'table-fixed-first-column': settingsFixedFirstColumn, 'table-fixed-actions': true }"><caption>配置值、来源与当前版本</caption>
           <thead><tr><th v-for="column in visible" :key="column.key" scope="col" :style="settingWidthStyle(column.key)">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
           <tbody><tr v-for="row in rows" :key="row.id"><td v-for="column in visible" :key="column.key">{{ settingCell(row, column.key) ?? "未授权" }}</td>
             <td><button v-if="row.kind !== 'H' && row.version && row.value !== null && canRead('platform.settings.write')" data-test="edit-setting"
@@ -248,7 +249,8 @@ onMounted(readSettings); onUnmounted(() => { controller.abort(); readSequence++;
       <QueryState label="字典与语言目录" :state="dictionaryQueryState" :busy="dictionaryLoading"
         :error-message="dictionaryQueryError" :stale-message="dictionaryStaleMessage" @retry="readDictionary">
         <template #empty><p>当前分类没有可展示的字典项。</p></template>
-        <div class="table-scroll" :aria-busy="dictionaryLoading"><table :class="{ 'table-fixed-first-column': dictColumns.fixedFirstColumn.value }"><caption>当前分类的稳定业务码</caption>
+        <div class="table-scroll" :aria-busy="dictionaryLoading"><p class="table-fixed-notice" role="status">可视区域较窄，固定列暂时停用；请横向滚动查看，避免固定列遮挡内容。</p>
+          <table :class="{ 'table-fixed-first-column': dictColumns.fixedFirstColumn.value, 'table-fixed-actions': true }"><caption>当前分类的稳定业务码</caption>
           <thead><tr><th v-for="column in dictColumns.visible.value" :key="column.key" scope="col" :style="dictColumns.widthStyle(column.key)">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
           <tbody><tr v-for="row in entries" :key="row.id"><td v-for="column in dictColumns.visible.value" :key="column.key">{{ dictionaryCell(row, column.key) ?? "未授权" }}</td>
             <td><button v-if="row.version && canRead('platform.dictionary.write')" :disabled="dictionaryLoading || dictionaryQueryState === 'stale'"

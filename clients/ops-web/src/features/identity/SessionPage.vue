@@ -258,7 +258,8 @@ onUnmounted(invalidate);
       :stale-message="staleMessage" @retry="read">
       <template #empty><p>当前没有可展示的会话。请重新读取，必要时重新登录。</p></template>
       <div class="table-scroll" :aria-busy="loading">
-        <table :class="{ 'table-fixed-first-column': fixedFirstColumn }"><caption>{{ mode === 'self' ? '当前账号的会话' : '当前授权范围内的管理会话' }}（第 {{ Math.floor(offset / Number(filters.limit || 50)) + 1 }} 页）</caption>
+        <p class="table-fixed-notice" role="status">可视区域较窄，固定列暂时停用；请横向滚动查看，避免固定列遮挡内容。</p>
+        <table :class="{ 'table-fixed-first-column': fixedFirstColumn, 'table-fixed-actions': true }"><caption>{{ mode === 'self' ? '当前账号的会话' : '当前授权范围内的管理会话' }}（第 {{ Math.floor(offset / Number(filters.limit || 50)) + 1 }} 页）</caption>
           <thead><tr><th v-for="column in visible" :key="column.key" scope="col" :style="widthStyle(column.key)">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
           <tbody><tr v-for="row in rows" :key="row.id">
             <td v-for="column in visible" :key="column.key">

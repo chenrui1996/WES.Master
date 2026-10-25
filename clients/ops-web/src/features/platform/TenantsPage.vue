@@ -50,7 +50,7 @@ const managementFields = computed(() => new Set(sessionState.subject?.grants.fil
 const canWrite = computed(() => ["Name", "Enabled", "DefaultLanguage"].every(field => managementFields.value.has(field)));
 const canSwitch = computed(() => sessionState.subject?.grants.some(grant => grant.permission === "platform.tenants.switch"
   && grant.scope === 2 && grant.fields.includes("Id")) ?? false);
-const { available, selected, visible, preferenceWarning } = useColumns(() => rows.value.length ? [
+const { available, selected, visible, widths, widthStyle, preferenceWarning } = useColumns(() => rows.value.length ? [
   { key: "tenantId", label: "租户标识", required: true },
   ...rows.value.some(row => row.name !== null) ? [{ key: "name", label: "租户名称" }] : [],
   ...rows.value.some(row => row.enabled !== null) ? [{ key: "enabled", label: "状态" }] : [],
@@ -196,9 +196,9 @@ onBeforeUnmount(() => { clear(); window.removeEventListener("online", connectivi
         @retry="load">
         <template #empty><p>{{ emptyMessage }}</p></template>
         <template v-if="rows.length">
-          <ColumnSettings :columns="available" v-model="selected" :preference-warning="preferenceWarning" />
+          <ColumnSettings :columns="available" v-model="selected" v-model:widths="widths" :preference-warning="preferenceWarning" />
           <div class="table-scroll" tabindex="0" aria-label="租户目录">
-          <table><caption class="hint">当前页可读租户</caption><thead><tr><th v-for="column in visible" :key="column.key" scope="col">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
+          <table><caption class="hint">当前页可读租户</caption><thead><tr><th v-for="column in visible" :key="column.key" scope="col" :style="widthStyle(column.key)">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
             <tbody><tr v-for="row in rows" :key="row.tenantId">
               <td v-for="column in visible" :key="column.key">
                 <template v-if="column.key === 'tenantId'">{{ row.tenantId }}<span v-if="row.tenantId === sessionState.subject?.tenantId">（当前）</span></template>

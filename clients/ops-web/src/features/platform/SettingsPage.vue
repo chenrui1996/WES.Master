@@ -49,7 +49,7 @@ const dictionaryStaleMessage = computed(() => dictionaryLoading.value
   ? "正在刷新；页面保留的是最近一次已加载的字典目录。"
   : `刷新失败，仍保留最近一次已加载的字典目录：${dictionaryQueryError.value}`);
 const fields = computed(() => new Set(sessionState.subject?.grants.filter(grant => grant.permission === "platform.settings.read").flatMap(grant => grant.fields) ?? []));
-const { available, selected: selectedColumns, visible, preferenceWarning } = useColumns(() => [
+const { available, selected: selectedColumns, visible, widths: settingWidths, widthStyle: settingWidthStyle, preferenceWarning } = useColumns(() => [
   { key: "id", label: "标识", field: "Id", required: true }, { key: "key", label: "稳定键", field: "Key" },
   { key: "value", label: "当前值", field: "Value" }, { key: "source", label: "来源", field: "Source" },
   { key: "version", label: "版本", field: "Version" },
@@ -208,12 +208,12 @@ onMounted(readSettings); onUnmounted(() => { controller.abort(); readSequence++;
         <label v-if="fields.has('Key')">参数类别<select v-model="kind" name="filterSettingKind"><option value="">全部</option><option value="P">P（软件参数）</option><option value="H">H（现场核验）</option></select></label>
         <button :disabled="busy">查询配置</button>
       </form>
-      <ColumnSettings :columns="available" v-model="selectedColumns" :preference-warning="preferenceWarning" />
+      <ColumnSettings :columns="available" v-model="selectedColumns" v-model:widths="settingWidths" :preference-warning="preferenceWarning" />
       <QueryState label="强类型配置目录" :state="settingsQueryState" :busy="settingsLoading"
         :error-message="settingsQueryError" :stale-message="settingsStaleMessage" @retry="readSettings">
         <template #empty><p>没有可展示的配置。未装配目录时请使用受控初始化，不会回填伪造默认行。</p></template>
         <div class="table-scroll" :aria-busy="settingsLoading"><table><caption>配置值、来源与当前版本</caption>
-          <thead><tr><th v-for="column in visible" :key="column.key" scope="col">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
+          <thead><tr><th v-for="column in visible" :key="column.key" scope="col" :style="settingWidthStyle(column.key)">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
           <tbody><tr v-for="row in rows" :key="row.id"><td v-for="column in visible" :key="column.key">{{ settingCell(row, column.key) ?? "未授权" }}</td>
             <td><button v-if="row.kind !== 'H' && row.version && row.value !== null && canRead('platform.settings.write')" data-test="edit-setting"
               :disabled="settingsLoading || settingsQueryState === 'stale'"
@@ -236,12 +236,12 @@ onMounted(readSettings); onUnmounted(() => { controller.abort(); readSequence++;
         <button :disabled="busy">查询分类</button>
       </form><p>显示顺序：请求语言 → 当前租户默认语言 → [诊断语言键]。回退不改变业务状态码。</p>
       <ColumnSettings :columns="dictColumns.available.value" v-model="dictColumns.selected.value"
-        :preference-warning="dictColumns.preferenceWarning.value" />
+        v-model:widths="dictColumns.widths.value" :preference-warning="dictColumns.preferenceWarning.value" />
       <QueryState label="字典与语言目录" :state="dictionaryQueryState" :busy="dictionaryLoading"
         :error-message="dictionaryQueryError" :stale-message="dictionaryStaleMessage" @retry="readDictionary">
         <template #empty><p>当前分类没有可展示的字典项。</p></template>
         <div class="table-scroll" :aria-busy="dictionaryLoading"><table><caption>当前分类的稳定业务码</caption>
-          <thead><tr><th v-for="column in dictColumns.visible.value" :key="column.key" scope="col">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
+          <thead><tr><th v-for="column in dictColumns.visible.value" :key="column.key" scope="col" :style="dictColumns.widthStyle(column.key)">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
           <tbody><tr v-for="row in entries" :key="row.id"><td v-for="column in dictColumns.visible.value" :key="column.key">{{ dictionaryCell(row, column.key) ?? "未授权" }}</td>
             <td><button v-if="row.version && canRead('platform.dictionary.write')" :disabled="dictionaryLoading || dictionaryQueryState === 'stale'"
               @click="entry = row; label = row.label ?? ''; deletePending = false">选择字典项</button></td></tr></tbody>

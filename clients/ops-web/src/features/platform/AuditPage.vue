@@ -18,7 +18,7 @@ const staleMessage = computed(() => busy.value
   ? "正在刷新；页面保留的是最近一次已加载的证据。"
   : `刷新失败，仍保留最近一次已加载的证据：${error.value}`);
 const fields = computed(() => new Set(sessionState.subject?.grants.filter(grant => grant.permission === "platform.audit.read").flatMap(grant => grant.fields) ?? []));
-const { available, selected, visible, preferenceWarning } = useColumns(() => [
+const { available, selected, visible, widths, widthStyle, preferenceWarning } = useColumns(() => [
   { key: "id", label: "标识", field: "Id", required: true }, { key: "occurredAt", label: "发生时间（UTC）", field: "OccurredAt", required: true },
   { key: "correlationId", label: "关联标识", field: "CorrelationId" },
   ...(mode.value === "audit" ? [
@@ -88,12 +88,12 @@ onMounted(read); onUnmounted(() => { controller.abort(); sequence++; });
       <label v-if="mode === 'audit' && fields.has('Action')" for="audit-action">审计动作码<input id="audit-action" v-model="action" inputmode="numeric" pattern="[0-9]+"></label>
       <label v-if="fields.has('CorrelationId')" for="event-correlation">关联 UUID<input id="event-correlation" v-model="correlation" maxlength="36"></label>
       <button :disabled="busy">查询证据</button>
-    </form><ColumnSettings :columns="available" v-model="selected" :preference-warning="preferenceWarning" />
+    </form><ColumnSettings :columns="available" v-model="selected" v-model:widths="widths" :preference-warning="preferenceWarning" />
     <QueryState label="当前权限下的证据" :state="queryState" :busy="busy" :error-message="error"
       :stale-message="staleMessage" @retry="read">
       <template #empty>该区间没有当前可见记录。可以调整时间后重新查询。</template>
       <div class="table-scroll"><table><caption>{{ mode === "audit" ? "不可改业务审计" : "登录安全事件" }}</caption>
-        <thead><tr><th v-for="column in visible" :key="column.key" scope="col">{{ column.label }}</th></tr></thead>
+        <thead><tr><th v-for="column in visible" :key="column.key" scope="col" :style="widthStyle(column.key)">{{ column.label }}</th></tr></thead>
         <tbody><tr v-for="row in rows" :key="row.id"><td v-for="column in visible" :key="column.key" class="identifier">{{ cell(row, column.key) ?? "未授权 / 不适用" }}</td></tr></tbody>
       </table></div>
     </QueryState>

@@ -144,3 +144,64 @@ it("drops revoked columns from live preferences when the authorized schema chang
     .toEqual({ version: 1, selected: ["id"] });
   wrapper.unmount();
 });
+
+it("loads and persists bounded widths only for currently authorized columns", async () => {
+  const preferenceKey = "wes-ops-web:columns:v1:test:tenant-a:user-a:users:directory";
+  const values = new Map<string, string>([[preferenceKey, JSON.stringify({
+    version: 1, selected: ["id", "name"], widths: { name: 220, revoked: 400 },
+  })]]);
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => { values.set(key, value); },
+  };
+  sessionState.subject = {
+    tenantId: "tenant-a", userId: "user-a", sessionId: "session-a",
+    requiresPasswordChange: false, credentialVersion: null, grants: [],
+  };
+  const host = defineComponent({
+    setup() {
+      const showName = ref(true);
+      const columns = useColumns(() => [
+        { key: "id", label: "ID", required: true },
+        ...(showName.value ? [{ key: "name", label: "Name" }] : []),
+      ], { environment: "test", pageId: "users", tableId: "directory", storageProvider: () => storage });
+      return { ...columns, revoke: () => { showName.value = false; } };
+    },
+    template: `<output>{{ JSON.stringify(widths) }}</output><button @click="revoke">撤权</button>`,
+  });
+  const wrapper = mount(host);
+  await flushPromises();
+  expect(wrapper.get("output").text()).toBe('{"name":220}');
+  await wrapper.get("button").trigger("click");
+  await flushPromises();
+  expect(wrapper.get("output").text()).toBe("{}");
+  expect(JSON.parse(values.get(preferenceKey) ?? "{}")).toEqual({ version: 1, selected: ["id"] });
+  wrapper.unmount();
+});
+
+it("rejects out-of-range stored widths and reports the corrupt preference", async () => {
+  const preferenceKey = "wes-ops-web:columns:v1:test:tenant-a:user-a:users:directory";
+  const values = new Map<string, string>([[preferenceKey, JSON.stringify({
+    version: 1, selected: ["name"], widths: { name: 801 },
+  })]]);
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => { values.set(key, value); },
+  };
+  sessionState.subject = {
+    tenantId: "tenant-a", userId: "user-a", sessionId: "session-a",
+    requiresPasswordChange: false, credentialVersion: null, grants: [],
+  };
+  const host = defineComponent({
+    setup() { return useColumns(() => [
+      { key: "id", label: "ID", required: true }, { key: "name", label: "Name" },
+    ], { environment: "test", pageId: "users", tableId: "directory", storageProvider: () => storage }); },
+    template: `<output>{{ JSON.stringify(widths) }}</output><p role="status">{{ preferenceWarning }}</p>`,
+  });
+  const wrapper = mount(host);
+  await flushPromises();
+  expect(wrapper.get("output").text()).toBe("{}");
+  expect(wrapper.get('[role="status"]').text()).toContain("格式无效");
+  expect(values.get(preferenceKey)).toContain('"name":801');
+  wrapper.unmount();
+});

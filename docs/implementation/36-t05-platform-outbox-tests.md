@@ -16,9 +16,10 @@
 | P 设置写入 | 通过；设置、审计及安全事件关联一致；无权/冲突/无效写未增加事件 |
 | 瞬时失败退避/自动预算隔离 | 通过；持久化首失败时刻，最多五次重试后隔离；尚无调度器/publisher 驱动 |
 | Publisher lease 竞争/过期/fencing | 通过；两个 MySQL owner context 同时 claim 同一消息仅一个成功，过期 lease 可重新领取，旧 lease 无法 ACK；超预算待重试消息在 claim 时持久隔离 |
+| 单消息 publisher outcome | 通过；隔离 transport 替身覆盖 acknowledged、temporary retry、permanent quarantine；不代表真实 Broker |
 | SQLite/替代Provider或实际Broker | 未执行；不计为通过 |
-| Persistence Release 回归 | 324 passed，0 failed，0 skipped |
-| 全 solution Release 串行回归 | Architecture 29、Modules 217 passed/1 failed、Persistence 324、Route 228；798 passed。唯一失败为真实浏览器登录事件页面未找到表格行；T05 定向测试、Persistence、Architecture、Route 均通过，模块浏览器失败不计为 T05 验收通过 |
+| Persistence Release 回归 | 327 passed，0 failed，0 skipped |
+| 全 solution Release 串行回归 | Architecture 29、Modules 217 passed/1 failed、Persistence 327、Route 228；801 passed。唯一失败为真实浏览器登录事件页面未找到表格行；T05 定向测试、Persistence、Architecture、Route 均通过，模块浏览器失败不计为 T05 验收通过 |
 
 事务失败回滚沿用既有 `FailAfterAuditSql` / `DatabaseAuditFailure` owner 回归；它们验证失败不提交 setting/role 或审计。此记录不代表真实 RabbitMQ 故障窗口、consumer ACK 丢失/重复、重试 deadline、授权重放、性能或生产恢复已验收。
 

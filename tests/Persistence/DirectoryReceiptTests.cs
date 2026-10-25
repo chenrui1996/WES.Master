@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Wes.Platform.Domain;
 using Wes.Platform.Features.Directory;
 using Wes.Platform.Features.Tenancy;
+using Wes.Platform.Infrastructure.Messaging;
 using Wes.Platform.Infrastructure.Persistence;
 using Xunit;
 
@@ -204,6 +205,73 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         Assert.Equal(_clock.Now + TimeSpan.FromSeconds(31), message.PublishedAt);
         Assert.Null(message.LeaseId);
         Assert.Null(message.LeaseUntil);
+    }
+
+    /// <summary>T05: a transport acknowledgement completes delivery only after the owner records the same lease.</summary>
+    [Fact]
+    public async Task PlatformOutboxPublisher_RecordsAcknowledgedDelivery()
+    {
+        await CreateAsync();
+        Guid eventId;
+        await using (var lookup = Open())
+        {
+            eventId = await lookup.OutboxMessages.Select(message => message.EventId).SingleAsync();
+        }
+
+        await using var database = Open();
+        var transport = new RecordingOutboxTransport(PlatformOutboxTransportOutcome.Acknowledged);
+        var publisher = new PlatformOutboxPublisher(database, transport, _clock, TimeSpan.FromSeconds(30));
+
+        var result = await publisher.PublishAsync(eventId);
+
+        Assert.Equal(PlatformOutboxPublishResult.Published, result);
+        Assert.Equal("platform.audit", transport.Envelope!.ContractName);
+        Assert.Equal(eventId, transport.Envelope.EventId);
+        var message = await database.OutboxMessages.SingleAsync();
+        Assert.Equal(OutboxMessageStatus.Published, message.Status);
+        Assert.Equal(_clock.Now, message.PublishedAt);
+        Assert.Equal(1, message.Attempts);
+        Assert.Null(message.LeaseId);
+    }
+
+    /// <summary>T05: transient transport failures persist retry state without losing the original event.</summary>
+    [Fact]
+    public async Task PlatformOutboxPublisher_SchedulesRetryAfterTemporaryFailure()
+    {
+        await CreateAsync();
+        await using var database = Open();
+        var message = await database.OutboxMessages.SingleAsync();
+        var publisher = new PlatformOutboxPublisher(database,
+            new RecordingOutboxTransport(PlatformOutboxTransportOutcome.TemporaryFailure),
+            _clock, TimeSpan.FromSeconds(30));
+
+        var result = await publisher.PublishAsync(message.EventId);
+
+        Assert.Equal(PlatformOutboxPublishResult.RetryScheduled, result);
+        Assert.Equal(OutboxMessageStatus.Pending, message.Status);
+        Assert.Equal(_clock.Now + TimeSpan.FromSeconds(1), message.NextAttemptAt);
+        Assert.Equal(1, message.Attempts);
+        Assert.Null(message.LeaseId);
+    }
+
+    /// <summary>T05: a permanent transport rejection is quarantined without an automatic retry.</summary>
+    [Fact]
+    public async Task PlatformOutboxPublisher_QuarantinesPermanentFailure()
+    {
+        await CreateAsync();
+        await using var database = Open();
+        var message = await database.OutboxMessages.SingleAsync();
+        var publisher = new PlatformOutboxPublisher(database,
+            new RecordingOutboxTransport(PlatformOutboxTransportOutcome.PermanentFailure),
+            _clock, TimeSpan.FromSeconds(30));
+
+        var result = await publisher.PublishAsync(message.EventId);
+
+        Assert.Equal(PlatformOutboxPublishResult.Quarantined, result);
+        Assert.Equal(OutboxMessageStatus.Quarantined, message.Status);
+        Assert.Equal(nameof(OutboxFailureCategory.InvalidContract), message.LastErrorCategory);
+        Assert.Equal(1, message.Attempts);
+        Assert.Null(message.LeaseId);
     }
 
     /// <summary>T05: an expired automatic retry budget is quarantined before a publisher can claim it.</summary>
@@ -916,6 +984,18 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
             cancellation.Cancel();
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(result);
+        }
+    }
+
+    private sealed class RecordingOutboxTransport(PlatformOutboxTransportOutcome outcome) : IPlatformOutboxTransport
+    {
+        public PlatformOutboxEnvelope? Envelope { get; private set; }
+
+        public Task<PlatformOutboxTransportOutcome> PublishAsync(
+            PlatformOutboxEnvelope envelope, CancellationToken cancellationToken)
+        {
+            Envelope = envelope;
+            return Task.FromResult(outcome);
         }
     }
 }

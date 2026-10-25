@@ -63,6 +63,8 @@ public sealed class PlatformOutboxMessage
     public OutboxMessageStatus Status { get; private set; }
     /// <summary>Number of broker publish attempts.</summary>
     public int Attempts { get; private set; }
+    /// <summary>First failed delivery instant; starts the bounded automatic retry budget.</summary>
+    public DateTimeOffset? FirstFailureAt { get; private set; }
     /// <summary>Earliest eligible retry instant.</summary>
     public DateTimeOffset NextAttemptAt { get; private set; }
     /// <summary>Successful broker publish instant, if acknowledged.</summary>
@@ -72,7 +74,55 @@ public sealed class PlatformOutboxMessage
     /// <summary>Creation time in UTC.</summary>
     public DateTimeOffset CreatedAt { get; private set; }
 
+    /// <summary>Records a finite delivery failure and schedules only bounded, non-physical retries.</summary>
+    public void RecordFailure(DateTimeOffset failedAt, OutboxFailureCategory category)
+    {
+        if (!Enum.IsDefined(category))
+        {
+            throw new ArgumentOutOfRangeException(nameof(category));
+        }
+
+        if (Status is not (OutboxMessageStatus.Pending or OutboxMessageStatus.Leased))
+        {
+            throw new InvalidOperationException("Only pending or leased outbox messages can record a delivery failure.");
+        }
+
+        if (failedAt < CreatedAt)
+        {
+            throw new ArgumentOutOfRangeException(nameof(failedAt));
+        }
+
+        FirstFailureAt ??= failedAt;
+        Attempts++;
+        LastErrorCategory = category.ToString();
+
+        if (!category.IsTransient() || failedAt >= FirstFailureAt.Value.AddMinutes(15) || Attempts > RetryDelays.Length)
+        {
+            Status = OutboxMessageStatus.Quarantined;
+            return;
+        }
+
+        var retryAt = failedAt + RetryDelays[Attempts - 1];
+        if (retryAt >= FirstFailureAt.Value.AddMinutes(15))
+        {
+            Status = OutboxMessageStatus.Quarantined;
+            return;
+        }
+
+        NextAttemptAt = retryAt;
+        Status = OutboxMessageStatus.Pending;
+    }
+
     private sealed record PlatformAuditEvent(string Action, string? BeforeVersion, string AfterVersion);
+
+    private static readonly TimeSpan[] RetryDelays =
+    [
+        TimeSpan.FromSeconds(1),
+        TimeSpan.FromSeconds(5),
+        TimeSpan.FromSeconds(30),
+        TimeSpan.FromSeconds(120),
+        TimeSpan.FromSeconds(600)
+    ];
 
     private static bool IsPublishable(PlatformAuditAction action) => action is
         PlatformAuditAction.RoleChanged or
@@ -95,4 +145,23 @@ public enum OutboxMessageStatus
     Published,
     /// <summary>Automatic delivery stopped; operator action is required.</summary>
     Quarantined
+}
+
+/// <summary>Finite failure categories prevent exception text or message content from entering the outbox.</summary>
+public enum OutboxFailureCategory
+{
+    /// <summary>Broker or transport is temporarily unavailable.</summary>
+    BrokerUnavailable,
+    /// <summary>Broker confirmation did not arrive before the transport timeout.</summary>
+    BrokerTimeout,
+    /// <summary>Message contract is permanently invalid or unsupported.</summary>
+    InvalidContract,
+    /// <summary>Delivery was permanently rejected by an authorization boundary.</summary>
+    AuthorizationDenied
+}
+
+internal static class OutboxFailureCategoryExtensions
+{
+    internal static bool IsTransient(this OutboxFailureCategory category) =>
+        category is OutboxFailureCategory.BrokerUnavailable or OutboxFailureCategory.BrokerTimeout;
 }

@@ -10,11 +10,13 @@ Platform DbContext 保存新增 `PlatformAudit` 时，在同次 `SaveChanges` �
 
 本切片允许的动作是 `RoleChanged`、`MembershipChanged`、`SettingChanged`、`UserChanged`、`DepartmentChanged`、`TenantChanged`、`DictionaryChanged`。载荷只包含动作及前后不透明版本，不含用户名、自由文本、凭据、原始请求或 grant 快照。`SessionRevoked`、`PasswordChanged`、`AccountDisabled` 和 `CredentialCreated` 不发布。`platform_outbox_messages` 及 `ContractName` 的后续增量迁移只增加 Platform owner schema；不自动迁移生产库。
 
-所有事件初始为 `Pending`，创建时间和发生时间来自源审计的 UTC 时刻。schema 预留了发布状态、尝试次数、下次尝试、完成时刻和有限错误分类，以便后续同 owner publisher 接线；本片没有实现这些状态转换。
+所有事件初始为 `Pending`，创建时间和发生时间来自源审计的 UTC 时刻。schema 保存发布状态、尝试次数、下次尝试、完成时刻和有限错误分类；当前仅实现失败后的重试/隔离转换，发布领取、确认和完成转换仍待 publisher 接线。
+
+当前另有 Outbox 失败状态转换：仅有限的 Broker 不可用/超时类别采用 1/5/30/120/600 秒退避，最多五次重试；初次发布加五次重试均失败后转 `Quarantined`。首次失败时刻持久化作为 15 分钟自动预算起点；永久合同/授权错误直接隔离。调用方仍须在事务中保存状态。该实体状态策略不等于已实现调度器，也没有 publisher 在投递前检查到期时间。
 
 ## 未完成边界
 
-- 尚无 Inbox 表/去重消费者、publisher lease/并发领取、Broker 抽象或 RabbitMQ/MassTransit 运行时。
+- 尚无 Inbox 表/去重消费者、publisher lease/并发领取、Broker 抽象或 RabbitMQ/MassTransit 运行时；上述重试转换尚未由实际 publisher 驱动。
 - 尚无 1/5/30/120/600 秒调度、15 分钟总 deadline、永久隔离、运维查询/授权重放或 MessagesPage。
 - 其它 owner 尚无本地 Outbox/Inbox；本片不可推断为跨模块事务或 exactly-once。
 - `Features:Capabilities:Outbox`/`MessageQueue` 仍因没有完整 runtime owner 而启动拒绝；当前不启用或宣称生产投递。

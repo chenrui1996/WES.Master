@@ -94,6 +94,45 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         Assert.DoesNotContain("TARGET", message.Payload, StringComparison.Ordinal);
     }
 
+    /// <summary>T05: transient failures use the approved bounded retry schedule and then remain quarantined.</summary>
+    [Fact]
+    public async Task Outbox_TransientFailureUsesBoundedRetrySchedule()
+    {
+        await CreateAsync();
+        await using var db = Open();
+        var message = await db.OutboxMessages.SingleAsync();
+        var retryDelays = new[]
+        {
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromSeconds(30),
+            TimeSpan.FromSeconds(120),
+            TimeSpan.FromSeconds(600)
+        };
+        var failedAt = message.CreatedAt;
+
+        foreach (var (delay, index) in retryDelays.Select((delay, index) => (delay, index)))
+        {
+            message.RecordFailure(failedAt, OutboxFailureCategory.BrokerUnavailable);
+            await db.SaveChangesAsync();
+
+            Assert.Equal(index + 1, message.Attempts);
+            Assert.Equal(OutboxMessageStatus.Pending, message.Status);
+            Assert.Equal(failedAt + delay, message.NextAttemptAt);
+            Assert.Equal(_clock.Now, message.FirstFailureAt);
+            Assert.Null(message.PublishedAt);
+            failedAt = message.NextAttemptAt;
+        }
+
+        message.RecordFailure(failedAt, OutboxFailureCategory.BrokerUnavailable);
+        await db.SaveChangesAsync();
+        await db.Entry(message).ReloadAsync();
+        Assert.Equal(6, message.Attempts);
+        Assert.Equal(OutboxMessageStatus.Quarantined, message.Status);
+        Assert.Equal(_clock.Now, message.FirstFailureAt);
+        Assert.Equal(nameof(OutboxFailureCategory.BrokerUnavailable), message.LastErrorCategory);
+    }
+
     /// <summary>RCPT-01: restart replay retains the first result, transition and audit exactly once.</summary>
     [Fact]
     public async Task CreateUser_RestartReplay_ReturnsOriginalWithOneEffect()
@@ -688,7 +727,13 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         Assert.Equal("platform_outbox_messages", addedColumn.Table);
         Assert.Equal("ContractName", addedColumn.Name);
         Assert.Single(contractOperations);
-        Assert.Equal(17, db.Model.FindEntityType("Wes.Platform.Domain.PlatformOutboxMessage")!.GetProperties().Count());
+        var retryMigration = assembly.Migrations.Single(x => x.Key.EndsWith("_PlatformOutboxRetryBudget", StringComparison.Ordinal));
+        var retryOperations = assembly.CreateMigration(retryMigration.Value, db.Database.ProviderName!).UpOperations;
+        var retryColumn = Assert.Single(retryOperations.OfType<AddColumnOperation>());
+        Assert.Equal("platform_outbox_messages", retryColumn.Table);
+        Assert.Equal("FirstFailureAt", retryColumn.Name);
+        Assert.Single(retryOperations);
+        Assert.Equal(18, db.Model.FindEntityType("Wes.Platform.Domain.PlatformOutboxMessage")!.GetProperties().Count());
         Assert.False(db.Database.HasPendingModelChanges());
     }
 

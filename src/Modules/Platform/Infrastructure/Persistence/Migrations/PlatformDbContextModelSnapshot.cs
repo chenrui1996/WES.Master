@@ -490,6 +490,9 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<DateTime?>("FirstFailureAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("LastErrorCategory")
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)");

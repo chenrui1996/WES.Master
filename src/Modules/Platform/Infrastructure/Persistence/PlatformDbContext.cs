@@ -196,6 +196,7 @@ public sealed partial class PlatformDbContext : DbContext
         outbox.Property(item => item.OccurredAt).HasConversion(utc).HasColumnType("datetime(6)");
         outbox.Property(item => item.Payload).HasColumnType("longtext").IsRequired();
         outbox.Property(item => item.Status).HasConversion<string>().HasColumnType("varchar(16)").HasMaxLength(16);
+        outbox.Property(item => item.FirstFailureAt).HasConversion(utc).HasColumnType("datetime(6)");
         outbox.Property(item => item.NextAttemptAt).HasConversion(utc).HasColumnType("datetime(6)");
         outbox.Property(item => item.PublishedAt).HasConversion(utc).HasColumnType("datetime(6)");
         outbox.Property(item => item.LastErrorCategory).HasColumnType("varchar(32)").HasMaxLength(32);

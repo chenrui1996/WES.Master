@@ -13,7 +13,12 @@ export interface ColumnPreferenceOptions {
   storageProvider?: () => Pick<Storage, "getItem" | "setItem">;
 }
 
-interface StoredColumnPreference { version: 1; selected: string[]; widths?: Record<string, number> }
+interface StoredColumnPreference {
+  version: 1;
+  selected: string[];
+  widths?: Record<string, number>;
+  fixedFirstColumn?: boolean;
+}
 const invalidPreferenceWarning = "列偏好格式无效，已恢复为当前可读列默认值。";
 const unavailableStorageWarning = "无法读取或保存列偏好；当前选择仅在本次页面会话有效。";
 
@@ -35,7 +40,8 @@ function parsePreference(value: string): StoredColumnPreference | null {
     throw failure;
   }
   if (!isRecord(parsed) || parsed.version !== 1 || !Array.isArray(parsed.selected)
-    || !parsed.selected.every((item: unknown) => typeof item === "string")) return null;
+    || !parsed.selected.every((item: unknown) => typeof item === "string")
+    || parsed.fixedFirstColumn !== undefined && typeof parsed.fixedFirstColumn !== "boolean") return null;
   if (parsed.widths !== undefined && !isColumnWidths(parsed.widths)) return null;
   return { version: 1, selected: parsed.selected,
     ...(parsed.widths === undefined ? {} : { widths: parsed.widths }) };
@@ -51,6 +57,7 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
   const available = computed(source);
   const selected = ref<string[]>([]);
   const widths = ref<Record<string, number>>({});
+  const fixedFirstColumn = ref(false);
   const preferenceWarning = ref<string | null>(null);
   const hydratedScope = ref<string | null>(null);
   const environment = options.environment ?? import.meta.env.MODE;
@@ -78,6 +85,7 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
     preferenceWarning.value = null;
     selected.value = [];
     widths.value = {};
+    fixedFirstColumn.value = false;
   }, { flush: "sync" });
 
   watch(available, columns => {
@@ -108,10 +116,11 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
     hydratedScope.value = key;
     widths.value = Object.fromEntries(Object.entries(stored?.widths ?? {})
       .filter(([columnKey]) => permitted.has(columnKey)));
+    fixedFirstColumn.value = stored?.fixedFirstColumn ?? false;
     selected.value = ordered;
   }, { immediate: true, flush: "sync" });
 
-  watch([selected, widths], ([selectedValue, widthValues]) => {
+  watch([selected, widths, fixedFirstColumn], ([selectedValue, widthValues, pinFirst]) => {
     const key = preferenceScope.value;
     if (!key || hydratedScope.value !== key) return;
     const permitted = new Set(available.value.map(column => column.key));
@@ -123,7 +132,8 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
         .filter(([columnKey, width]) => permitted.has(columnKey)
           && Number.isInteger(width) && width >= MIN_COLUMN_WIDTH && width <= MAX_COLUMN_WIDTH));
       storageProvider().setItem(key, JSON.stringify({ version: 1, selected: normalized,
-        ...(Object.keys(normalizedWidths).length ? { widths: normalizedWidths } : {}) }));
+        ...(Object.keys(normalizedWidths).length ? { widths: normalizedWidths } : {}),
+        ...(pinFirst ? { fixedFirstColumn: true } : {}) }));
       preferenceWarning.value = null;
     } catch (failure) {
       if (!(failure instanceof DOMException)) throw failure;
@@ -139,5 +149,5 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
     const width = widths.value[key];
     return width === undefined ? undefined : { width: `${width}px` };
   }
-  return { available, selected, visible, widths, widthStyle, preferenceWarning };
+  return { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning };
 }

@@ -59,14 +59,17 @@ it("applies and persists bounded per-column widths", async () => {
       ], { environment: "test", pageId: "users", tableId: "directory" });
       return { ...columns };
     },
-    template: `<ColumnSettings :columns="available" v-model="selected" v-model:widths="widths" />
-      <output>{{ widthStyle('name')?.width ?? 'auto' }}</output>`,
+    template: `<ColumnSettings :columns="available" v-model="selected" v-model:widths="widths"
+        v-model:fixed-first-column="fixedFirstColumn" />
+      <output>{{ widthStyle('name')?.width ?? 'auto' }}</output><output data-test="fixed">{{ fixedFirstColumn }}</output>`,
   });
   const wrapper = mount(host);
   await wrapper.get('[data-test="width-name"]').setValue("220");
   expect(wrapper.get("output").text()).toBe("220px");
+  await wrapper.get('[data-test="fixed-first-column"]').setValue(true);
+  expect(wrapper.get('[data-test="fixed"]').text()).toBe("true");
   expect(JSON.parse(localStorage.getItem("wes-ops-web:columns:v1:test:tenant-a:user-a:users:directory") ?? "{}"))
-    .toEqual({ version: 1, selected: ["id", "name"], widths: { name: 220 } });
+    .toEqual({ version: 1, selected: ["id", "name"], widths: { name: 220 }, fixedFirstColumn: true });
   await wrapper.get('[data-test="width-name"]').setValue("");
   expect(wrapper.get("output").text()).toBe("auto");
   wrapper.unmount();

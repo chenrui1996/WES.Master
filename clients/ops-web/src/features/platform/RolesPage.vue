@@ -63,7 +63,7 @@ const managementFields = computed(() => new Set(sessionState.subject?.grants.fil
   grant.permission === "platform.roles.write" && grant.scope === 2).flatMap(grant => grant.fields)));
 const canWrite = computed(() => ["Rules", "Enabled"].every(field => managementFields.value.has(field)));
 const canCreate = computed(() => ["Code", "Rules", "Enabled"].every(field => managementFields.value.has(field)));
-const { available, selected, visible, widths, widthStyle, preferenceWarning } = useColumns(() => rows.value.length ? [
+const { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning } = useColumns(() => rows.value.length ? [
   { key: "id", label: "角色标识", required: true },
   ...rows.value.some(row => row.code !== null) ? [{ key: "code", label: "角色编码" }] : [],
   ...rows.value.some(row => row.enabled !== null) ? [{ key: "enabled", label: "状态" }] : [],
@@ -237,9 +237,10 @@ onBeforeUnmount(() => { clear(); window.removeEventListener("online", connectivi
         @retry="load">
         <template #empty><p>{{ emptyMessage }}</p></template>
         <template v-if="rows.length">
-          <ColumnSettings :columns="available" v-model="selected" v-model:widths="widths" :preference-warning="preferenceWarning" />
+          <ColumnSettings :columns="available" v-model="selected" v-model:widths="widths"
+            v-model:fixed-first-column="fixedFirstColumn" :preference-warning="preferenceWarning" />
           <div class="table-scroll" tabindex="0" aria-label="角色目录">
-          <table><caption class="hint">当前页角色</caption><thead><tr><th v-for="column in visible" :key="column.key" scope="col" :style="widthStyle(column.key)">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
+          <table :class="{ 'table-fixed-first-column': fixedFirstColumn }"><caption class="hint">当前页角色</caption><thead><tr><th v-for="column in visible" :key="column.key" scope="col" :style="widthStyle(column.key)">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
             <tbody><tr v-for="row in rows" :key="row.id">
               <td v-for="column in visible" :key="column.key">
                 <template v-if="column.key === 'id'">{{ row.id }}</template>

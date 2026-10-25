@@ -5,6 +5,7 @@ import { MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, type AuthorizedColumn } from "./use
 const props = defineProps<{ columns: AuthorizedColumn[]; preferenceWarning?: string | null }>();
 const selected = defineModel<string[]>({ required: true });
 const widths = defineModel<Record<string, number>>("widths", { default: () => ({}) });
+const fixedFirstColumn = defineModel<boolean>("fixedFirstColumn", { default: false });
 const ordered = computed(() => [
   ...selected.value.flatMap(key => props.columns.filter(column => column.key === key)),
   ...props.columns.filter(column => !selected.value.includes(column.key)),
@@ -48,6 +49,7 @@ function updateWidth(key: string, event: Event) {
     <summary>列设置</summary>
     <p class="hint">仅显示当前可读字段。勾选列后可用上移、下移或方向键调整顺序；列宽可设为 128–800 像素，留空使用自动宽度。</p>
     <p v-if="preferenceWarning" class="notice" role="status">{{ preferenceWarning }}</p>
+    <label class="pin-control"><input v-model="fixedFirstColumn" type="checkbox" data-test="fixed-first-column">固定首列，横向滚动时保持可见</label>
     <ul>
       <li v-for="column in ordered" :key="column.key" :data-test="`column-${column.key}`"
         :tabindex="selected.includes(column.key) ? 0 : -1" :aria-label="`${column.label}，上或下方向键调整顺序`"

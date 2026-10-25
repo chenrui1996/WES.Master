@@ -676,6 +676,19 @@ th {
   font-weight: 700;
 }
 
+.table-fixed-first-column thead th:first-child {
+  inset-inline-start: 0;
+  z-index: calc(var(--wes-z-sticky) + 1);
+}
+
+.table-fixed-first-column tbody td:first-child {
+  position: sticky;
+  z-index: 1;
+  inset-inline-start: 0;
+  background: var(--wes-color-surface);
+  box-shadow: 1px 0 var(--wes-color-border-soft);
+}
+
 .app-layout[data-density="compact"] {
   --wes-table-cell-padding-block: 10px;
 }

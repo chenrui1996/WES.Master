@@ -100,6 +100,8 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
   }
   const auditMode = page.getByLabel("证据类型");
   await auditMode.selectOption("login-events");
+  await page.getByLabel("开始时间（UTC，含）").fill("2026-10-24T00:00");
+  await page.getByLabel("结束时间（UTC，不含）").fill("2026-10-25T00:00");
   const loginEvents = page.waitForResponse(value => value.url().includes("/api/platform/login-events") && value.request().method() === "GET");
   const queryButton = page.getByRole("button", { name: "查询证据", exact: true });
   let queryButtonReached = false;

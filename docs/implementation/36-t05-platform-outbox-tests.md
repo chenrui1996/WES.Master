@@ -19,7 +19,8 @@
 | 单消息 publisher outcome | 通过；隔离 transport 替身覆盖 acknowledged、temporary retry、permanent quarantine；不代表真实 Broker |
 | SQLite/替代Provider或实际Broker | 未执行；不计为通过 |
 | Persistence Release 回归 | 327 passed，0 failed，0 skipped |
-| 全 solution Release 串行回归 | Architecture 29、Modules 217 passed/1 failed、Persistence 327、Route 228；801 passed。唯一失败为真实浏览器登录事件页面无表格行：页面按宿主当前时间查询最近24小时，但测试服务时钟固定为 2026-10-24 04:30 UTC，回归时该事件已落在查询窗口外；T05 定向测试、Persistence、Architecture、Route 均通过，模块浏览器失败不计为 T05 验收通过 |
+| 浏览器登录事件时间窗 | 通过；测试显式查询 2026-10-24 UTC 整日，覆盖固定服务时钟 04:30 UTC，不再依赖执行日期 |
+| 全 solution Release 串行回归 | Architecture 29、Modules 218、Persistence 327、Route 228；共 802 passed、0 failed、0 skipped。使用 `-m:1` 避免多个真实 MySQL 测试程序集并行握手导致的基础设施不稳定 |
 
 事务失败回滚沿用既有 `FailAfterAuditSql` / `DatabaseAuditFailure` owner 回归；它们验证失败不提交 setting/role 或审计。此记录不代表真实 RabbitMQ 故障窗口、consumer ACK 丢失/重复、重试 deadline、授权重放、性能或生产恢复已验收。
 

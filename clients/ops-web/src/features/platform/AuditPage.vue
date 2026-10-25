@@ -18,7 +18,7 @@ const staleMessage = computed(() => busy.value
   ? "正在刷新；页面保留的是最近一次已加载的证据。"
   : `刷新失败，仍保留最近一次已加载的证据：${error.value}`);
 const fields = computed(() => new Set(sessionState.subject?.grants.filter(grant => grant.permission === "platform.audit.read").flatMap(grant => grant.fields) ?? []));
-const { available, selected, visible } = useColumns(() => [
+const { available, selected, visible, preferenceWarning } = useColumns(() => [
   { key: "id", label: "标识", field: "Id", required: true }, { key: "occurredAt", label: "发生时间（UTC）", field: "OccurredAt", required: true },
   { key: "correlationId", label: "关联标识", field: "CorrelationId" },
   ...(mode.value === "audit" ? [
@@ -29,7 +29,7 @@ const { available, selected, visible } = useColumns(() => [
     { key: "kind", label: "事件码", field: "Kind" }, { key: "accountDigest", label: "账号假名绑定", field: "AccountDigest" },
     { key: "sourceDigest", label: "来源假名绑定", field: "SourceDigest" }, { key: "sessionId", label: "会话", field: "SessionId" },
   ]),
-].filter(column => fields.value.has(column.field)));
+].filter(column => fields.value.has(column.field)), { pageId: "platform-audit", tableId: () => mode.value });
 async function read() {
   const request = ++sequence; error.value = ""; busy.value = true;
   const start = Date.parse(`${from.value}Z`); const end = Date.parse(`${to.value}Z`);
@@ -88,7 +88,7 @@ onMounted(read); onUnmounted(() => { controller.abort(); sequence++; });
       <label v-if="mode === 'audit' && fields.has('Action')" for="audit-action">审计动作码<input id="audit-action" v-model="action" inputmode="numeric" pattern="[0-9]+"></label>
       <label v-if="fields.has('CorrelationId')" for="event-correlation">关联 UUID<input id="event-correlation" v-model="correlation" maxlength="36"></label>
       <button :disabled="busy">查询证据</button>
-    </form><ColumnSettings :columns="available" v-model="selected" />
+    </form><ColumnSettings :columns="available" v-model="selected" :preference-warning="preferenceWarning" />
     <QueryState label="当前权限下的证据" :state="queryState" :busy="busy" :error-message="error"
       :stale-message="staleMessage" @retry="read">
       <template #empty>该区间没有当前可见记录。可以调整时间后重新查询。</template>

@@ -14,17 +14,17 @@ const entry = ref<DictionaryRow | null>(null); const label = ref(""); const dele
 const code = ref(""); const languageKey = ref("");
 let controller = new AbortController(); let readSequence = 0; let settingsSequence = 0;
 const fields = computed(() => new Set(sessionState.subject?.grants.filter(grant => grant.permission === "platform.settings.read").flatMap(grant => grant.fields) ?? []));
-const { available, selected: selectedColumns, visible } = useColumns(() => [
+const { available, selected: selectedColumns, visible, preferenceWarning } = useColumns(() => [
   { key: "id", label: "标识", field: "Id", required: true }, { key: "key", label: "稳定键", field: "Key" },
   { key: "value", label: "当前值", field: "Value" }, { key: "source", label: "来源", field: "Source" },
   { key: "version", label: "版本", field: "Version" },
-].filter(column => fields.value.has(column.field)));
+].filter(column => fields.value.has(column.field)), { pageId: "platform-settings", tableId: "settings" });
 const dictionaryFields = computed(() => new Set(sessionState.subject?.grants.filter(grant => grant.permission === "platform.dictionary.read").flatMap(grant => grant.fields) ?? []));
 const dictColumns = useColumns(() => [
   { key: "id", label: "标识", field: "Id", required: true }, { key: "code", label: "稳定业务码", field: "Code" },
   { key: "languageKey", label: "语言键", field: "LanguageKey" }, { key: "label", label: "显示文本", field: "Label" },
   { key: "resolvedLanguage", label: "实际回退语言", field: "Label" }, { key: "version", label: "版本", field: "Version" },
-].filter(column => dictionaryFields.value.has(column.field)));
+].filter(column => dictionaryFields.value.has(column.field)), { pageId: "platform-settings", tableId: "dictionary" });
 function problem(failure: unknown) { error.value = failure instanceof Error ? failure.message : "请求未确认，请重新读取后重试。"; }
 function parseRows<T>(data: unknown, guard: (row: unknown) => row is T): T[] {
   if (!isRecord(data) || data.authorized !== true || !Array.isArray(data.rows) || !data.rows.every(guard))
@@ -129,7 +129,7 @@ onMounted(readSettings); onUnmounted(() => { controller.abort(); readSequence++;
         <label v-if="fields.has('Key')">参数类别<select v-model="kind" name="filterSettingKind"><option value="">全部</option><option value="P">P（软件参数）</option><option value="H">H（现场核验）</option></select></label>
         <button :disabled="busy">查询配置</button>
       </form>
-      <ColumnSettings :columns="available" v-model="selectedColumns" />
+      <ColumnSettings :columns="available" v-model="selectedColumns" :preference-warning="preferenceWarning" />
       <div class="table-scroll" :aria-busy="busy"><table><caption>配置值、来源与当前版本</caption>
         <thead><tr><th v-for="column in visible" :key="column.key" scope="col">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
         <tbody><tr v-for="row in rows" :key="row.id"><td v-for="column in visible" :key="column.key">{{ settingCell(row, column.key) ?? "未授权" }}</td>
@@ -151,7 +151,8 @@ onMounted(readSettings); onUnmounted(() => { controller.abort(); readSequence++;
         <label v-if="dictionaryFields.has('Label')">翻译缺失<select v-model="missingTranslation" name="filterMissingTranslation"><option value="">全部</option><option value="true">请求和默认语言均缺失</option><option value="false">有请求或默认语言文本</option></select></label>
         <button :disabled="busy">查询分类</button>
       </form><p>显示顺序：请求语言 → 当前租户默认语言 → [诊断语言键]。回退不改变业务状态码。</p>
-      <ColumnSettings :columns="dictColumns.available.value" v-model="dictColumns.selected.value" />
+      <ColumnSettings :columns="dictColumns.available.value" v-model="dictColumns.selected.value"
+        :preference-warning="dictColumns.preferenceWarning.value" />
       <div class="table-scroll" :aria-busy="busy"><table><caption>当前分类的稳定业务码</caption>
         <thead><tr><th v-for="column in dictColumns.visible.value" :key="column.key" scope="col">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
         <tbody><tr v-for="row in entries" :key="row.id"><td v-for="column in dictColumns.visible.value" :key="column.key">{{ dictionaryCell(row, column.key) ?? "未授权" }}</td>

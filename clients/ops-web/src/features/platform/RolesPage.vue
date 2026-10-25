@@ -42,14 +42,14 @@ const managementFields = computed(() => new Set(sessionState.subject?.grants.fil
   grant.permission === "platform.roles.write" && grant.scope === 2).flatMap(grant => grant.fields)));
 const canWrite = computed(() => ["Rules", "Enabled"].every(field => managementFields.value.has(field)));
 const canCreate = computed(() => ["Code", "Rules", "Enabled"].every(field => managementFields.value.has(field)));
-const { available, selected, visible } = useColumns(() => rows.value.length ? [
+const { available, selected, visible, preferenceWarning } = useColumns(() => rows.value.length ? [
   { key: "id", label: "角色标识", required: true },
   ...rows.value.some(row => row.code !== null) ? [{ key: "code", label: "角色编码" }] : [],
   ...rows.value.some(row => row.enabled !== null) ? [{ key: "enabled", label: "状态" }] : [],
   ...rows.value.some(row => row.rules !== null) ? [{ key: "rules", label: "权限规则" }] : [],
   ...readFields.value.has("AffectedSubjects") && rows.value.some(row => row.affectedSubjects != null)
     ? [{ key: "affectedSubjects", label: "关联用户数（查询快照）" }] : [],
-] : []);
+] : [], { pageId: "platform-roles", tableId: "directory" });
 function scopeName(scope: number) { return scope === 0 ? "本人" : scope === 1 ? "指定部门" : scope === 2 ? "当前租户全部" : "无效范围"; }
 function resetDraft() { Object.assign(draft, { permission: "", scope: 0, departments: [], fields: [] }); }
 watch(() => draft.permission, () => {
@@ -189,7 +189,7 @@ onBeforeUnmount(() => { clear(); window.removeEventListener("online", connectivi
       <button v-if="moreDepartments" type="button" data-test="more-departments" :disabled="loading || busy || departmentCatalog.loading.value" @click="moreCandidates">加载更多部门候选</button>
       <p v-if="loading" role="status">正在读取角色与部门候选。</p>
       <template v-if="rows.length">
-        <ColumnSettings :columns="available" v-model="selected" />
+        <ColumnSettings :columns="available" v-model="selected" :preference-warning="preferenceWarning" />
         <div class="table-scroll" tabindex="0" aria-label="角色目录">
           <table><caption class="hint">当前页角色</caption><thead><tr><th v-for="column in visible" :key="column.key" scope="col">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
             <tbody><tr v-for="row in rows" :key="row.id">

@@ -12,7 +12,7 @@ it("supports visibility and keyboard ordering without offering revoked fields", 
       const columns = useColumns(() => [
         { key: "id", label: "标识", required: true },
         ...fields.value.includes("name") ? [{ key: "name", label: "姓名" }] : [],
-      ]);
+      ], { environment: "test", pageId: "test", tableId: "columns" });
       return { ...columns, revoke: () => { fields.value = ["id"]; } };
     },
     template: `<ColumnSettings :columns="available" v-model="selected" /><button @click="revoke">撤权</button><output>{{ visible.map(c => c.key).join(',') }}</output>`,
@@ -26,5 +26,18 @@ it("supports visibility and keyboard ordering without offering revoked fields", 
   await wrapper.get("button:last-of-type").trigger("click");
   expect(wrapper.find('input[value="name"]').exists()).toBe(false);
   expect(wrapper.get("output").text()).toBe("id");
+  wrapper.unmount();
+});
+
+it("announces when column preferences could not be loaded or saved", () => {
+  const wrapper = mount(ColumnSettings, {
+    props: {
+      columns: [{ key: "id", label: "标识", required: true }],
+      modelValue: ["id"],
+      preferenceWarning: "列偏好格式无效，已恢复为当前可读列默认值。",
+    },
+  });
+
+  expect(wrapper.get('[role="status"]').text()).toContain("列偏好格式无效");
   wrapper.unmount();
 });

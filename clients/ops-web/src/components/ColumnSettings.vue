@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import type { AuthorizedColumn } from "./useColumns";
 
-const props = defineProps<{ columns: AuthorizedColumn[] }>();
+const props = defineProps<{ columns: AuthorizedColumn[]; preferenceWarning?: string | null }>();
 const selected = defineModel<string[]>({ required: true });
 const ordered = computed(() => [
   ...selected.value.flatMap(key => props.columns.filter(column => column.key === key)),
@@ -27,6 +27,7 @@ function move(key: string, delta: number) {
   <details class="column-settings">
     <summary>列设置</summary>
     <p class="hint">仅显示当前可读字段。勾选列后可用上移、下移或方向键调整顺序。</p>
+    <p v-if="preferenceWarning" class="notice" role="status">{{ preferenceWarning }}</p>
     <ul>
       <li v-for="column in ordered" :key="column.key" :data-test="`column-${column.key}`"
         :tabindex="selected.includes(column.key) ? 0 : -1" :aria-label="`${column.label}，上或下方向键调整顺序`"

@@ -87,14 +87,14 @@ const profileFields = ["Name", "DepartmentId", "Enabled"];
 const canCreateUser = computed(() => departmentCandidates.value.some(department => writable(createFields, undefined, department.id)));
 const profileDepartments = computed(() => departmentCandidates.value.filter(department =>
   writable(mode.value === "create" ? createFields : profileFields, selectedUser.value ?? undefined, department.id)));
-const { available, selected, visible } = useColumns(() => rows.value.length ? [
+const { available, selected, visible, preferenceWarning } = useColumns(() => rows.value.length ? [
   { key: "id", label: "用户标识", required: true },
   ...rows.value.some(row => row.account !== null) ? [{ key: "account", label: "账号" }] : [],
   ...rows.value.some(row => row.name !== null) ? [{ key: "name", label: "姓名" }] : [],
   ...rows.value.some(row => row.departmentId !== null) ? [{ key: "departmentId", label: "部门" }] : [],
   ...rows.value.some(row => row.enabled !== null) ? [{ key: "enabled", label: "状态" }] : [],
   ...rows.value.some(row => row.roleIds !== null) ? [{ key: "roleIds", label: "角色" }] : [],
-] : []);
+] : [], { pageId: "platform-users", tableId: "directory" });
 function closeEditor() {
   mode.value = null; selectedUser.value = null;
   Object.assign(form, { account: "", name: "", departmentId: "", enabled: true, password: "", roleIds: [] });
@@ -336,7 +336,7 @@ onBeforeUnmount(() => {
           <p>{{ emptyMessage }}</p>
         </template>
         <template v-if="rows.length">
-          <ColumnSettings :columns="available" v-model="selected" />
+          <ColumnSettings :columns="available" v-model="selected" :preference-warning="preferenceWarning" />
           <div class="table-scroll" tabindex="0" aria-label="用户目录">
             <table><caption class="hint">当前页用户</caption><thead><tr><th v-for="column in visible" :key="column.key" scope="col">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
               <tbody><tr v-for="row in rows" :key="row.id">

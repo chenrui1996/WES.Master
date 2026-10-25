@@ -43,9 +43,9 @@ const definitions = [
   { key: "requiresPasswordChange", label: "需要改密" }, { key: "current", label: "是否当前" },
   { key: "state", label: "状态" },
 ] satisfies { key: keyof Family; label: string; required?: boolean }[];
-const { available, selected, visible } = useColumns(() => rows.value.length
+const { available, selected, visible, preferenceWarning } = useColumns(() => rows.value.length
   ? definitions.filter(column => column.key === "id" || (mode.value === "self" && column.key !== "userId")
-    || rows.value.some(row => row[column.key] !== null)) : []);
+    || rows.value.some(row => row[column.key] !== null)) : [], { pageId: "identity-sessions", tableId: "sessions" });
 
 function parseRows(value: unknown, admin: boolean): Family[] {
   const payload = admin && isRecord(value) && value.authorized === true ? value.rows : admin ? null : value;
@@ -217,7 +217,7 @@ onUnmounted(invalidate);
       <span v-if="loading" role="status">正在读取当前会话状态</span>
     </form>
     <p class="hint">筛选变更后请重新读取。状态由服务端判定；管理范围与字段以服务端当前授权为准。</p>
-    <ColumnSettings :columns="available" v-model="selected" />
+    <ColumnSettings :columns="available" v-model="selected" :preference-warning="preferenceWarning" />
     <div class="table-scroll" :aria-busy="loading">
       <table><caption>{{ mode === 'self' ? '当前账号的会话' : '当前授权范围内的管理会话' }}（第 {{ Math.floor(offset / Number(filters.limit || 50)) + 1 }} 页）</caption>
         <thead><tr><th v-for="column in visible" :key="column.key" scope="col">{{ column.label }}</th><th scope="col">操作</th></tr></thead>

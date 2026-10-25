@@ -12,7 +12,7 @@ dotnet test tests\DirectoryReceipts\Wes.DirectoryReceipts.Tests.csproj --no-rest
 
 Result: **31 passed, 0 failed, 0 skipped**.
 
-Coverage includes stable same-key replay, kind/fingerprint conflicts, current authorization and target checks, tenant/actor isolation, concurrent duplicate submissions, rollback/cancellation, expiry, credential exclusion, and migration/model boundaries.
+Coverage includes stable same-key replay, kind/fingerprint conflicts, current authorization and target checks, tenant/actor isolation, concurrent duplicate submissions, rollback/cancellation, expiry, credential exclusion, migration/model boundaries, denial when delegation over a removed membership is revoked, and successful replay for a partially delegable administrator despite unrelated tenant roles.
 
 The named HTTP routes are also verified with:
 
@@ -26,4 +26,4 @@ The dedicated project links the same receipt tests and authorized database fixtu
 
 ## Boundary
 
-Named directory writes use the operation key; role and settings handlers use the same receipt transaction contract, while credential writes explicitly reject receipt keys. The bounded cleanup operation is not scheduled in production. The conservative membership replay behavior and remaining deployment boundary are documented in [the implementation record](23-t04-command-receipts.md).
+Named directory writes use the operation key; role and settings handlers use the same receipt transaction contract, while credential writes explicitly reject receipt keys. The bounded cleanup operation is not scheduled in production. Membership replay stores only the IDs of affected roles and rechecks their current rules; it does not store historical grants or consult unrelated roles. Remaining deployment boundaries are documented in [the implementation record](23-t04-command-receipts.md).

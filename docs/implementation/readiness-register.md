@@ -88,7 +88,7 @@
 | T03/T04受权登录安全事件查询 | 内部只读投影和受权HTTP/具名页面已接通，见[查询记录](17-authorized-login-event-query.md)、[HTTP合同](19-t03-authenticated-http.md) | 24项真实MySQL查询测试；All字段权限、筛选/有界分页、撤权、真实SQL失败/取消通过；保留/容量/导出治理与生产验收仍缺 |
 | T03登录页视觉实现 | 已完成独立UI切片，见[实现记录](24-ops-web-login-ui.md)及[测试记录](25-ops-web-login-ui-tests.md) | 仅呈现层；不视为T03认证/API/E2E整包验收；浏览器视口无横向溢出、登录页组件5项和Ops Web构建已通过 |
 | T03/T04具名运维页面与身份HTTP | 软件切片已通过，见[页面实施](20-t03-t04-operations-client.md)、[页面测试](31-t03-t04-operations-client-tests.md)、[T03 HTTP测试](28-t03-authenticated-http-tests.md)、[账号禁用HTTP测试](32-t03-account-disable-http-tests.md)及[账号禁用页面切片](33-t03-account-disable-ops-web.md) | Ops Web页面新增版本化P设置真实写入/刷新/审计断言和凭据禁用确认闭环；严格构建、隔离HTTPS Chromium通过；200%人工缩放、真实PDA与生产环境仍未验收 |
-| T04目录及命令回执 | 目录owner/API/页面与具名非机密写回执已集成；**T04整体仍partial**。见[目录实施](18-t04-directory.md)、[目录测试](29-t04-directory-tests.md)、[回执实施](23-t04-command-receipts.md)、[回执测试](30-t04-command-receipts-tests.md) | 目录与相关授权持久层106项、回执专用工程31项及HTTP回执6项通过；成员重放保守限制、生产清理调度与DBA/运维仍待验收 |
+| T04目录及命令回执 | 目录owner/API/页面与具名非机密写回执已集成；**T04整体仍partial**。见[目录实施](18-t04-directory.md)、[目录测试](29-t04-directory-tests.md)、[回执实施](23-t04-command-receipts.md)、[回执测试](30-t04-command-receipts-tests.md) | 目录与相关授权持久层106项、回执专用工程31项及HTTP回执6项通过；成员重放以最小受影响角色ID证据精确复验当前授权，真实MySQL覆盖已移除角色失去委派时拒绝及无关角色不阻断部分授权重放；生产清理调度、DBA/运维及人工验收仍未关闭 |
 | 功能开关后续集成 | 设计见[功能开关设计](../detailed-design/feature-switches.md)，T02配置/catalog首片已验证 | T06客户端菜单接入、可选能力owner注册、T30诊断及T32全组合验收仍待依赖计划执行 |
 | T05..T16 | 未开始 | 按原DAG逐项；不得因内部基础/会话测试通过就跳过完整T03/T04及各自硬依赖 |
 | T17 Route纯内核 | 软件工作包验收完成，见[实现、红绿及审查证据](07-route-kernel.md)；不是完整Route/WCS验收 | FourWay/Stacker各自私有topology/physical mapping与确定性候选路径；连接物理语义/设备归属缺陷先红后修复，最终SPEC/CODE审查PASS；228 Route测试与父集成通过；预约/派发/反馈及H分别由后续包验收 |

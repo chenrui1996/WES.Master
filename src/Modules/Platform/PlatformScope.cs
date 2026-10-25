@@ -219,6 +219,10 @@ public sealed class PlatformScope : IAsyncDisposable
     /// <summary>Reads only current-authorized Platform Outbox metadata; payloads are never projected.</summary>
     public Task<OutboxQueryPage> OutboxAsync(TenantContext subject, int offset, int limit, CancellationToken ct) =>
         new QueryOutbox(_database, _clock).ReadAsync(subject, offset, limit, ct);
+    /// <summary>Replays only a quarantined Platform audit event under current replay authority and idempotency.</summary>
+    public Task<OutboxReplayResult> ReplayOutboxAsync(TenantContext subject, DirectoryOperation operation,
+        Guid eventId, int expectedAttempts, string reason, CancellationToken ct) =>
+        new ReplayOutboxMessage(_database, _clock).HandleAsync(subject, operation, eventId, expectedAttempts, reason, ct);
     /// <summary>Disposes the owned module unit of work.</summary>
     public ValueTask DisposeAsync() => _database.DisposeAsync();
     private LoginSourceDbContext Sources() => new(new DbContextOptionsBuilder<LoginSourceDbContext>().UseMySQL(_connection,

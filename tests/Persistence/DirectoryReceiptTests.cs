@@ -88,6 +88,21 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         Assert.Contains(entity.GetProperties(), property => property.Name == "ProcessedAt");
     }
 
+    /// <summary>T05: operator replay evidence is persisted owner-locally as an immutable idempotency receipt.</summary>
+    [Fact]
+    public async Task PlatformModel_ContainsOwnerLocalOutboxReplayReceipts()
+    {
+        await using var db = Open();
+        var entity = db.Model.FindEntityType("Wes.Platform.Domain.PlatformOutboxReplayReceipt");
+
+        Assert.NotNull(entity);
+        Assert.Equal("platform_outbox_replay_receipts", entity.GetTableName());
+        Assert.Equal(new[] { "TenantId", "OperationId" }, entity.FindPrimaryKey()!.Properties.Select(property => property.Name));
+        Assert.Contains(entity.GetProperties(), property => property.Name == "ActorId");
+        Assert.Contains(entity.GetProperties(), property => property.Name == "Reason");
+        Assert.Contains(entity.GetProperties(), property => property.Name == "Fingerprint");
+    }
+
     /// <summary>T05: an inbox marker and consumer-side changes roll back together on handler failure.</summary>
     [Fact]
     public async Task PlatformInboxConsumer_HandlerFailureRollsBackReceiptAndEffects()
@@ -198,6 +213,26 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
             "Consumer", "ContractName", "EnvelopeDigest", "EventId", "ProcessedAt", "SchemaVersion", "TenantId"
         }, table.Columns.Select(column => column.Name).Order(StringComparer.Ordinal));
         Assert.Equal(new[] { "TenantId", "Consumer", "EventId" }, table.PrimaryKey!.Columns);
+        Assert.False(db.Database.HasPendingModelChanges());
+    }
+
+    /// <summary>T05: replay migration adds only the tenant-scoped immutable operator receipt and its index.</summary>
+    [Fact]
+    public void PlatformOutboxReplayMigration_IsAdditiveAndMatchesTheModel()
+    {
+        using var db = Open();
+        var assembly = db.GetService<IMigrationsAssembly>();
+        var migration = assembly.Migrations.Single(x => x.Key.EndsWith("_PlatformOutboxReplayReceipts", StringComparison.Ordinal));
+        var operations = assembly.CreateMigration(migration.Value, db.Database.ProviderName!).UpOperations;
+
+        Assert.All(operations, operation => Assert.True(operation is CreateTableOperation or CreateIndexOperation));
+        var table = Assert.Single(operations.OfType<CreateTableOperation>());
+        Assert.Equal("platform_outbox_replay_receipts", table.Name);
+        Assert.Equal(new[]
+        {
+            "ActorId", "EventId", "Fingerprint", "OperationId", "PreviousAttempts", "Reason", "RequestedAt", "TenantId"
+        }, table.Columns.Select(column => column.Name).Order(StringComparer.Ordinal));
+        Assert.Equal(new[] { "TenantId", "OperationId" }, table.PrimaryKey!.Columns);
         Assert.False(db.Database.HasPendingModelChanges());
     }
 
@@ -453,6 +488,132 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         var secondPage = await new QueryOutbox(authorizedDatabase, _clock).ReadAsync(_context, offset: 1, limit: 1);
         Assert.Single(secondPage.Rows);
         Assert.NotEqual(row.EventId, secondPage.Rows[0].EventId);
+    }
+
+    /// <summary>T05: authorized replay preserves the exact envelope and records an idempotent actor/reason receipt.</summary>
+    [Fact]
+    public async Task PlatformOutboxReplay_RequiresCurrentGrantAndPreservesEventIdentity()
+    {
+        await CreateAsync();
+        Guid eventId;
+        string payload;
+        await using (var quarantineDatabase = Open())
+        {
+            var message = await quarantineDatabase.OutboxMessages.SingleAsync();
+            eventId = message.EventId;
+            payload = message.Payload;
+            var leaseId = Guid.NewGuid();
+            Assert.True(await new PlatformOutboxLeaseStore(quarantineDatabase).TryLeaseAsync(
+                eventId, leaseId, _clock.Now, TimeSpan.FromSeconds(30)));
+            message.RecordFailure(leaseId, _clock.Now, OutboxFailureCategory.InvalidContract);
+            await quarantineDatabase.SaveChangesAsync();
+        }
+
+        var operation = new DirectoryOperation(Guid.NewGuid());
+        await using (var deniedDatabase = Open())
+        {
+            var denied = await new ReplayOutboxMessage(deniedDatabase, _clock).HandleAsync(
+                _context, operation, eventId, 1, "recover after transport repair");
+            Assert.Equal(OutboxReplayDecision.Forbidden, denied.Decision);
+        }
+
+        await using (var grantDatabase = Open())
+        {
+            var role = await grantDatabase.Roles.SingleAsync();
+            role.Change(role.Version, true,
+            [
+                Grant("platform.messages.replay", "EventId", "Status", "Attempts", "Reason")
+            ]);
+            await grantDatabase.SaveChangesAsync();
+        }
+
+        await using (var staleDatabase = Open())
+        {
+            var stale = await new ReplayOutboxMessage(staleDatabase, _clock).HandleAsync(
+                _context, new DirectoryOperation(Guid.NewGuid()), eventId, 2, "stale attempt precondition");
+            Assert.Equal(OutboxReplayDecision.Conflict, stale.Decision);
+            Assert.Equal(1, stale.Attempts);
+        }
+
+        await using (var replayDatabase = Open())
+        {
+            var result = await new ReplayOutboxMessage(replayDatabase, _clock).HandleAsync(
+                _context, operation, eventId, 1, "recover after transport repair");
+            Assert.Equal(OutboxReplayDecision.Replayed, result.Decision);
+            Assert.Equal(0, result.Attempts);
+        }
+
+        await using (var retryDatabase = Open())
+        {
+            var duplicate = await new ReplayOutboxMessage(retryDatabase, _clock).HandleAsync(
+                _context, operation, eventId, 1, "recover after transport repair");
+            Assert.Equal(OutboxReplayDecision.Replayed, duplicate.Decision);
+        }
+
+        await using (var conflictDatabase = Open())
+        {
+            var conflict = await new ReplayOutboxMessage(conflictDatabase, _clock).HandleAsync(
+                _context, operation, eventId, 1, "different operator reason");
+            Assert.Equal(OutboxReplayDecision.IdempotencyConflict, conflict.Decision);
+        }
+
+        await using var verify = Open();
+        var replayed = await verify.OutboxMessages.SingleAsync();
+        var receipt = await verify.OutboxReplayReceipts.SingleAsync();
+        Assert.Equal(OutboxMessageStatus.Pending, replayed.Status);
+        Assert.Equal(0, replayed.Attempts);
+        Assert.Null(replayed.FirstFailureAt);
+        Assert.Equal(_clock.Now, replayed.NextAttemptAt);
+        Assert.Equal(payload, replayed.Payload);
+        Assert.Equal(eventId, receipt.EventId);
+        Assert.Equal(_actor, receipt.ActorId);
+        Assert.Equal("recover after transport repair", receipt.Reason);
+        Assert.Equal(1, receipt.PreviousAttempts);
+    }
+
+    /// <summary>T05: concurrent retries of the same operation commit exactly one replay receipt and event transition.</summary>
+    [Fact]
+    public async Task PlatformOutboxReplay_ConcurrentSameOperationIsIdempotent()
+    {
+        await CreateAsync();
+        Guid eventId;
+        await using (var quarantineDatabase = Open())
+        {
+            var message = await quarantineDatabase.OutboxMessages.SingleAsync();
+            eventId = message.EventId;
+            var leaseId = Guid.NewGuid();
+            Assert.True(await new PlatformOutboxLeaseStore(quarantineDatabase).TryLeaseAsync(
+                eventId, leaseId, _clock.Now, TimeSpan.FromSeconds(30)));
+            message.RecordFailure(leaseId, _clock.Now, OutboxFailureCategory.InvalidContract);
+            await quarantineDatabase.SaveChangesAsync();
+        }
+
+        await using (var grantDatabase = Open())
+        {
+            var role = await grantDatabase.Roles.SingleAsync();
+            role.Change(role.Version, true,
+            [
+                Grant("platform.messages.replay", "EventId", "Status", "Attempts", "Reason")
+            ]);
+            await grantDatabase.SaveChangesAsync();
+        }
+
+        var operation = new DirectoryOperation(Guid.NewGuid());
+        async Task<OutboxReplayResult> ReplayAsync()
+        {
+            await using var database = Open();
+            return await new ReplayOutboxMessage(database, _clock).HandleAsync(
+                _context, operation, eventId, 1, "recover after transport repair");
+        }
+
+        var results = await Task.WhenAll(ReplayAsync(), ReplayAsync());
+        Assert.All(results, result => Assert.Equal(OutboxReplayDecision.Replayed, result.Decision));
+
+        await using var verify = Open();
+        Assert.Single(await verify.OutboxReplayReceipts.ToListAsync());
+        var replayed = await verify.OutboxMessages.SingleAsync();
+        Assert.Equal(OutboxMessageStatus.Pending, replayed.Status);
+        Assert.Equal(0, replayed.Attempts);
     }
 
     /// <summary>T05: transient transport failures persist retry state without losing the original event.</summary>
@@ -1174,7 +1335,10 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         foreach (var tenant in new[] { _tenant, _otherTenant })
         {
             await using var db = Open(tenant: tenant);
-            db.InboxReceipts.RemoveRange(await db.InboxReceipts.ToListAsync());
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"DELETE FROM platform_outbox_replay_receipts WHERE TenantId = {tenant.ToString("D")}");
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"DELETE FROM platform_inbox_receipts WHERE TenantId = {tenant.ToString("D")}");
             db.OutboxMessages.RemoveRange(await db.OutboxMessages.ToListAsync());
             await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM platform_audit WHERE TenantId = {tenant.ToString("D")}");
             db.CommandReceipts.RemoveRange(await db.CommandReceipts.ToListAsync());

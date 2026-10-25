@@ -36,6 +36,8 @@ public sealed partial class PlatformDbContext : DbContext
     public DbSet<PlatformOutboxMessage> OutboxMessages => Set<PlatformOutboxMessage>();
     /// <summary>Platform-owned idempotency receipts committed atomically with consumer effects.</summary>
     public DbSet<PlatformInboxReceipt> InboxReceipts => Set<PlatformInboxReceipt>();
+    /// <summary>Immutable operator evidence committed atomically with each authorized Outbox replay.</summary>
+    public DbSet<PlatformOutboxReplayReceipt> OutboxReplayReceipts => Set<PlatformOutboxReplayReceipt>();
     /// <summary>Tenant-account risk independent of user existence, never global source budgets.</summary>
     public DbSet<LoginAccountBudget> LoginAccounts => Set<LoginAccountBudget>();
     /// <summary>One-shot tenant challenges; never raw answers or global risk state.</summary>
@@ -224,6 +226,20 @@ public sealed partial class PlatformDbContext : DbContext
         inbox.Property(item => item.ProcessedAt).HasConversion(utc).HasColumnType("datetime(6)");
         inbox.HasIndex(item => new { item.TenantId, item.ProcessedAt, item.Consumer });
         inbox.HasQueryFilter(item => item.TenantId == TenantId);
+
+        var replay = modelBuilder.Entity<PlatformOutboxReplayReceipt>();
+        replay.ToTable("platform_outbox_replay_receipts");
+        replay.HasKey(item => new { item.TenantId, item.OperationId });
+        replay.Property(item => item.TenantId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        replay.Property(item => item.OperationId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        replay.Property(item => item.EventId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        replay.Property(item => item.ActorId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        replay.Property(item => item.Reason).HasColumnType("varchar(256)").HasMaxLength(256).IsRequired();
+        replay.Property(item => item.PreviousAttempts).IsRequired();
+        replay.Property(item => item.Fingerprint).HasColumnType("char(64)").HasMaxLength(64).IsRequired();
+        replay.Property(item => item.RequestedAt).HasConversion(utc).HasColumnType("datetime(6)");
+        replay.HasIndex(item => new { item.TenantId, item.EventId, item.RequestedAt });
+        replay.HasQueryFilter(item => item.TenantId == TenantId);
     }
 
     /// <summary>Protects every synchronous write path from cross-tenant attachment or owner changes.</summary>
@@ -262,6 +278,12 @@ public sealed partial class PlatformDbContext : DbContext
         foreach (var entry in ChangeTracker.Entries()
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
         {
+            if (entry.Entity is PlatformInboxReceipt or PlatformOutboxReplayReceipt
+                && entry.State != EntityState.Added)
+            {
+                throw new InvalidOperationException("Platform message receipts are append-only.");
+            }
+
             if (entry.Entity is PlatformAudit or LoginSecurityEvent && entry.State is EntityState.Modified or EntityState.Deleted)
             {
                 throw new InvalidOperationException("Platform audit facts are append-only.");

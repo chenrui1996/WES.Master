@@ -73,7 +73,7 @@
 **Interfaces:** 消费稳定事件envelope和授权；产出FUNC-NTF-001/PAGE-NTF-003、模块本地事务适配器及message查询/重放。Notifications只管投递诊断，不持有各owner业务事务或通用跨库Outbox。
 
 - [ ] DTC-NTF-001/002：业务提交前故障→业务/Outbox均0；提交后Broker断开记录保留；消费提交后ACK丢失重投效果1；物理Unknown0自动重发。
-- [ ] 实现发布竞争/Inbox幂等、错误分类、1/5/30/120/600秒相邻等待最多5次、总15分钟deadline、永久隔离、受权同payload重放与领域长期身份。
+- [x] Platform首片实现发布竞争/Inbox幂等、错误分类、1/5/30/120/600秒相邻等待最多5次、总15分钟deadline、永久隔离及受权同payload重放与稳定事件身份；见[Outbox/Inbox](35-t05-platform-outbox.md)、[Inbox](37-t05-platform-inbox.md)、[消息运维](39-t05-platform-message-operations.md)。这不代表Notifications聚合、其他owner适配或真实Broker闭环完成。
 - [ ] 三Provider/隔离Broker执行崩溃窗口，断线不得丢Outbox；过deadline控制拒发、迟到可信完成核验且不覆盖新位置、认证过期隔离/query；采用RVT-05、VAL-07/08，不声称消息exactly-once。
 
 ### T06：共享交互与授权查询底座

@@ -130,6 +130,34 @@ public sealed class PlatformOutboxMessage
         ClearLease();
     }
 
+    /// <summary>Requeues a quarantined safe Platform audit event without changing its durable envelope identity.</summary>
+    public void ReplayAfterQuarantine(int expectedAttempts, DateTimeOffset replayedAt)
+    {
+        if (expectedAttempts != Attempts)
+        {
+            throw new InvalidOperationException("The Outbox attempt count changed before replay.");
+        }
+
+        if (Status != OutboxMessageStatus.Quarantined || Owner != "Platform"
+            || ContractName != "platform.audit" || SchemaVersion != 1)
+        {
+            throw new InvalidOperationException("Only quarantined Platform audit events are replayable.");
+        }
+
+        if (replayedAt < CreatedAt)
+        {
+            throw new ArgumentOutOfRangeException(nameof(replayedAt));
+        }
+
+        Status = OutboxMessageStatus.Pending;
+        Attempts = 0;
+        FirstFailureAt = null;
+        NextAttemptAt = replayedAt;
+        PublishedAt = null;
+        LastErrorCategory = null;
+        ClearLease();
+    }
+
     internal bool TryAcquireLease(Guid leaseId, DateTimeOffset now, TimeSpan duration)
     {
         if (leaseId == Guid.Empty)

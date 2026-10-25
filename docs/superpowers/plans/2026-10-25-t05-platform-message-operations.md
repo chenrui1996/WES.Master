@@ -76,27 +76,27 @@ Expected: all query authorization, pagination, and projection tests pass.
 
 **Interfaces:**
 - Consumes: `TenantContext`, `DirectoryOperation`, an event ID, expected attempt count, and a bounded reason.
-- Produces: `PlatformOutboxReplayResult(PlatformDecision Decision, int? Attempts)` and an immutable replay receipt keyed by tenant/operation ID.
+- Produces: `OutboxReplayResult(OutboxReplayDecision Decision, int? Attempts)` and an immutable replay receipt keyed by tenant/operation ID.
 
-- [ ] **Step 1: Write failing replay lifecycle tests.**
+- [x] **Step 1: Write failing replay lifecycle tests.**
 
 Cover forbidden actors, non-quarantined and stale-attempt requests, replay of a quarantined safe `platform.audit` event, same-operation retry, conflicting operation reuse, and concurrent replay. Assert the original event envelope is unchanged and the reason/actor are retained with the receipt.
 
-- [ ] **Step 2: Run the focused test and confirm it fails.**
+- [x] **Step 2: Run the focused test and confirm it fails.**
 
 Run: `dotnet test tests\Persistence\Wes.Persistence.Tests.csproj --no-restore -c Release --filter FullyQualifiedName~OutboxReplay --verbosity quiet`
 
 Expected: compilation or assertions fail because replay records and authorized transitions do not exist.
 
-- [ ] **Step 3: Add the immutable replay receipt and additive migration.**
+- [x] **Step 3: Add the immutable replay receipt and additive migration.**
 
 Persist tenant, operation ID, event ID, actor ID, reason (3..256 printable characters), request instant, prior attempts, and a SHA-256 fingerprint of the nonsecret command identity. Use a tenant/operation composite key and owner query filter. Generate the migration with `--configuration Release --context PlatformDbContext`; verify it creates only the replay receipt table and indexes.
 
-- [ ] **Step 4: Implement the transactionally authorized replay command.**
+- [x] **Step 4: Implement the transactionally authorized replay command.**
 
 Require a current All-scope `platform.messages.replay` grant for `EventId`, `Status`, `Attempts`, and `Reason`; authorize before receipt lookup. In one explicit owner transaction, return the matching prior receipt for an identical operation, reject fingerprint conflicts, require the expected attempt count and `Quarantined` state, reject any non-`platform.audit` or non-Platform event, stage the immutable receipt, set status to Pending/due-now, reset the automatic retry window and attempt counter to zero (the receipt retains the previous attempt count), save, and commit. Preserve all envelope identity and payload fields. Convert concurrency conflicts to an explicit conflict result; surface unrelated persistence failures.
 
-- [ ] **Step 5: Run focused MySQL lifecycle and migration tests.**
+- [x] **Step 5: Run focused MySQL lifecycle and migration tests.**
 
 Run: `dotnet test tests\Persistence\Wes.Persistence.Tests.csproj --no-restore -c Release --filter FullyQualifiedName~OutboxReplay --verbosity quiet`
 
@@ -116,25 +116,25 @@ Expected: replay is tenant-scoped, permission-checked, idempotent by operation I
 
 **Interfaces:**
 - Consumes: the Task 1 metadata query and Task 2 owner replay command.
-- Produces: authenticated `POST /api/platform/messages/{eventId}/replay` accepting only `OperationId`, `ExpectedAttempts`, and `Reason`; payload fields are not accepted.
+- Produces: authenticated `POST /api/platform/messages/{eventId}/replay` accepting only `ExpectedAttempts` and `Reason`, plus a canonical UUID in the existing `Idempotency-Key` header; payload fields are not accepted.
 
-- [ ] **Step 1: Write failing HTTPS endpoint tests.**
+- [x] **Step 1: Write failing HTTPS endpoint tests.**
 
 Test unauthenticated rejection, authenticated-but-forbidden rejection, malformed operation/reason rejection, stale expected attempts conflict, successful replay, and operation retry returning the same result without a second replay receipt.
 
-- [ ] **Step 2: Wire minimal API contracts without exposing persistence entities.**
+- [x] **Step 2: Wire minimal API contracts without exposing persistence entities.**
 
 Map the GET route from Task 1 and replay POST route. Bind actor/tenant from the authenticated subject; derive correlation from the trusted trace; never accept actor, tenant, payload, contract, or status from the request body. Map decisions to existing HTTP results consistently with Platform write endpoints.
 
-- [ ] **Step 3: Run the endpoint-focused test and full Release regression.**
+- [x] **Step 3: Run the endpoint-focused test and full Release regression.**
 
-Run: `dotnet test tests\Modules\Wes.Modules.Tests.csproj --no-restore -c Release --filter FullyQualifiedName~MessageOperations --verbosity quiet`
+Run: `dotnet test tests\Modules\Wes.Modules.Tests.csproj --no-restore -c Release --filter FullyQualifiedName~OutboxReplayHttpIsAuthorizedIdempotentAndDoesNotAcceptEnvelopeData --verbosity quiet`
 
 Run: `dotnet test WES.slnx --no-restore -c Release --verbosity quiet -m:1`
 
-Expected: all endpoint tests and all solution suites pass.
+Expected: replay endpoint test passes and full suite reports 816 passed, 0 failed, 0 skipped.
 
-- [ ] **Step 4: Write evidence and limitations.**
+- [x] **Step 4: Write evidence and limitations.**
 
 Record file paths, migration, focused and full counts, and explicitly state that no real Broker, hosted scheduler, Notifications aggregator, other-owner adapter, alternate Provider, or production recovery drill was verified.
 

@@ -580,6 +580,49 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                     b.ToTable("platform_outbox_messages", (string)null);
                 });
 
+            modelBuilder.Entity("Wes.Platform.Domain.PlatformOutboxReplayReceipt", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("OperationId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("ActorId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("EventId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("char(64)");
+
+                    b.Property<int>("PreviousAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("TenantId", "OperationId");
+
+                    b.HasIndex("TenantId", "EventId", "RequestedAt");
+
+                    b.ToTable("platform_outbox_replay_receipts", (string)null);
+                });
+
             modelBuilder.Entity("Wes.Platform.Domain.RefreshCredential", b =>
                 {
                     b.Property<string>("TenantId")

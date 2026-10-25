@@ -29,6 +29,8 @@ using Wes.Host.Identity;
 using Wes.Persistence.Tests;
 using Wes.Platform.Domain;
 using Wes.Platform.Features.Identity;
+using Wes.Platform.Features.Messaging;
+using Wes.Platform.Infrastructure.Messaging;
 using Wes.Platform.Infrastructure.Persistence;
 using Xunit;
 
@@ -778,6 +780,93 @@ public sealed class IdentityHttpTests : IAsyncLifetime
             row => Assert.False(row.TryGetProperty("payload", out _)));
     }
 
+    /// <summary>Outbox replay requires a separate current grant, expected-attempt fencing and header idempotency.</summary>
+    [Fact]
+    public async Task OutboxReplayHttpIsAuthorizedIdempotentAndDoesNotAcceptEnvelopeData()
+    {
+        using (var anonymous = await _client.PostAsJsonAsync(
+            $"/api/platform/messages/{Guid.NewGuid():D}/replay", new { expectedAttempts = 1, reason = "test replay" }))
+            Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+
+        await SignInAsync();
+        using (var unkeyedClient = _factory.CreateClient(
+            new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") }))
+        {
+            unkeyedClient.DefaultRequestHeaders.Authorization = _client.DefaultRequestHeaders.Authorization;
+            unkeyedClient.DefaultRequestHeaders.Add("X-WES-Client", "ops-web");
+            foreach (var key in new string?[] { null, "invalid-key" })
+            {
+                using var request = new HttpRequestMessage(
+                    HttpMethod.Post, $"/api/platform/messages/{Guid.NewGuid():D}/replay")
+                {
+                    Content = JsonContent.Create(new { expectedAttempts = 1, reason = "test replay" })
+                };
+                if (key is not null) request.Headers.Add("Idempotency-Key", key);
+                using var response = await unkeyedClient.SendAsync(request);
+                Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            }
+        }
+
+        Guid eventId;
+        string payload;
+        await using (var seed = Open())
+        {
+            seed.Audit.Add(new PlatformAudit(_tenant, _user, Guid.NewGuid(), Guid.NewGuid(),
+                PlatformAuditAction.UserChanged, null, Guid.NewGuid().ToString("D"), _clock.GetUtcNow()));
+            await seed.SaveChangesAsync();
+            var message = await seed.OutboxMessages.SingleAsync();
+            eventId = message.EventId;
+            payload = message.Payload;
+            var leaseId = Guid.NewGuid();
+            Assert.True(await new PlatformOutboxLeaseStore(seed).TryLeaseAsync(
+                eventId, leaseId, _clock.GetUtcNow(), TimeSpan.FromSeconds(30)));
+            message.RecordFailure(leaseId, _clock.GetUtcNow(), OutboxFailureCategory.InvalidContract);
+            await seed.SaveChangesAsync();
+        }
+
+        async Task<HttpResponseMessage> ReplayAsync(Guid operation, string reason, int expectedAttempts = 1)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, $"/api/platform/messages/{eventId:D}/replay")
+            {
+                Content = JsonContent.Create(new { expectedAttempts, reason })
+            };
+            request.Headers.Add("Idempotency-Key", operation.ToString("D"));
+            return await _client.SendAsync(request);
+        }
+
+        var operation = Guid.NewGuid();
+        using (var denied = await ReplayAsync(operation, "recover after contract repair"))
+            Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+
+        await GrantPlatformAsync();
+        await GrantReplayAsync();
+        using (var invalidReason = await ReplayAsync(Guid.NewGuid(), "x"))
+            Assert.Equal(HttpStatusCode.BadRequest, invalidReason.StatusCode);
+        using (var stale = await ReplayAsync(Guid.NewGuid(), "stale attempt expectation", expectedAttempts: 2))
+            Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        using (var replayed = await ReplayAsync(operation, "recover after contract repair"))
+        {
+            Assert.Equal(HttpStatusCode.OK, replayed.StatusCode);
+            var response = await replayed.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.False(response.TryGetProperty("payload", out _));
+            Assert.False(response.TryGetProperty("reason", out _));
+        }
+        using (var duplicate = await ReplayAsync(operation, "recover after contract repair"))
+            Assert.Equal(HttpStatusCode.OK, duplicate.StatusCode);
+        using (var conflictingReuse = await ReplayAsync(operation, "different reason"))
+            Assert.Equal(HttpStatusCode.Conflict, conflictingReuse.StatusCode);
+        using (var noLongerQuarantined = await ReplayAsync(Guid.NewGuid(), "already replayed"))
+            Assert.Equal(HttpStatusCode.Conflict, noLongerQuarantined.StatusCode);
+
+        await using var verify = Open();
+        var replayedMessage = await verify.OutboxMessages.SingleAsync();
+        Assert.Equal(OutboxMessageStatus.Pending, replayedMessage.Status);
+        Assert.Equal(0, replayedMessage.Attempts);
+        Assert.Equal(payload, replayedMessage.Payload);
+        Assert.Equal(eventId, replayedMessage.EventId);
+        Assert.Single(await verify.OutboxReplayReceipts.ToListAsync());
+    }
+
     /// <summary>Authorized action/correlation filters run before pagination and cannot become hidden-field oracles.</summary>
     [Fact]
     [Trait("CaseId", "PLATFORM-HTTP-007")]
@@ -1036,6 +1125,19 @@ public sealed class IdentityHttpTests : IAsyncLifetime
                 fields.ToImmutableHashSet(StringComparer.Ordinal)))).ToArray();
         await using var seed = Open();
         var role = new AccessRole(_tenant, "fixture-owner", grants);
+        seed.Roles.Add(role);
+        seed.Memberships.Add(new RoleMembership(_tenant, _user, role.Id));
+        await seed.SaveChangesAsync();
+    }
+
+    private async Task GrantReplayAsync()
+    {
+        await using var seed = Open();
+        var role = new AccessRole(_tenant, "fixture-message-replay",
+        [
+            new PermissionGrant("platform.messages.replay", DataScope.All, ImmutableHashSet<Guid>.Empty,
+                ImmutableHashSet.Create(StringComparer.Ordinal, "EventId", "Status", "Attempts", "Reason"))
+        ]);
         seed.Roles.Add(role);
         seed.Memberships.Add(new RoleMembership(_tenant, _user, role.Id));
         await seed.SaveChangesAsync();

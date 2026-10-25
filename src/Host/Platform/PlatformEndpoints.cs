@@ -2,6 +2,7 @@ using Wes.Host.Identity;
 using Wes.Platform;
 using Wes.Platform.Features.Directory;
 using Wes.Platform.Features.Identity;
+using Wes.Platform.Features.Messaging;
 using Wes.Platform.Features.Tenancy;
 
 namespace Wes.Host.Platform;
@@ -40,6 +41,8 @@ public sealed record CreateDictionaryInput(string Category, string Code, string 
 public sealed record TranslationInput(string? ExpectedVersion, string Language, string Label);
 /// <summary>One nonsecret catalog scalar; arbitrary keys, secret storage and physical approval are excluded.</summary>
 public sealed record SettingInput(string? ExpectedVersion, string Value);
+/// <summary>Replay precondition and operator reason; envelope content is never accepted from the caller.</summary>
+public sealed record ReplayOutboxInput(int ExpectedAttempts, string Reason);
 
 /// <summary>Named transport adapters; every use case revalidates current owner authorization and versions.</summary>
 public static class PlatformEndpoints
@@ -109,6 +112,7 @@ public static class PlatformEndpoints
         group.MapGet("/settings", SettingsAsync);
         group.MapPut("/settings/{id:guid}", ChangeSettingAsync);
         group.MapGet("/messages", OutboxAsync);
+        group.MapPost("/messages/{eventId:guid}/replay", ReplayOutboxAsync);
         group.MapGet("/audit", AuditAsync);
         group.MapGet("/login-events", LoginEventsAsync);
     }
@@ -219,6 +223,24 @@ public static class PlatformEndpoints
         await using var database = factory.Open(subject.TenantId);
         var result = await database.OutboxAsync(subject, offset, limit, ct);
         return result.Authorized ? Results.Ok(result) : Results.Forbid();
+    }
+    private static async Task<IResult> ReplayOutboxAsync(Guid eventId, ReplayOutboxInput input, HttpContext http,
+        IdentityDatabase factory, CancellationToken ct)
+    {
+        var subject = IdentityRuntime.Subject(http.User);
+        var operation = Operation(http);
+        await using var database = factory.Open(subject.TenantId, operation);
+        var result = await database.ReplayOutboxAsync(subject, operation, eventId,
+            input.ExpectedAttempts, input.Reason, ct);
+        return result.Decision switch
+        {
+            OutboxReplayDecision.Replayed => Results.Ok(result),
+            OutboxReplayDecision.Forbidden => Results.Forbid(),
+            OutboxReplayDecision.NotFound => Results.NotFound(),
+            OutboxReplayDecision.Conflict or OutboxReplayDecision.NotReplayable
+                or OutboxReplayDecision.IdempotencyConflict => Results.Conflict(),
+            _ => throw new InvalidOperationException("Unknown Outbox replay outcome.")
+        };
     }
     private static async Task<IResult> LoginEventsAsync(HttpContext http, IdentityDatabase factory, TimeProvider clock, ILoggerFactory logs, CancellationToken ct,
         DateTimeOffset from, DateTimeOffset to, int offset = 0, int limit = 100, LoginEventKind? kind = null, Guid? correlationId = null)

@@ -7,11 +7,13 @@
 
 | Check | Command / fixture | Result |
 |---|---|---|
-| Component suite | `npm test` in `clients\ops-web` | 12 files, 73 passed, 0 failed |
+| Component suite | `npm test` in `clients\ops-web` | 12 files, 75 passed, 0 failed |
 | Strict type-check and production build | `npm run build` in `clients\ops-web` | `vue-tsc --noEmit` and Vite build passed |
-| Real browser | `RealBrowserUsesHttpsOwnerIdentityAndAllNamedPlatformPages` through the controlled .NET fixture | 1 passed; HTTPS Kestrel, built same-origin client, identity, named platform pages, authorized writes, explicit credential-disable confirmation, HTTP 204, refreshed disabled state, and logout |
+| Real browser | `RealBrowserUsesHttpsOwnerIdentityAndAllNamedPlatformPages` through the controlled .NET fixture | 1 passed; HTTPS Kestrel, built same-origin client, identity, named platform pages, version-fenced P-setting write and refreshed source/value, durable setting/audit verification, explicit credential-disable confirmation, HTTP 204, refreshed disabled state, and logout |
 
 The browser fixture obtains its URL from the test host, uses a generated certificate and `wes_test`, and disables trace/video/screenshot recording. It refuses to run without the fixture-provided `WES_E2E_URL`; do not point Playwright at a production endpoint.
+
+The browser's P-setting change is restricted to the approved `query.snapshotTtlSeconds` fixture and asserts the persisted `300` override plus exactly one matching `SettingChanged` audit. No hardware/H setting is written.
 
 ## Boundary
 

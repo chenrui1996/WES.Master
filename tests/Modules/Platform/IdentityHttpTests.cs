@@ -1027,6 +1027,14 @@ public sealed class IdentityHttpTests : IAsyncLifetime
     public async Task RealBrowserUsesHttpsOwnerIdentityAndAllNamedPlatformPages()
     {
         await GrantPlatformAsync();
+        Guid settingId;
+        await using (var seed = Open())
+        {
+            var setting = new VersionedSetting(_tenant, "query.snapshotTtlSeconds");
+            seed.Settings.Add(setting);
+            await seed.SaveChangesAsync();
+            settingId = setting.Id;
+        }
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "WES.slnx"))) root = root.Parent;
         Assert.NotNull(root);
@@ -1066,12 +1074,17 @@ public sealed class IdentityHttpTests : IAsyncLifetime
         Assert.True(process.ExitCode == 0, await output + Environment.NewLine + await errors);
         await using var verify = Open();
         Assert.NotNull((await verify.Sessions.SingleAsync()).RevokedAt);
+        var changedSetting = await verify.Settings.SingleAsync(item => item.Id == settingId);
+        Assert.Equal("300", changedSetting.Value);
+        Assert.Equal("AuthorizedOverride", changedSetting.Source);
+        Assert.Single(await verify.Audit.Where(item => item.TargetId == settingId
+            && item.Action == PlatformAuditAction.SettingChanged).ToListAsync());
         var created = await verify.DirectoryUsers.SingleAsync(item => item.Account == "BROWSER-NEW");
         Assert.Equal("Browser subject", created.Name);
         Assert.False((await verify.PasswordCredentials.SingleAsync(item => item.UserId == created.Id)).Enabled);
         var role = await verify.Roles.SingleAsync(item => item.Code == "fixture-owner");
         Assert.Equal(role.Id, (await verify.Memberships.SingleAsync(item => item.UserId == created.Id)).RoleId);
-        Assert.Equal(2, await verify.CommandReceipts.CountAsync());
+        Assert.Equal(3, await verify.CommandReceipts.CountAsync());
     }
 
     /// <summary>Independent host/provider lifetimes read the same protected key ring and continue a durable refresh family.</summary>

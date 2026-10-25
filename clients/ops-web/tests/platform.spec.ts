@@ -85,6 +85,18 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     }
+    if (api === "/api/platform/settings") {
+      const settingRow = page.getByRole("row").filter({ hasText: "query.snapshotTtlSeconds" });
+      await settingRow.getByTestId("edit-setting").click();
+      await page.getByLabel("新的正整数值").fill("300");
+      const settingWrite = page.waitForResponse(value =>
+        value.url().includes("/api/platform/settings/") && value.request().method() === "PUT");
+      await page.getByRole("button", { name: "确认提交此版本", exact: true }).click();
+      expect((await settingWrite).status()).toBe(200);
+      await expect(page.getByText("配置已提交；受影响服务的实际读取与现场许可仍按各自门禁判断。")).toBeVisible();
+      await expect(settingRow).toContainText("300");
+      await expect(settingRow).toContainText("AuthorizedOverride");
+    }
   }
   const auditMode = page.getByLabel("证据类型");
   await auditMode.selectOption("login-events");

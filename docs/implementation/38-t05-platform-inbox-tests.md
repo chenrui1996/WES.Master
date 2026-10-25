@@ -15,7 +15,7 @@
 |---|---|
 | `PlatformInbox` 定向测试 | 6 passed，0 failed |
 | Persistence Release 全量 | 341 passed，0 failed，0 skipped |
-| 全 solution Release 串行回归 | 本切片未重跑；不把之前回归结果当作本轮验证 |
+| 全 solution Release 串行回归 | `dotnet test WES.slnx --no-restore -c Release --verbosity minimal -m:1`：Architecture 29、Modules 220、Persistence 341、Route 228；共 818 passed，0 failed，0 skipped |
 | 真实 Broker / consumer ACK 丢失 | 未执行；隔离数据库重投测试不代表 Broker 验收 |
 | Inbox 保留/清理 | 90天owner-local有界清理原语通过真实MySQL测试；托管清理Job和真实Broker过期重投未执行 |
 | 其它 Provider / owner | 未执行；不计为通过 |

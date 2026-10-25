@@ -10,14 +10,14 @@
 | 范围 | 命令 | 结果 |
 |---|---|---|
 | Catalog allowlist、无效结构/未知/重复模块、失败关闭与重试、并发读取；菜单过滤；直接导航、catalog失败、登录/会话路由；QueryState与Audit stale结果 | `npm test -- --run src/features/module-catalog.spec.ts src/features/navigation.spec.ts src/router.spec.ts src/components/QueryState.spec.ts src/features/platform/AuditPage.spec.ts` | 5个测试文件、17项通过，0失败 |
-| 列偏好环境/主体/租户/page/table隔离、按字段类别的基准/最小宽度与600px上限、首个必显列默认固定及固定首列偏好重载恢复、跨标签变更提示、越界宽度拒绝、损坏存储提示、授权schema撤权规范化；ColumnSettings应用/取消/恢复默认列与键盘顺序 | `npm test -- --run src/components/useColumns.spec.ts src/components/ColumnSettings.spec.ts` | 已验证：2个测试文件、13项通过，0失败 |
+| 列偏好环境/主体/租户/page/table隔离、按字段类别的基准/最小宽度与600px上限、首个必显列默认固定及固定首列偏好重载恢复、跨标签变更提示、个人布局视图显式保存/恢复/隔离/工作副本确认、跨身份不共享、持久化字段白名单与授权schema撤权规范化；ColumnSettings应用/取消/恢复默认列与键盘顺序 | `npm test -- --run src/components/useColumns.spec.ts src/components/ColumnSettings.spec.ts` | 已验证：2个测试文件、16项通过，0失败 |
 | 用户目录相同scope刷新失败保留结果且禁用旧版本行操作；筛选变化立即清除旧结果；既有用户目录用例 | `npm test -- --run src/features/platform/UsersPage.spec.ts` | 1个测试文件、16项通过，0失败 |
 | 角色及租户目录相同scope刷新失败保留结果、危险行操作失效；既有用例 | `npm test -- --run src/features/platform/RolesPage.spec.ts src/features/platform/TenantsPage.spec.ts` | 2个测试文件、16项通过，0失败 |
 | 强类型配置目录同scope失败保留stale、筛选变化清空旧行、403丢弃受限数据；字典目录同scope刷新失败保留stale；现有设置用例 | `npm test -- --run src/features/platform/SettingsPage.spec.ts` | 1个测试文件、7项通过，0失败 |
 | 会话同范围刷新失败保留stale且禁用撤销；默认主标识固定、行操作列固定类、过滤变化/身份变化和管理权限拒绝不保留旧结果 | `npm test -- --run src/features/identity/SessionPage.spec.ts` | 1个测试文件、19项通过，0失败 |
-| Ops Web完整Vitest套件 | `npm test -- --run` | 已验证：17个测试文件、110项通过，0失败 |
+| Ops Web完整Vitest套件 | `npm test -- --run` | 已验证：17个测试文件、113项通过，0失败 |
 | Vue/TypeScript类型检查与生产打包 | `npm run build` | `vue-tsc --noEmit`通过；Vite生产构建成功 |
 
 ## 未覆盖
 
-未测试T06共享查询授权快照API/owner合同、可配置左/中/右固定区及固定宽度预算、个人视图与固定快照过期阈值；响应式固定列仅有CSS容器查询支持，未运行真实浏览器/200%缩放E2E与部署配置矩阵。UI catalog不授予服务端权限。
+未测试T06共享查询授权快照API/owner合同、可配置左/中/右固定区及固定宽度预算、个人视图的排序/筛选白名单与固定快照过期阈值；响应式固定列仅有CSS容器查询支持，未运行真实浏览器/200%缩放E2E与部署配置矩阵。UI catalog不授予服务端权限。

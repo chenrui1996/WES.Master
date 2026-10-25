@@ -87,7 +87,7 @@ const profileFields = ["Name", "DepartmentId", "Enabled"];
 const canCreateUser = computed(() => departmentCandidates.value.some(department => writable(createFields, undefined, department.id)));
 const profileDepartments = computed(() => departmentCandidates.value.filter(department =>
   writable(mode.value === "create" ? createFields : profileFields, selectedUser.value ?? undefined, department.id)));
-const { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning } = useColumns(() => rows.value.length ? [
+const { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning, columnViews } = useColumns(() => rows.value.length ? [
   { key: "id", label: "用户标识", required: true, widthClass: "identity" },
   ...rows.value.some(row => row.account !== null) ? [{ key: "account", label: "账号", widthClass: "identity" as const }] : [],
   ...rows.value.some(row => row.name !== null) ? [{ key: "name", label: "姓名", widthClass: "identity" as const }] : [],
@@ -337,7 +337,7 @@ onBeforeUnmount(() => {
         </template>
         <template v-if="rows.length">
           <ColumnSettings :columns="available" v-model="selected" v-model:widths="widths"
-            v-model:fixed-first-column="fixedFirstColumn" :preference-warning="preferenceWarning" />
+            v-model:fixed-first-column="fixedFirstColumn" :preference-warning="preferenceWarning" :column-views="columnViews" />
           <div class="table-scroll" tabindex="0" aria-label="用户目录">
             <p class="table-fixed-notice" role="status">可视区域较窄，固定列暂时停用；请横向滚动查看，避免固定列遮挡内容。</p>
             <table :class="{ 'table-fixed-first-column': fixedFirstColumn, 'table-fixed-actions': true }"><caption class="hint">当前页用户</caption><thead><tr><th v-for="column in visible" :key="column.key" scope="col" :style="widthStyle(column.key)">{{ column.label }}</th><th scope="col">操作</th></tr></thead>

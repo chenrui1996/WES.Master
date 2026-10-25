@@ -18,7 +18,7 @@ const staleMessage = computed(() => busy.value
   ? "正在刷新；页面保留的是最近一次已加载的证据。"
   : `刷新失败，仍保留最近一次已加载的证据：${error.value}`);
 const fields = computed(() => new Set(sessionState.subject?.grants.filter(grant => grant.permission === "platform.audit.read").flatMap(grant => grant.fields) ?? []));
-const { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning } = useColumns(() => [
+const { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning, columnViews } = useColumns(() => [
   { key: "id", label: "标识", field: "Id", required: true, widthClass: "identity" as const },
   { key: "occurredAt", label: "发生时间（UTC）", field: "OccurredAt", required: true, widthClass: "time" as const },
   { key: "correlationId", label: "关联标识", field: "CorrelationId", widthClass: "identity" as const },
@@ -94,7 +94,7 @@ onMounted(read); onUnmounted(() => { controller.abort(); sequence++; });
       <label v-if="fields.has('CorrelationId')" for="event-correlation">关联 UUID<input id="event-correlation" v-model="correlation" maxlength="36"></label>
       <button :disabled="busy">查询证据</button>
     </form><ColumnSettings :columns="available" v-model="selected" v-model:widths="widths"
-      v-model:fixed-first-column="fixedFirstColumn" :preference-warning="preferenceWarning" />
+      v-model:fixed-first-column="fixedFirstColumn" :preference-warning="preferenceWarning" :column-views="columnViews" />
     <QueryState label="当前权限下的证据" :state="queryState" :busy="busy" :error-message="error"
       :stale-message="staleMessage" @retry="read">
       <template #empty>该区间没有当前可见记录。可以调整时间后重新查询。</template>

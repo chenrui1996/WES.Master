@@ -1,4 +1,5 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import type { ComputedRef, Ref } from "vue";
 import { isRecord, sessionState } from "../features/identity/identity-api";
 
 /** Column metadata only. Never persists rows, authorization or preferences across identities. */
@@ -10,6 +11,28 @@ export interface AuthorizedColumn {
   widthClass?: ColumnWidthClass;
 }
 export interface ColumnWidthPreset { defaultWidth: number; minWidth: number; maxWidth: number }
+export interface ColumnLayout {
+  selected: string[];
+  widths: Record<string, number>;
+  fixedFirstColumn: boolean;
+  knownColumns: string[];
+}
+export interface SavedColumnView extends ColumnLayout {
+  id: string;
+  name: string;
+}
+export interface ColumnViewController {
+  views: Ref<SavedColumnView[]>;
+  activeViewId: Ref<string | null>;
+  viewDirty: ComputedRef<boolean>;
+  viewError: Ref<string | null>;
+  activateView: (id: string | null) => void;
+  createView: (name: string) => string | null;
+  saveView: () => string | null;
+  renameView: (name: string) => string | null;
+  restoreView: () => void;
+  removeView: () => string | null;
+}
 export const MIN_COLUMN_WIDTH = 100;
 export const MAX_COLUMN_WIDTH = 600;
 const MAX_STORED_COLUMN_WIDTH = 800;
@@ -35,8 +58,10 @@ export interface ColumnPreferenceOptions {
 interface StoredColumnPreference {
   version: 1;
   selected: string[];
+  knownColumns?: string[];
   widths?: Record<string, number>;
   fixedFirstColumn?: boolean;
+  views?: SavedColumnView[];
 }
 const invalidPreferenceWarning = "列偏好格式无效，已恢复为当前可读列默认值。";
 const unavailableStorageWarning = "无法读取或保存列偏好；当前选择仅在本次页面会话有效。";
@@ -60,16 +85,37 @@ function parsePreference(value: string): StoredColumnPreference | null {
   }
   if (!isRecord(parsed) || parsed.version !== 1 || !Array.isArray(parsed.selected)
     || !parsed.selected.every((item: unknown) => typeof item === "string")
+    || parsed.knownColumns !== undefined && (!Array.isArray(parsed.knownColumns)
+      || !parsed.knownColumns.every((item: unknown) => typeof item === "string"))
     || parsed.fixedFirstColumn !== undefined && typeof parsed.fixedFirstColumn !== "boolean") return null;
   if (parsed.widths !== undefined && !isColumnWidths(parsed.widths)) return null;
+  if (parsed.views !== undefined && (!Array.isArray(parsed.views) || !parsed.views.every(isSavedColumnView))) return null;
   return { version: 1, selected: parsed.selected,
+    ...(parsed.knownColumns === undefined ? {} : { knownColumns: parsed.knownColumns }),
     ...(parsed.widths === undefined ? {} : { widths: parsed.widths }),
-    ...(parsed.fixedFirstColumn === undefined ? {} : { fixedFirstColumn: parsed.fixedFirstColumn }) };
+    ...(parsed.fixedFirstColumn === undefined ? {} : { fixedFirstColumn: parsed.fixedFirstColumn }),
+    ...(parsed.views === undefined ? {} : { views: parsed.views.map((view: SavedColumnView) => ({
+      id: view.id, name: view.name, selected: view.selected, knownColumns: view.knownColumns,
+      widths: view.widths, fixedFirstColumn: view.fixedFirstColumn,
+    })) }) };
+}
+
+function isSavedColumnView(value: unknown): value is SavedColumnView {
+  return isRecord(value) && typeof value.id === "string" && value.id.length > 0
+    && typeof value.name === "string" && value.name.trim().length > 0 && value.name.length <= 48
+    && Array.isArray(value.selected) && value.selected.every((item: unknown) => typeof item === "string")
+    && Array.isArray(value.knownColumns) && value.knownColumns.every((item: unknown) => typeof item === "string")
+    && isColumnWidths(value.widths) && typeof value.fixedFirstColumn === "boolean";
 }
 
 function isColumnWidths(value: unknown): value is Record<string, number> {
   return isRecord(value) && Object.values(value).every((width: unknown) =>
     typeof width === "number" && Number.isInteger(width) && width >= MIN_COLUMN_WIDTH && width <= MAX_STORED_COLUMN_WIDTH);
+}
+
+function copyLayout(layout: ColumnLayout): ColumnLayout {
+  return { selected: [...layout.selected], widths: { ...layout.widths }, fixedFirstColumn: layout.fixedFirstColumn,
+    knownColumns: [...layout.knownColumns] };
 }
 
 /** The caller supplies only fields present in the current server projection. Revocation drops preferences. */
@@ -78,6 +124,11 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
   const selected = ref<string[]>([]);
   const widths = ref<Record<string, number>>({});
   const fixedFirstColumn = ref(true);
+  const views = ref<SavedColumnView[]>([]);
+  const activeViewId = ref<string | null>(null);
+  const defaultLayout = ref<ColumnLayout>({ selected: [], widths: {}, fixedFirstColumn: true, knownColumns: [] });
+  const activeViewSnapshot = ref<ColumnLayout | null>(null);
+  const viewError = ref<string | null>(null);
   const preferenceWarning = ref<string | null>(null);
   const hydratedScope = ref<string | null>(null);
   const environment = options.environment ?? import.meta.env.MODE;
@@ -88,6 +139,165 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
     return columnPreferenceKey(environment, subject.tenantId, subject.userId, options.pageId, tableId);
   });
   const storageProvider = options.storageProvider ?? (() => window.localStorage);
+  const viewDirty = computed(() => activeViewSnapshot.value !== null
+    && JSON.stringify(activeViewSnapshot.value) !== JSON.stringify(currentLayout()));
+
+  function currentLayout(): ColumnLayout {
+    return { selected: [...selected.value], widths: { ...widths.value }, fixedFirstColumn: fixedFirstColumn.value,
+      knownColumns: available.value.map(column => column.key) };
+  }
+
+  function normalizeLayout(layout: ColumnLayout, columns: AuthorizedColumn[]): ColumnLayout {
+    const permitted = new Set(columns.map(column => column.key));
+    const selectedKeys = [...new Set(layout.selected.filter(key => permitted.has(key)))];
+    const known = new Set(layout.knownColumns);
+    for (const column of columns)
+      if (!known.has(column.key) && !selectedKeys.includes(column.key)) selectedKeys.push(column.key);
+    for (const column of columns)
+      if (column.required && !selectedKeys.includes(column.key)) selectedKeys.unshift(column.key);
+    const normalizedWidths = Object.fromEntries(Object.entries(layout.widths).filter(([key, width]) => {
+      const column = columns.find(item => item.key === key);
+      if (!column || !Number.isInteger(width)) return false;
+      const preset = columnWidthPreset(column);
+      return width >= preset.minWidth && width <= preset.maxWidth;
+    }));
+    return { selected: selectedKeys, widths: normalizedWidths, fixedFirstColumn: layout.fixedFirstColumn,
+      knownColumns: columns.map(column => column.key) };
+  }
+
+  function persistPreference(layout: ColumnLayout, savedViews: SavedColumnView[]): boolean {
+    const key = preferenceScope.value;
+    if (!key || hydratedScope.value !== key) return false;
+    const normalized = normalizeLayout(layout, available.value);
+    try {
+      storageProvider().setItem(key, JSON.stringify({
+        version: 1,
+        selected: normalized.selected,
+        knownColumns: normalized.knownColumns,
+        ...(Object.keys(normalized.widths).length ? { widths: normalized.widths } : {}),
+        ...(normalized.fixedFirstColumn ? { fixedFirstColumn: true } : {}),
+        ...(savedViews.length ? { views: savedViews } : {}),
+      }));
+      preferenceWarning.value = null;
+      return true;
+    } catch (failure) {
+      if (!(failure instanceof DOMException)) throw failure;
+      preferenceWarning.value = unavailableStorageWarning;
+      return false;
+    }
+  }
+
+  function setLayout(layout: ColumnLayout) {
+    selected.value = [...layout.selected];
+    widths.value = { ...layout.widths };
+    fixedFirstColumn.value = layout.fixedFirstColumn;
+  }
+
+  function activateView(id: string | null) {
+    if (id === null) {
+      activeViewId.value = null;
+      activeViewSnapshot.value = null;
+      setLayout(defaultLayout.value);
+      return;
+    }
+    const view = views.value.find(item => item.id === id);
+    if (!view) {
+      viewError.value = "该个人视图已不存在，请重新读取视图列表。";
+      return;
+    }
+    const layout = normalizeLayout(view, available.value);
+    activeViewId.value = view.id;
+    activeViewSnapshot.value = copyLayout(layout);
+    setLayout(layout);
+    viewError.value = null;
+  }
+
+  function validateViewName(rawName: string, currentId?: string): string | null {
+    const name = rawName.trim();
+    if (!name || name.length > 48) return "视图名称须为1至48个字符。";
+    if (views.value.some(view => view.id !== currentId && view.name.toLocaleLowerCase() === name.toLocaleLowerCase()))
+      return "此名称已用于当前表格的个人视图。";
+    return null;
+  }
+
+  function createView(rawName: string): string | null {
+    const name = rawName.trim();
+    const validation = validateViewName(name);
+    if (validation) { viewError.value = validation; return validation; }
+    const layout = normalizeLayout(currentLayout(), available.value);
+    const id = `view-${globalThis.crypto.randomUUID()}`;
+    const nextViews = [...views.value, { id, name, ...copyLayout(layout) }];
+    if (!persistPreference(defaultLayout.value, nextViews)) {
+      viewError.value = unavailableStorageWarning;
+      return unavailableStorageWarning;
+    }
+    views.value = nextViews;
+    activateView(id);
+    viewError.value = null;
+    return null;
+  }
+
+  function saveView(): string | null {
+    const id = activeViewId.value;
+    if (!id) {
+      const message = "默认视图列偏好独立保存；请使用“另存为”创建个人视图。";
+      viewError.value = message;
+      return message;
+    }
+    const layout = normalizeLayout(currentLayout(), available.value);
+    const nextViews = views.value.map(view => view.id === id ? { ...view, ...copyLayout(layout) } : view);
+    if (!persistPreference(defaultLayout.value, nextViews)) {
+      viewError.value = unavailableStorageWarning;
+      return unavailableStorageWarning;
+    }
+    views.value = nextViews;
+    activeViewSnapshot.value = copyLayout(layout);
+    viewError.value = null;
+    return null;
+  }
+
+  function renameView(rawName: string): string | null {
+    const id = activeViewId.value;
+    if (!id) {
+      const message = "默认视图不可重命名。";
+      viewError.value = message;
+      return message;
+    }
+    const validation = validateViewName(rawName, id);
+    if (validation) { viewError.value = validation; return validation; }
+    const nextViews = views.value.map(view => view.id === id ? { ...view, name: rawName.trim() } : view);
+    if (!persistPreference(defaultLayout.value, nextViews)) {
+      viewError.value = unavailableStorageWarning;
+      return unavailableStorageWarning;
+    }
+    views.value = nextViews;
+    viewError.value = null;
+    return null;
+  }
+
+  function restoreView() {
+    const view = views.value.find(item => item.id === activeViewId.value);
+    if (view) activateView(view.id);
+  }
+
+  function removeView(): string | null {
+    const id = activeViewId.value;
+    if (!id) {
+      const message = "默认视图不可删除。";
+      viewError.value = message;
+      return message;
+    }
+    const nextViews = views.value.filter(view => view.id !== id);
+    if (!persistPreference(defaultLayout.value, nextViews)) {
+      viewError.value = unavailableStorageWarning;
+      return unavailableStorageWarning;
+    }
+    views.value = nextViews;
+    activateView(null);
+    viewError.value = null;
+    return null;
+  }
+
   function onStorage(event: StorageEvent) {
     if (event.key !== preferenceScope.value) return;
     preferenceWarning.value = "检测到其他标签页修改了此表格偏好；当前页面未自动应用，请重新载入页面后确认。";
@@ -109,6 +319,11 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
   watch(preferenceScope, () => {
     hydratedScope.value = null;
     preferenceWarning.value = null;
+    viewError.value = null;
+    views.value = [];
+    activeViewId.value = null;
+    activeViewSnapshot.value = null;
+    defaultLayout.value = { selected: [], widths: {}, fixedFirstColumn: true, knownColumns: [] };
     selected.value = [];
     widths.value = {};
     fixedFirstColumn.value = true;
@@ -118,6 +333,8 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
     if (!columns.length) return;
     const permitted = new Set(columns.map(column => column.key));
     widths.value = Object.fromEntries(Object.entries(widths.value).filter(([key]) => permitted.has(key)));
+    views.value = views.value.map(view => ({ ...view, ...normalizeLayout(view, columns) }));
+    defaultLayout.value = normalizeLayout(defaultLayout.value, columns);
   }, { flush: "sync" });
 
   watch([preferenceScope, available], ([key, columns]) => {
@@ -132,58 +349,45 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
       preferenceWarning.value = unavailableStorageWarning;
     }
 
-    const saved = stored?.selected ?? [];
-    const permitted = new Set(columns.map(column => column.key));
-    const ordered = [...new Set(saved.filter(key => permitted.has(key)))];
-    for (const column of columns)
-      if (!saved.includes(column.key)) ordered.push(column.key);
-    for (const column of columns)
-      if (column.required && !ordered.includes(column.key)) ordered.unshift(column.key);
-    hydratedScope.value = key;
-    const widthColumns = new Map(columns.map(column => [column.key, column]));
-    const storedWidths = Object.entries(stored?.widths ?? {});
-    const hasOutOfRangeWidth = storedWidths.some(([columnKey, width]) => {
-      const column = widthColumns.get(columnKey);
+    const fallbackLayout: ColumnLayout = {
+      selected: columns.map(column => column.key),
+      widths: {},
+      fixedFirstColumn: columns.some(column => column.required),
+      knownColumns: columns.map(column => column.key),
+    };
+    const storedLayout = stored ? normalizeLayout({
+      selected: stored.selected,
+      knownColumns: stored.knownColumns ?? [],
+      widths: stored.widths ?? {},
+      fixedFirstColumn: stored.fixedFirstColumn ?? columns.some(column => column.required),
+    }, columns) : fallbackLayout;
+    const hasOutOfRangeWidth = Object.entries(stored?.widths ?? {}).some(([columnKey, width]) => {
+      const column = columns.find(item => item.key === columnKey);
       if (!column) return false;
       const preset = columnWidthPreset(column);
       return width < preset.minWidth || width > preset.maxWidth;
     });
-    const validWidths = storedWidths.filter(([columnKey, width]) => {
-      const column = widthColumns.get(columnKey);
-      if (!column || !permitted.has(columnKey)) return false;
-      const preset = columnWidthPreset(column);
-      return width >= preset.minWidth && width <= preset.maxWidth;
-    });
     if (hasOutOfRangeWidth)
       preferenceWarning.value = "部分列宽超出当前字段范围，已恢复为基准宽度。";
-    widths.value = Object.fromEntries(validWidths);
-    fixedFirstColumn.value = stored?.fixedFirstColumn ?? columns.some(column => column.required);
-    selected.value = ordered;
+    const normalizedViews = (stored?.views ?? []).map(view => ({
+      id: view.id, name: view.name, ...normalizeLayout(view, columns),
+    })).filter((view, index, all) =>
+      all.findIndex(candidate => candidate.id === view.id) === index
+      && all.findIndex(candidate => candidate.name.toLocaleLowerCase() === view.name.toLocaleLowerCase()) === index);
+    defaultLayout.value = copyLayout(storedLayout);
+    views.value = normalizedViews;
+    activeViewId.value = null;
+    activeViewSnapshot.value = null;
+    setLayout(storedLayout);
+    hydratedScope.value = key;
   }, { immediate: true, flush: "sync" });
 
-  watch([selected, widths, fixedFirstColumn], ([selectedValue, widthValues, pinFirst]) => {
+  watch([selected, widths, fixedFirstColumn], () => {
     const key = preferenceScope.value;
     if (!key || hydratedScope.value !== key) return;
-    const permitted = new Set(available.value.map(column => column.key));
-    const normalized = [...new Set(selectedValue.filter(column => permitted.has(column)))];
-    for (const column of available.value)
-      if (column.required && !normalized.includes(column.key)) normalized.unshift(column.key);
-    try {
-      const normalizedWidths = Object.fromEntries(Object.entries(widthValues)
-        .filter(([columnKey, width]) => {
-          const column = available.value.find(item => item.key === columnKey);
-          if (!column || !permitted.has(columnKey) || !Number.isInteger(width)) return false;
-          const preset = columnWidthPreset(column);
-          return width >= preset.minWidth && width <= preset.maxWidth;
-        }));
-      storageProvider().setItem(key, JSON.stringify({ version: 1, selected: normalized,
-        ...(Object.keys(normalizedWidths).length ? { widths: normalizedWidths } : {}),
-        ...(pinFirst ? { fixedFirstColumn: true } : {}) }));
-      preferenceWarning.value = null;
-    } catch (failure) {
-      if (!(failure instanceof DOMException)) throw failure;
-      preferenceWarning.value = unavailableStorageWarning;
-    }
+    if (activeViewId.value !== null) return;
+    defaultLayout.value = normalizeLayout(currentLayout(), available.value);
+    persistPreference(defaultLayout.value, views.value);
   }, { deep: true });
 
   const visible = computed(() => selected.value.flatMap(key => {
@@ -196,5 +400,8 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
     const width = widths.value[key] ?? columnWidthPreset(column).defaultWidth;
     return { width: `${width}px` };
   }
-  return { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning };
+  const columnViews: ColumnViewController = {
+    views, activeViewId, viewDirty, viewError, activateView, createView, saveView, renameView, restoreView, removeView,
+  };
+  return { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning, columnViews };
 }

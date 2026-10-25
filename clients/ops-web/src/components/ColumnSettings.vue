@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import type { ColumnViewController } from "./useColumns";
 import { columnWidthPreset, type AuthorizedColumn } from "./useColumns";
 
-const props = defineProps<{ columns: AuthorizedColumn[]; preferenceWarning?: string | null }>();
+const props = defineProps<{ columns: AuthorizedColumn[]; preferenceWarning?: string | null; columnViews?: ColumnViewController }>();
 const selected = defineModel<string[]>({ required: true });
 const widths = defineModel<Record<string, number>>("widths", { default: () => ({}) });
 const fixedFirstColumn = defineModel<boolean>("fixedFirstColumn", { default: true });
@@ -10,6 +11,20 @@ const settingsForm = ref<HTMLFormElement | null>(null);
 const draftSelected = ref([...selected.value]);
 const draftWidths = ref({ ...widths.value });
 const draftFixedFirstColumn = ref(fixedFirstColumn.value);
+type ViewPrompt = { kind: "create" | "rename" } | { kind: "switch"; target: string | null } | { kind: "restore" | "delete" };
+const viewPrompt = ref<ViewPrompt | null>(null);
+const viewName = ref("");
+const viewSelection = ref("");
+const savedViews = computed(() => props.columnViews?.views.value ?? []);
+const activeViewId = computed(() => props.columnViews?.activeViewId.value ?? null);
+const activeViewDirty = computed(() => props.columnViews?.viewDirty.value ?? false);
+const viewError = computed(() => props.columnViews?.viewError.value ?? null);
+const draftDirty = computed(() => JSON.stringify({
+  selected: draftSelected.value, widths: draftWidths.value, fixedFirstColumn: draftFixedFirstColumn.value,
+}) !== JSON.stringify({
+  selected: selected.value, widths: widths.value, fixedFirstColumn: fixedFirstColumn.value,
+}));
+watch(activeViewId, id => { viewSelection.value = id ?? ""; }, { immediate: true });
 function resetDraft() {
   draftSelected.value = [...selected.value];
   draftWidths.value = { ...widths.value };
@@ -75,6 +90,41 @@ function restoreDefaults() {
   draftFixedFirstColumn.value = true;
   clearWidthValidation();
 }
+function requestViewSwitch(target: string | null) {
+  if (!props.columnViews || target === activeViewId.value) return;
+  viewSelection.value = activeViewId.value ?? "";
+  if (activeViewDirty.value || draftDirty.value) {
+    viewPrompt.value = { kind: "switch", target };
+    return;
+  }
+  props.columnViews.activateView(target);
+}
+function openViewNamePrompt(kind: "create" | "rename") {
+  viewName.value = kind === "rename"
+    ? savedViews.value.find(view => view.id === activeViewId.value)?.name ?? ""
+    : "";
+  viewPrompt.value = { kind };
+}
+function confirmViewPrompt() {
+  if (!props.columnViews || !viewPrompt.value) return;
+  const prompt = viewPrompt.value;
+  if (prompt.kind === "create") {
+    if (props.columnViews.createView(viewName.value)) return;
+  } else if (prompt.kind === "rename") {
+    if (props.columnViews.renameView(viewName.value)) return;
+  } else if (prompt.kind === "switch") {
+    props.columnViews.activateView(prompt.target);
+  } else if (prompt.kind === "restore") {
+    props.columnViews.restoreView();
+  } else {
+    if (props.columnViews.removeView()) return;
+  }
+  viewPrompt.value = null;
+}
+function cancelViewPrompt() {
+  viewPrompt.value = null;
+  viewSelection.value = activeViewId.value ?? "";
+}
 </script>
 
 <template>
@@ -82,6 +132,45 @@ function restoreDefaults() {
     <summary>列设置</summary>
     <p class="hint">仅显示当前可读字段。勾选列后可用上移、下移或方向键调整顺序；宽度上限为 600 像素，留空恢复字段基准宽度。应用前的修改仅为草稿。</p>
     <p v-if="preferenceWarning" class="notice" role="status">{{ preferenceWarning }}</p>
+    <section v-if="columnViews" class="view-controls" aria-label="个人视图">
+      <label>个人视图
+        <select :value="viewSelection" aria-label="当前个人视图"
+          @change="requestViewSwitch(($event.currentTarget as HTMLSelectElement).value || null)">
+          <option value="">默认视图</option>
+          <option v-for="view in savedViews" :key="view.id" :value="view.id">{{ view.name }}</option>
+        </select>
+      </label>
+      <span v-if="activeViewDirty" class="hint" role="status">视图有未保存更改</span>
+      <div class="column-actions">
+        <button type="button" data-test="save-view" :disabled="draftDirty"
+          @click="activeViewId ? columnViews.saveView() : openViewNamePrompt('create')">
+          {{ activeViewId ? "保存视图" : "保存视图为…" }}
+        </button>
+        <button type="button" data-test="save-view-as" :disabled="draftDirty" @click="openViewNamePrompt('create')">另存为</button>
+        <button v-if="activeViewId" type="button" data-test="restore-view" :disabled="!activeViewDirty && !draftDirty"
+          @click="viewPrompt = { kind: 'restore' }">恢复视图</button>
+        <button v-if="activeViewId" type="button" data-test="rename-view" @click="openViewNamePrompt('rename')">重命名</button>
+        <button v-if="activeViewId" type="button" data-test="delete-view" @click="viewPrompt = { kind: 'delete' }">删除视图</button>
+      </div>
+      <p class="hint">个人视图仅保存列顺序、显隐、宽度和固定列偏好；不保存筛选、搜索、行数据或待写内容。</p>
+      <p v-if="viewError" role="alert" class="notice">{{ viewError }}</p>
+      <section v-if="viewPrompt" class="view-prompt" role="group" aria-label="确认个人视图操作">
+        <template v-if="viewPrompt.kind === 'create' || viewPrompt.kind === 'rename'">
+          <label :for="`column-view-name-${viewPrompt.kind}`">视图名称
+            <input :id="`column-view-name-${viewPrompt.kind}`" v-model="viewName" maxlength="48" required>
+          </label>
+          <button type="button" data-test="confirm-view" @click="confirmViewPrompt">
+            {{ viewPrompt.kind === "create" ? "创建个人视图" : "保存新名称" }}
+          </button>
+        </template>
+        <p v-else-if="viewPrompt.kind === 'switch'">切换视图将放弃当前未保存的工作副本。</p>
+        <p v-else-if="viewPrompt.kind === 'restore'">恢复将放弃当前工作副本并载入上次保存的视图。</p>
+        <p v-else>删除个人视图后将返回默认视图；不会删除任何业务数据。</p>
+        <button v-if="viewPrompt.kind !== 'create' && viewPrompt.kind !== 'rename'" type="button"
+          data-test="confirm-view" @click="confirmViewPrompt">确认</button>
+        <button type="button" data-test="cancel-view" @click="cancelViewPrompt">取消</button>
+      </section>
+    </section>
     <label class="pin-control"><input v-model="draftFixedFirstColumn" type="checkbox" data-test="fixed-first-column">固定首列，横向滚动时保持可见</label>
     <form ref="settingsForm" @submit.prevent="apply">
       <ul>
@@ -125,4 +214,8 @@ label { display: flex; min-height: 44px; align-items: center; gap: var(--wes-spa
 input { width: 20px; min-width: 20px; min-height: 20px; }
 button { white-space: nowrap; }
 .column-actions { display: flex; flex-wrap: wrap; gap: var(--wes-space-2); margin-top: var(--wes-space-2); }
+.view-controls { display: grid; gap: var(--wes-space-2); max-width: 48rem; margin-block: var(--wes-space-2); }
+.view-controls > label { justify-content: flex-start; }
+.view-controls select, .view-prompt input { min-height: 2.75rem; }
+.view-prompt { display: grid; gap: var(--wes-space-2); padding: var(--wes-space-3); border: 1px solid var(--wes-color-border-soft); background: var(--wes-color-workspace); }
 </style>

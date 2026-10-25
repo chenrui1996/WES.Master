@@ -65,7 +65,7 @@ const definitions = [
   { key: "current", label: "是否当前", widthClass: "status" },
   { key: "state", label: "状态", widthClass: "status" },
 ] satisfies { key: keyof Family; label: string; required?: boolean; widthClass: ColumnWidthClass }[];
-const { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning } = useColumns(() => rows.value.length
+const { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning, columnViews } = useColumns(() => rows.value.length
   ? definitions.filter(column => column.key === "id" || (mode.value === "self" && column.key !== "userId")
     || rows.value.some(row => row[column.key] !== null)) : [], { pageId: "identity-sessions", tableId: "sessions" });
 
@@ -253,7 +253,7 @@ onUnmounted(invalidate);
     </form>
     <p class="hint">筛选变更后请重新读取。状态由服务端判定；管理范围与字段以服务端当前授权为准。</p>
     <ColumnSettings :columns="available" v-model="selected" v-model:widths="widths"
-      v-model:fixed-first-column="fixedFirstColumn" :preference-warning="preferenceWarning" />
+      v-model:fixed-first-column="fixedFirstColumn" :preference-warning="preferenceWarning" :column-views="columnViews" />
     <QueryState label="会话列表" :state="queryState" :busy="loading" :error-message="queryError"
       :stale-message="staleMessage" @retry="read">
       <template #empty><p>当前没有可展示的会话。请重新读取，必要时重新登录。</p></template>

@@ -50,7 +50,7 @@ const dictionaryStaleMessage = computed(() => dictionaryLoading.value
   : `刷新失败，仍保留最近一次已加载的字典目录：${dictionaryQueryError.value}`);
 const fields = computed(() => new Set(sessionState.subject?.grants.filter(grant => grant.permission === "platform.settings.read").flatMap(grant => grant.fields) ?? []));
 const { available, selected: selectedColumns, visible, widths: settingWidths, widthStyle: settingWidthStyle,
-  fixedFirstColumn: settingsFixedFirstColumn, preferenceWarning } = useColumns(() => [
+  fixedFirstColumn: settingsFixedFirstColumn, preferenceWarning, columnViews: settingsColumnViews } = useColumns(() => [
   { key: "id", label: "标识", field: "Id", required: true, widthClass: "identity" as const },
   { key: "key", label: "稳定键", field: "Key", widthClass: "identity" as const },
   { key: "value", label: "当前值", field: "Value", widthClass: "description" as const },
@@ -215,7 +215,8 @@ onMounted(readSettings); onUnmounted(() => { controller.abort(); readSequence++;
         <button :disabled="busy">查询配置</button>
       </form>
       <ColumnSettings :columns="available" v-model="selectedColumns" v-model:widths="settingWidths"
-        v-model:fixed-first-column="settingsFixedFirstColumn" :preference-warning="preferenceWarning" />
+        v-model:fixed-first-column="settingsFixedFirstColumn" :preference-warning="preferenceWarning"
+        :column-views="settingsColumnViews" />
       <QueryState label="强类型配置目录" :state="settingsQueryState" :busy="settingsLoading"
         :error-message="settingsQueryError" :stale-message="settingsStaleMessage" @retry="readSettings">
         <template #empty><p>没有可展示的配置。未装配目录时请使用受控初始化，不会回填伪造默认行。</p></template>
@@ -245,7 +246,7 @@ onMounted(readSettings); onUnmounted(() => { controller.abort(); readSequence++;
       </form><p>显示顺序：请求语言 → 当前租户默认语言 → [诊断语言键]。回退不改变业务状态码。</p>
       <ColumnSettings :columns="dictColumns.available.value" v-model="dictColumns.selected.value"
         v-model:widths="dictColumns.widths.value" v-model:fixed-first-column="dictColumns.fixedFirstColumn.value"
-        :preference-warning="dictColumns.preferenceWarning.value" />
+        :preference-warning="dictColumns.preferenceWarning.value" :column-views="dictColumns.columnViews" />
       <QueryState label="字典与语言目录" :state="dictionaryQueryState" :busy="dictionaryLoading"
         :error-message="dictionaryQueryError" :stale-message="dictionaryStaleMessage" @retry="readDictionary">
         <template #empty><p>当前分类没有可展示的字典项。</p></template>

@@ -85,7 +85,8 @@ it("applies and persists bounded per-column widths", async () => {
   expect(wrapper.get("output").text()).toBe("220px");
   expect(wrapper.get('[data-test="fixed"]').text()).toBe("true");
   expect(JSON.parse(localStorage.getItem("wes-ops-web:columns:v1:test:tenant-a:user-a:users:directory") ?? "{}"))
-    .toEqual({ version: 1, selected: ["id", "name"], widths: { name: 220 }, fixedFirstColumn: true });
+    .toEqual({ version: 1, selected: ["id", "name"], knownColumns: ["id", "name"],
+      widths: { name: 220 }, fixedFirstColumn: true });
   await wrapper.get('[data-test="width-name"]').setValue("");
   expect(wrapper.get("output").text()).toBe("220px");
   await wrapper.get("form").trigger("submit");
@@ -106,4 +107,42 @@ it("uses the field-category width baselines from the dense-page contract", () =>
     .toEqual({ defaultWidth: 200, minWidth: 180, maxWidth: 600 });
   expect(columnWidthPreset({ key: "description", label: "说明", widthClass: "description" }))
     .toEqual({ defaultWidth: 240, minWidth: 180, maxWidth: 600 });
+});
+
+it("requires confirmation before abandoning an unsaved personal view", async () => {
+  sessionState.subject = {
+    tenantId: "tenant-a", userId: "user-a", sessionId: "session-a",
+    requiresPasswordChange: false, credentialVersion: null, grants: [],
+  };
+  const host = defineComponent({
+    components: { ColumnSettings },
+    setup() {
+      const columns = useColumns(() => [
+        { key: "id", label: "标识", required: true },
+        { key: "name", label: "姓名" },
+      ], { environment: "test", pageId: "users", tableId: "directory" });
+      return { ...columns, activeView: columns.columnViews.activeViewId };
+    },
+    template: `<ColumnSettings :columns="available" v-model="selected" v-model:widths="widths"
+        v-model:fixed-first-column="fixedFirstColumn" :column-views="columnViews" />
+      <output data-test="active-view">{{ activeView }}</output>`,
+  });
+  const wrapper = mount(host);
+  await wrapper.get('[data-test="save-view-as"]').trigger("click");
+  await wrapper.get("#column-view-name-create").setValue("Operations");
+  await wrapper.get('[data-test="confirm-view"]').trigger("click");
+  const id = wrapper.get('[data-test="active-view"]').text();
+  expect(id).not.toBe("");
+  await wrapper.get('[data-test="column-name"] input').setValue(false);
+  await wrapper.get("details.column-settings form").trigger("submit");
+  expect(wrapper.get('[data-test="active-view"]').text()).toBe(id);
+  expect(wrapper.get('[data-test="save-view"]').text()).toContain("保存视图");
+  await wrapper.get('[aria-label="当前个人视图"]').setValue("");
+  expect(wrapper.get('[aria-label="确认个人视图操作"]').text()).toContain("放弃");
+  await wrapper.get('[data-test="cancel-view"]').trigger("click");
+  expect(wrapper.get('[data-test="active-view"]').text()).toBe(id);
+  await wrapper.get('[aria-label="当前个人视图"]').setValue("");
+  await wrapper.get('[data-test="confirm-view"]').trigger("click");
+  expect(wrapper.get('[data-test="active-view"]').text()).toBe("");
+  wrapper.unmount();
 });

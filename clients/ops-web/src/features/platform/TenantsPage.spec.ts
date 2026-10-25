@@ -108,3 +108,27 @@ it("discards an outstanding switch check after the subject changes", async () =>
   expect(wrapper.find('[data-test="switch-form"]').exists()).toBe(false);
   wrapper.unmount();
 });
+it("retains same-scope tenant results as stale and blocks edit and switch after refresh failure", async () => {
+  let tenantReads = 0;
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (url.includes("/api/platform/tenants?")) {
+      tenantReads++;
+      return tenantReads === 1
+        ? new Response(JSON.stringify({ authorized: true, rows: tenants }))
+        : new Response('{"code":"Unavailable","correlationId":"tenant-refresh"}', { status: 503 });
+    }
+    return new Response('{"authorized":true,"rows":[]}');
+  }));
+  const wrapper = mount(TenantsPage);
+  await flushPromises();
+  expect(wrapper.text()).toContain("目标租户");
+
+  await wrapper.get('[data-test="tenant-filters"]').trigger("submit");
+  await flushPromises();
+
+  expect(wrapper.text()).toContain("目标租户");
+  expect(wrapper.get('[aria-label="租户目录"] [role="status"]').text()).toContain("tenant-refresh");
+  expect(wrapper.get('[data-test="edit-tenant"]').attributes("disabled")).toBeDefined();
+  expect(wrapper.get('[data-test="switch-tenant"]').attributes("disabled")).toBeDefined();
+  wrapper.unmount();
+});

@@ -148,3 +148,29 @@ it("sends the exact role version once and discards stale rules after a conflict"
   expect(wrapper.get('[role="alert"]').text()).toContain("重新读取");
   wrapper.unmount();
 });
+
+it("retains same-scope role results as stale and blocks editing after refresh failure", async () => {
+  let roleReads = 0;
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (url.includes("/api/platform/roles?")) {
+      roleReads++;
+      return roleReads === 1
+        ? new Response(JSON.stringify({ authorized: true, rows: [
+          { id: "r1", code: "OPS", enabled: true, version: "role-v1", rules: [] },
+        ] }))
+        : new Response('{"code":"Unavailable","correlationId":"role-refresh"}', { status: 503 });
+    }
+    return new Response('{"authorized":true,"rows":[]}');
+  }));
+  const wrapper = mount(RolesPage);
+  await flushPromises();
+  expect(wrapper.text()).toContain("OPS");
+
+  await wrapper.get('[data-test="role-filters"]').trigger("submit");
+  await flushPromises();
+
+  expect(wrapper.text()).toContain("OPS");
+  expect(wrapper.get('[aria-label="角色目录"] [role="status"]').text()).toContain("role-refresh");
+  expect(wrapper.get('[data-test="edit-role"]').attributes("disabled")).toBeDefined();
+  wrapper.unmount();
+});

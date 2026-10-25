@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 import ColumnSettings from "../../components/ColumnSettings.vue";
+import QueryState from "../../components/QueryState.vue";
 import { useColumns } from "../../components/useColumns";
 import { api, ApiError, canRead, sessionState, type Grant } from "../identity/identity-api";
 import { useDirectoryCandidates } from "./useDirectoryCandidates";
@@ -15,6 +16,7 @@ const loading = ref(false);
 const busy = ref(false);
 const online = ref(navigator.onLine);
 const error = ref("");
+const queryError = ref("");
 const candidateError = ref("");
 const message = ref("");
 const offset = ref(0);
@@ -26,7 +28,26 @@ const form = reactive({ code: "", enabled: true, rules: [] as Grant[] });
 const draft = reactive({ permission: "", scope: 0, departments: [] as string[], fields: [] as string[] });
 let generation = 0;
 let controller: AbortController | undefined;
+const lastSuccessfulQuery = ref<string | null>(null);
 const hasIdentity = computed(() => sessionState.subject !== null && sessionState.token !== null);
+function queryFingerprint() {
+  return JSON.stringify({
+    tenantId: sessionState.subject?.tenantId,
+    userId: sessionState.subject?.userId,
+    grants: sessionState.subject?.grants,
+    offset: offset.value,
+    filters,
+  });
+}
+const currentQuery = computed(queryFingerprint);
+const queryState = computed(() => loading.value
+  ? rows.value.length ? "stale" : "loading"
+  : queryError.value ? rows.value.length ? "stale" : "error"
+    : rows.value.length || error.value ? "ready" : "empty");
+const queryStale = computed(() => loading.value || queryError.value.length > 0);
+const emptyMessage = computed(() => lastSuccessfulQuery.value !== currentQuery.value
+  ? "筛选条件已更改，请提交查询以读取对应角色。"
+  : filters.code || filters.permission ? "没有匹配角色，请清除筛选条件。" : "尚无可读角色，可新建无默认权限的角色。");
 const delegable = computed(() => (sessionState.subject?.grants ?? []).filter(grant =>
   /^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+$/.test(grant.permission) && grant.permission.length <= 128
   && [0, 1, 2].includes(grant.scope) && grant.fields.every(field => /^[a-zA-Z][a-zA-Z0-9]{0,63}$/.test(field))));
@@ -59,9 +80,13 @@ watch(() => draft.scope, () => { draft.fields = []; draft.departments = []; });
 function closeEditor() {
   editor.value = null; Object.assign(form, { code: "", enabled: true, rules: [] }); resetDraft();
 }
-function clear() {
-  generation++; controller?.abort(); rows.value = []; departmentCatalog.reset();
-  closeEditor(); loading.value = false; busy.value = false;
+function clear(preserveRows = false) {
+  generation++; controller?.abort();
+  if (!preserveRows) {
+    rows.value = []; lastSuccessfulQuery.value = null;
+  }
+  departmentCatalog.reset();
+  closeEditor(); loading.value = false; busy.value = false; queryError.value = "";
 }
 function fail(reason: unknown) {
   if (reason instanceof ApiError && [403, 412, 428].includes(reason.status)) clear();
@@ -70,7 +95,9 @@ function fail(reason: unknown) {
 }
 async function load() {
   if (!hasIdentity.value || !canRead("platform.roles.read")) return;
-  clear(); error.value = ""; candidateError.value = ""; message.value = "";
+  const queryKey = currentQuery.value;
+  const preserveRows = rows.value.length > 0 && lastSuccessfulQuery.value === queryKey;
+  clear(preserveRows); error.value = ""; queryError.value = ""; candidateError.value = ""; message.value = "";
   const current = generation;
   controller = new AbortController();
   const signal = controller.signal;
@@ -94,7 +121,13 @@ async function load() {
     if (current !== generation) return;
     if (response.authorized !== true || !Array.isArray(response.rows)) throw new ApiError(403, "DirectoryDenied", "未提供");
     rows.value = response.rows;
-  } catch (reason) { if (current === generation) fail(reason); }
+    lastSuccessfulQuery.value = queryKey;
+  } catch (reason) {
+    if (current === generation) {
+      fail(reason);
+      queryError.value = error.value;
+    }
+  }
   finally { await candidateLoad; if (current === generation) loading.value = false; }
 }
 async function moreCandidates() {
@@ -112,7 +145,7 @@ function covered(rule: Grant) {
       || source.scope === 1 && rule.scope === 1 && rule.departments.every(id => source.departments.includes(id))));
 }
 function open(row?: RoleRow) {
-  if (busy.value) return;
+  if (busy.value || row && queryStale.value) return;
   closeEditor();
   editor.value = row ? { ...row } : "new";
   Object.assign(form, { code: row?.code ?? "", enabled: row?.enabled ?? true,
@@ -160,9 +193,21 @@ async function submit() {
 function page(delta: number) { if (busy.value || loading.value) return; offset.value = Math.max(0, offset.value + delta); void load(); }
 function connectivity() {
   online.value = navigator.onLine;
-  if (!online.value) { clear(); error.value = "当前离线，已清除规则草稿。恢复连接后请重新读取。"; }
+  if (!online.value) {
+    clear();
+    error.value = "当前离线，已清除规则草稿。恢复连接后请重新读取。";
+    queryError.value = error.value;
+  }
 }
 window.addEventListener("online", connectivity); window.addEventListener("offline", connectivity);
+watch(filters, () => {
+  if (lastSuccessfulQuery.value !== currentQuery.value) {
+    rows.value = [];
+    lastSuccessfulQuery.value = null;
+    queryError.value = "";
+    error.value = "";
+  }
+}, { flush: "sync" });
 watch([() => sessionState.subject, () => sessionState.token], () => {
   clear(); offset.value = 0; error.value = ""; message.value = ""; candidateError.value = "";
   filters.code = ""; filters.permission = "";
@@ -177,7 +222,7 @@ onBeforeUnmount(() => { clear(); window.removeEventListener("online", connectivi
     <p v-if="!hasIdentity || !canRead('platform.roles.read')" role="status">无权读取角色目录，请使用有权账号登录。</p>
     <template v-else>
       <p v-if="!online" class="notice" role="status">当前离线，恢复连接后请重新读取。</p>
-      <p v-if="error" class="error" role="alert">{{ error }}</p>
+      <p v-if="error && !queryError" class="error" role="alert">{{ error }}</p>
       <p v-if="candidateError" class="notice" role="alert">{{ candidateError }}</p>
       <p v-if="message" role="status">{{ message }}</p>
       <div class="toolbar"><button @click="load">重新读取</button><button v-if="canCreate" data-test="new-role" @click="open()">新建角色</button></div>
@@ -187,10 +232,13 @@ onBeforeUnmount(() => { clear(); window.removeEventListener("online", connectivi
         <button :disabled="busy || loading">查询角色</button>
       </form>
       <button v-if="moreDepartments" type="button" data-test="more-departments" :disabled="loading || busy || departmentCatalog.loading.value" @click="moreCandidates">加载更多部门候选</button>
-      <p v-if="loading" role="status">正在读取角色与部门候选。</p>
-      <template v-if="rows.length">
-        <ColumnSettings :columns="available" v-model="selected" :preference-warning="preferenceWarning" />
-        <div class="table-scroll" tabindex="0" aria-label="角色目录">
+      <QueryState label="角色目录" :state="queryState" :busy="loading" :error-message="queryError"
+        :stale-message="loading ? '正在刷新；页面保留的是最近一次已加载的角色目录。' : `刷新失败，仍保留最近一次已加载的角色目录：${queryError}`"
+        @retry="load">
+        <template #empty><p>{{ emptyMessage }}</p></template>
+        <template v-if="rows.length">
+          <ColumnSettings :columns="available" v-model="selected" :preference-warning="preferenceWarning" />
+          <div class="table-scroll" tabindex="0" aria-label="角色目录">
           <table><caption class="hint">当前页角色</caption><thead><tr><th v-for="column in visible" :key="column.key" scope="col">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
             <tbody><tr v-for="row in rows" :key="row.id">
               <td v-for="column in visible" :key="column.key">
@@ -206,12 +254,12 @@ onBeforeUnmount(() => { clear(); window.removeEventListener("online", connectivi
                   </li></ul></details>
                 </template>
               </td>
-              <td><button v-if="canWrite && row.version && row.enabled !== null && row.rules !== null" data-test="edit-role" @click="open(row)">编辑权限</button><span v-else>只读</span></td>
+              <td><button v-if="canWrite && row.version && row.enabled !== null && row.rules !== null" data-test="edit-role" :disabled="busy || queryStale" @click="open(row)">编辑权限</button><span v-else>只读</span></td>
             </tr></tbody>
           </table>
         </div>
-      </template>
-      <p v-else-if="!loading && !error" role="status">尚无可读角色，可新建无默认权限的角色。</p>
+        </template>
+      </QueryState>
       <nav class="actions" aria-label="角色分页"><button v-if="offset > 0" @click="page(-50)">上一页</button><span>第 {{ offset / 50 + 1 }} 页，每页最多 50 条</span><button v-if="rows.length === 50" @click="page(50)">下一页</button></nav>
       <form v-if="editor" data-test="role-form" class="editor" @submit.prevent="submit">
         <fieldset :disabled="busy"><legend>{{ editor === 'new' ? '新建角色' : '角色权限' }}</legend>

@@ -174,7 +174,16 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
       expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize)).toBe("32px");
       expect(await page.evaluate(() => getComputedStyle(document.body).fontSize)).toBe("28px");
       expect(await page.evaluate(() => getComputedStyle(document.querySelector("h1")!).fontSize)).toBe("40px");
-      await expect(page.getByRole("main").getByRole("heading", { level: 1 })).toBeVisible();
+      const scaledHeading = page.getByRole("main").getByRole("heading", { level: 1 });
+      await expect(scaledHeading).toBeVisible();
+      const expandedHeading = await scaledHeading.evaluate(element => {
+        const original = element.textContent ?? "";
+        const extension = "扩".repeat(Math.ceil(original.length * 0.4));
+        element.textContent = original + extension;
+        return { originalLength: original.length, expandedLength: original.length + extension.length };
+      });
+      expect(expandedHeading.expandedLength).toBeGreaterThanOrEqual(expandedHeading.originalLength * 1.4);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
       await expect(settingsTable).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
       const tableOverflow = await settingsTable.evaluate(element => element.scrollWidth >= element.clientWidth);

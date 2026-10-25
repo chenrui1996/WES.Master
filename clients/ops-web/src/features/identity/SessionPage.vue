@@ -65,9 +65,14 @@ const definitions = [
   { key: "current", label: "是否当前", widthClass: "status" },
   { key: "state", label: "状态", widthClass: "status" },
 ] satisfies { key: keyof Family; label: string; required?: boolean; widthClass: ColumnWidthClass }[];
-const { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning, columnViews } = useColumns(() => rows.value.length
+const {
+  available, selected, visible, widths, widthStyle, fixedFirstColumn, fixedPositions,
+  fixedColumnClass, fixedColumnStyle, actionColumnStyle, pinningWarning, setTableFrame,
+  preferenceWarning, columnViews,
+} = useColumns(() => rows.value.length
   ? definitions.filter(column => column.key === "id" || (mode.value === "self" && column.key !== "userId")
-    || rows.value.some(row => row[column.key] !== null)) : [], { pageId: "identity-sessions", tableId: "sessions" });
+    || rows.value.some(row => row[column.key] !== null)) : [],
+  { pageId: "identity-sessions", tableId: "sessions", fixedActionWidth: 160 });
 
 function parseRows(value: unknown, admin: boolean): Family[] {
   const payload = admin && isRecord(value) && value.authorized === true ? value.rows : admin ? null : value;
@@ -253,23 +258,26 @@ onUnmounted(invalidate);
     </form>
     <p class="hint">筛选变更后请重新读取。状态由服务端判定；管理范围与字段以服务端当前授权为准。</p>
     <ColumnSettings :columns="available" v-model="selected" v-model:widths="widths"
-      v-model:fixed-first-column="fixedFirstColumn" :preference-warning="preferenceWarning" :column-views="columnViews" />
+      v-model:fixed-first-column="fixedFirstColumn" v-model:fixed-positions="fixedPositions"
+      :preference-warning="preferenceWarning" :column-views="columnViews" />
     <QueryState label="会话列表" :state="queryState" :busy="loading" :error-message="queryError"
       :stale-message="staleMessage" @retry="read">
       <template #empty><p>当前没有可展示的会话。请重新读取，必要时重新登录。</p></template>
-      <div class="table-scroll" :aria-busy="loading">
+      <div :ref="setTableFrame" class="table-scroll" :aria-busy="loading">
         <p class="table-fixed-notice" role="status">可视区域较窄，固定列暂时停用；请横向滚动查看，避免固定列遮挡内容。</p>
-        <table :class="{ 'table-fixed-first-column': fixedFirstColumn, 'table-fixed-actions': true }"><caption>{{ mode === 'self' ? '当前账号的会话' : '当前授权范围内的管理会话' }}（第 {{ Math.floor(offset / Number(filters.limit || 50)) + 1 }} 页）</caption>
-          <thead><tr><th v-for="column in visible" :key="column.key" scope="col" :style="widthStyle(column.key)">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
+        <p v-if="pinningWarning" class="table-pinning-warning" role="status">{{ pinningWarning }}</p>
+        <table class="table-fixed-actions"><caption>{{ mode === 'self' ? '当前账号的会话' : '当前授权范围内的管理会话' }}（第 {{ Math.floor(offset / Number(filters.limit || 50)) + 1 }} 页）</caption>
+          <thead><tr><th v-for="column in visible" :key="column.key" scope="col" :class="fixedColumnClass(column.key)"
+            :style="[widthStyle(column.key), fixedColumnStyle(column.key)]">{{ column.label }}</th><th scope="col" :style="actionColumnStyle">操作</th></tr></thead>
           <tbody><tr v-for="row in rows" :key="row.id">
-            <td v-for="column in visible" :key="column.key">
+            <td v-for="column in visible" :key="column.key" :class="fixedColumnClass(column.key)" :style="fixedColumnStyle(column.key)">
               <template v-if="column.key === 'id'">
                 <span data-test="session-id" class="identifier" :title="row.id">{{ summary(row.id) }}</span>
                 <details><summary>完整会话标识</summary><span class="identifier">{{ row.id }}</span></details>
               </template>
               <template v-else>{{ display(row, column.key) }}</template>
             </td>
-            <td><button v-if="canRevoke(row)" data-test="revoke" :disabled="busy || loading || queryState === 'stale'" @click="confirm(row, $event)">撤销此会话</button></td>
+            <td :style="actionColumnStyle"><button v-if="canRevoke(row)" data-test="revoke" :disabled="busy || loading || queryState === 'stale'" @click="confirm(row, $event)">撤销此会话</button></td>
           </tr></tbody>
         </table>
       </div>

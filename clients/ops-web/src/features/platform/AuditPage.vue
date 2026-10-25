@@ -18,7 +18,10 @@ const staleMessage = computed(() => busy.value
   ? "正在刷新；页面保留的是最近一次已加载的证据。"
   : `刷新失败，仍保留最近一次已加载的证据：${error.value}`);
 const fields = computed(() => new Set(sessionState.subject?.grants.filter(grant => grant.permission === "platform.audit.read").flatMap(grant => grant.fields) ?? []));
-const { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning, columnViews } = useColumns(() => [
+const {
+  available, selected, visible, widths, widthStyle, fixedFirstColumn, fixedPositions,
+  fixedColumnClass, fixedColumnStyle, pinningWarning, setTableFrame, preferenceWarning, columnViews,
+} = useColumns(() => [
   { key: "id", label: "标识", field: "Id", required: true, widthClass: "identity" as const },
   { key: "occurredAt", label: "发生时间（UTC）", field: "OccurredAt", required: true, widthClass: "time" as const },
   { key: "correlationId", label: "关联标识", field: "CorrelationId", widthClass: "identity" as const },
@@ -94,13 +97,19 @@ onMounted(read); onUnmounted(() => { controller.abort(); sequence++; });
       <label v-if="fields.has('CorrelationId')" for="event-correlation">关联 UUID<input id="event-correlation" v-model="correlation" maxlength="36"></label>
       <button :disabled="busy">查询证据</button>
     </form><ColumnSettings :columns="available" v-model="selected" v-model:widths="widths"
-      v-model:fixed-first-column="fixedFirstColumn" :preference-warning="preferenceWarning" :column-views="columnViews" />
+      v-model:fixed-first-column="fixedFirstColumn" v-model:fixed-positions="fixedPositions"
+      :preference-warning="preferenceWarning" :column-views="columnViews" />
     <QueryState label="当前权限下的证据" :state="queryState" :busy="busy" :error-message="error"
       :stale-message="staleMessage" @retry="read">
       <template #empty>该区间没有当前可见记录。可以调整时间后重新查询。</template>
-      <div class="table-scroll"><table :class="{ 'table-fixed-first-column': fixedFirstColumn }"><caption>{{ mode === "audit" ? "不可改业务审计" : "登录安全事件" }}</caption>
-        <thead><tr><th v-for="column in visible" :key="column.key" scope="col" :style="widthStyle(column.key)">{{ column.label }}</th></tr></thead>
-        <tbody><tr v-for="row in rows" :key="row.id"><td v-for="column in visible" :key="column.key" class="identifier">{{ cell(row, column.key) ?? "未授权 / 不适用" }}</td></tr></tbody>
+      <div :ref="setTableFrame" class="table-scroll">
+        <p class="table-fixed-notice" role="status">可视区域较窄，固定列暂时停用；请横向滚动查看，避免固定列遮挡内容。</p>
+        <p v-if="pinningWarning" class="table-pinning-warning" role="status">{{ pinningWarning }}</p>
+        <table><caption>{{ mode === "audit" ? "不可改业务审计" : "登录安全事件" }}</caption>
+        <thead><tr><th v-for="column in visible" :key="column.key" scope="col" :class="fixedColumnClass(column.key)"
+          :style="[widthStyle(column.key), fixedColumnStyle(column.key)]">{{ column.label }}</th></tr></thead>
+        <tbody><tr v-for="row in rows" :key="row.id"><td v-for="column in visible" :key="column.key" class="identifier"
+          :class="fixedColumnClass(column.key)" :style="fixedColumnStyle(column.key)">{{ cell(row, column.key) ?? "未授权 / 不适用" }}</td></tr></tbody>
       </table></div>
     </QueryState>
     <div class="actions"><button :disabled="busy || offset === 0" @click="offset -= 50; read()">上一页</button><span>第 {{ offset / 50 + 1 }} 页 · 最多 50 条</span>

@@ -63,14 +63,18 @@ const managementFields = computed(() => new Set(sessionState.subject?.grants.fil
   grant.permission === "platform.roles.write" && grant.scope === 2).flatMap(grant => grant.fields)));
 const canWrite = computed(() => ["Rules", "Enabled"].every(field => managementFields.value.has(field)));
 const canCreate = computed(() => ["Code", "Rules", "Enabled"].every(field => managementFields.value.has(field)));
-const { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning, columnViews } = useColumns(() => rows.value.length ? [
+const {
+  available, selected, visible, widths, widthStyle, fixedFirstColumn, fixedPositions,
+  fixedColumnClass, fixedColumnStyle, actionColumnStyle, pinningWarning, setTableFrame,
+  preferenceWarning, columnViews,
+} = useColumns(() => rows.value.length ? [
   { key: "id", label: "角色标识", required: true, widthClass: "identity" },
   ...rows.value.some(row => row.code !== null) ? [{ key: "code", label: "角色编码", widthClass: "identity" as const }] : [],
   ...rows.value.some(row => row.enabled !== null) ? [{ key: "enabled", label: "状态", widthClass: "status" as const }] : [],
   ...rows.value.some(row => row.rules !== null) ? [{ key: "rules", label: "权限规则", widthClass: "description" as const }] : [],
   ...readFields.value.has("AffectedSubjects") && rows.value.some(row => row.affectedSubjects != null)
     ? [{ key: "affectedSubjects", label: "关联用户数（查询快照）", widthClass: "numeric" as const }] : [],
-] : [], { pageId: "platform-roles", tableId: "directory" });
+] : [], { pageId: "platform-roles", tableId: "directory", fixedActionWidth: 160 });
 function scopeName(scope: number) { return scope === 0 ? "本人" : scope === 1 ? "指定部门" : scope === 2 ? "当前租户全部" : "无效范围"; }
 function resetDraft() { Object.assign(draft, { permission: "", scope: 0, departments: [], fields: [] }); }
 watch(() => draft.permission, () => {
@@ -238,12 +242,14 @@ onBeforeUnmount(() => { clear(); window.removeEventListener("online", connectivi
         <template #empty><p>{{ emptyMessage }}</p></template>
         <template v-if="rows.length">
           <ColumnSettings :columns="available" v-model="selected" v-model:widths="widths"
-            v-model:fixed-first-column="fixedFirstColumn" :preference-warning="preferenceWarning" :column-views="columnViews" />
-          <div class="table-scroll" tabindex="0" aria-label="角色目录">
+            v-model:fixed-first-column="fixedFirstColumn" v-model:fixed-positions="fixedPositions"
+            :preference-warning="preferenceWarning" :column-views="columnViews" />
+          <div :ref="setTableFrame" class="table-scroll" tabindex="0" aria-label="角色目录">
           <p class="table-fixed-notice" role="status">可视区域较窄，固定列暂时停用；请横向滚动查看，避免固定列遮挡内容。</p>
-          <table :class="{ 'table-fixed-first-column': fixedFirstColumn, 'table-fixed-actions': true }"><caption class="hint">当前页角色</caption><thead><tr><th v-for="column in visible" :key="column.key" scope="col" :style="widthStyle(column.key)">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
+          <p v-if="pinningWarning" class="table-pinning-warning" role="status">{{ pinningWarning }}</p>
+          <table class="table-fixed-actions"><caption class="hint">当前页角色</caption><thead><tr><th v-for="column in visible" :key="column.key" scope="col" :class="fixedColumnClass(column.key)" :style="[widthStyle(column.key), fixedColumnStyle(column.key)]">{{ column.label }}</th><th scope="col" :style="actionColumnStyle">操作</th></tr></thead>
             <tbody><tr v-for="row in rows" :key="row.id">
-              <td v-for="column in visible" :key="column.key">
+              <td v-for="column in visible" :key="column.key" :class="fixedColumnClass(column.key)" :style="fixedColumnStyle(column.key)">
                 <template v-if="column.key === 'id'">{{ row.id }}</template>
                 <template v-else-if="column.key === 'code'">{{ row.code ?? '未授权' }}</template>
                 <template v-else-if="column.key === 'enabled'">{{ row.enabled === null ? '未授权' : row.enabled ? '启用' : '停用' }}</template>
@@ -256,7 +262,7 @@ onBeforeUnmount(() => { clear(); window.removeEventListener("online", connectivi
                   </li></ul></details>
                 </template>
               </td>
-              <td><button v-if="canWrite && row.version && row.enabled !== null && row.rules !== null" data-test="edit-role" :disabled="busy || queryStale" @click="open(row)">编辑权限</button><span v-else>只读</span></td>
+              <td :style="actionColumnStyle"><button v-if="canWrite && row.version && row.enabled !== null && row.rules !== null" data-test="edit-role" :disabled="busy || queryStale" @click="open(row)">编辑权限</button><span v-else>只读</span></td>
             </tr></tbody>
           </table>
         </div>

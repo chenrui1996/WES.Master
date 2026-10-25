@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import type { ColumnViewController } from "./useColumns";
-import { columnWidthPreset, type AuthorizedColumn } from "./useColumns";
+import { columnWidthPreset, type AuthorizedColumn, type FixedPosition } from "./useColumns";
 
 const props = defineProps<{ columns: AuthorizedColumn[]; preferenceWarning?: string | null; columnViews?: ColumnViewController }>();
 const selected = defineModel<string[]>({ required: true });
 const widths = defineModel<Record<string, number>>("widths", { default: () => ({}) });
 const fixedFirstColumn = defineModel<boolean>("fixedFirstColumn", { default: true });
+const fixedPositions = defineModel<Record<string, FixedPosition>>("fixedPositions", { default: () => ({}) });
 const settingsForm = ref<HTMLFormElement | null>(null);
 const draftSelected = ref([...selected.value]);
 const draftWidths = ref({ ...widths.value });
 const draftFixedFirstColumn = ref(fixedFirstColumn.value);
+const draftFixedPositions = ref({ ...fixedPositions.value });
 type ViewPrompt = { kind: "create" | "rename" } | { kind: "switch"; target: string | null } | { kind: "restore" | "delete" };
 const viewPrompt = ref<ViewPrompt | null>(null);
 const viewName = ref("");
@@ -21,16 +23,20 @@ const activeViewDirty = computed(() => props.columnViews?.viewDirty.value ?? fal
 const viewError = computed(() => props.columnViews?.viewError.value ?? null);
 const draftDirty = computed(() => JSON.stringify({
   selected: draftSelected.value, widths: draftWidths.value, fixedFirstColumn: draftFixedFirstColumn.value,
+  fixedPositions: draftFixedPositions.value,
 }) !== JSON.stringify({
   selected: selected.value, widths: widths.value, fixedFirstColumn: fixedFirstColumn.value,
+  fixedPositions: fixedPositions.value,
 }));
 watch(activeViewId, id => { viewSelection.value = id ?? ""; }, { immediate: true });
 function resetDraft() {
   draftSelected.value = [...selected.value];
   draftWidths.value = { ...widths.value };
   draftFixedFirstColumn.value = fixedFirstColumn.value;
+  draftFixedPositions.value = { ...fixedPositions.value };
 }
 watch([selected, widths, fixedFirstColumn], resetDraft, { deep: true });
+watch(fixedPositions, () => { draftFixedPositions.value = { ...fixedPositions.value }; }, { deep: true });
 watch(() => props.columns, resetDraft);
 const ordered = computed(() => [
   ...draftSelected.value.flatMap(key => props.columns.filter(column => column.key === key)),
@@ -71,10 +77,19 @@ function updateWidth(key: string, event: Event) {
   }
   draftWidths.value = next;
 }
+function updateFixedPosition(key: string, event: Event) {
+  const input = event.currentTarget;
+  if (!(input instanceof HTMLSelectElement)) return;
+  const next = { ...draftFixedPositions.value };
+  if (input.value === "left" || input.value === "right") next[key] = input.value;
+  else delete next[key];
+  draftFixedPositions.value = next;
+}
 function apply() {
   selected.value = [...draftSelected.value];
   widths.value = { ...draftWidths.value };
   fixedFirstColumn.value = draftFixedFirstColumn.value;
+  fixedPositions.value = { ...draftFixedPositions.value };
 }
 function clearWidthValidation() {
   settingsForm.value?.querySelectorAll<HTMLInputElement>('input[type="number"]')
@@ -88,6 +103,7 @@ function restoreDefaults() {
   draftSelected.value = props.columns.map(column => column.key);
   draftWidths.value = {};
   draftFixedFirstColumn.value = true;
+  draftFixedPositions.value = {};
   clearWidthValidation();
 }
 function requestViewSwitch(target: string | null) {
@@ -180,6 +196,15 @@ function cancelViewPrompt() {
           <span v-if="column.required">{{ column.label }}（必显）</span>
           <label v-else><input type="checkbox" :value="column.key" :checked="draftSelected.includes(column.key)"
             @change="toggle(column)" />{{ column.label }}</label>
+          <label v-if="column.key !== columns.find(item => item.required)?.key" class="pin-control">
+            固定位置
+            <select :value="draftFixedPositions[column.key] ?? ''" :aria-label="`${column.label}固定位置`"
+              :data-test="`fixed-position-${column.key}`" @change="updateFixedPosition(column.key, $event)">
+              <option value="">中间</option>
+              <option value="left">左侧</option>
+              <option value="right">右侧</option>
+            </select>
+          </label>
           <template v-if="draftSelected.includes(column.key)">
             <label class="width-control">列宽
               <input :data-test="`width-${column.key}`" type="number" :min="columnWidthPreset(column).minWidth"

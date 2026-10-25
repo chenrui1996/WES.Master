@@ -2,7 +2,7 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import { forgetIdentity, sessionState } from "../features/identity/identity-api";
-import { columnPreferenceKey, useColumns } from "./useColumns";
+import { calculateFixedColumnLayout, columnPreferenceKey, useColumns } from "./useColumns";
 
 afterEach(() => { vi.restoreAllMocks(); forgetIdentity(); });
 
@@ -13,6 +13,91 @@ it("includes environment, tenant, identity, page, and table in the preference sc
   expect(key).not.toBe(columnPreferenceKey("test", "tenant-a", "user-b", "users", "directory"));
   expect(key).not.toBe(columnPreferenceKey("test", "tenant-a", "user-a", "roles", "directory"));
   expect(key).not.toBe(columnPreferenceKey("test", "tenant-a", "user-a", "users", "audit"));
+});
+
+it("keeps requested sticky columns within half the frame while preserving the identifier and action column", () => {
+  const result = calculateFixedColumnLayout({
+    columns: [
+      { key: "id", label: "ID", required: true, widthClass: "identity" },
+      { key: "state", label: "State", widthClass: "status" },
+    ],
+    selected: ["id", "state"],
+    widths: {},
+    fixedFirstColumn: true,
+    fixedPositions: { state: "right" },
+    containerWidth: 900,
+    actionWidth: 160,
+  });
+
+  expect(result.positions).toEqual({ id: "left" });
+  expect(result.offsets).toEqual({ id: 0 });
+  expect(result.actionOffset).toBe(0);
+  expect(result.warning).toBe(true);
+});
+
+it("calculates offsets for multiple left, right, and action columns within the width budget", () => {
+  const result = calculateFixedColumnLayout({
+    columns: [
+      { key: "id", label: "ID", required: true, widthClass: "identity" },
+      { key: "state", label: "State", widthClass: "status" },
+      { key: "time", label: "Time", widthClass: "time" },
+    ],
+    selected: ["state", "id", "time"],
+    widths: {},
+    fixedFirstColumn: true,
+    fixedPositions: { state: "left", time: "right" },
+    containerWidth: 1400,
+    actionWidth: 160,
+  });
+
+  expect(result.positions).toEqual({ id: "left", state: "left", time: "right" });
+  expect(result.offsets).toEqual({ id: 0, state: 200, time: 160 });
+  expect(result.actionOffset).toBe(0);
+  expect(result.warning).toBe(false);
+});
+
+it("keeps required pins when they exceed the budget and reports the detail-view warning", () => {
+  const result = calculateFixedColumnLayout({
+    columns: [{ key: "id", label: "ID", required: true, widthClass: "identity" }],
+    selected: ["id"],
+    widths: {},
+    fixedFirstColumn: true,
+    fixedPositions: {},
+    containerWidth: 600,
+    actionWidth: 160,
+  });
+
+  expect(result.positions).toEqual({ id: "left" });
+  expect(result.warning).toBe(true);
+  expect(result.mandatoryOverflow).toBe(true);
+});
+
+it("exposes computed sticky offsets and the width-budget warning to table consumers", async () => {
+  const host = defineComponent({
+    setup() {
+      const columns = useColumns(() => [
+        { key: "id", label: "ID", required: true, widthClass: "identity" },
+        { key: "state", label: "State", widthClass: "status" },
+      ], { environment: "test", pageId: "users", tableId: "directory", fixedActionWidth: 160 });
+      columns.fixedPositions.value = { state: "right" };
+      const frame = document.createElement("div");
+      Object.defineProperty(frame, "clientWidth", { value: 900 });
+      columns.setTableFrame(frame);
+      return { ...columns };
+    },
+    template: `<output data-test="id-class">{{ fixedColumnClass('id') }}</output>
+      <output data-test="state-class">{{ fixedColumnClass('state') ?? 'none' }}</output>
+      <output data-test="state-offset">{{ fixedColumnStyle('state')?.['--table-pin-offset'] ?? 'none' }}</output>
+      <output data-test="warning">{{ pinningWarning }}</output>`,
+  });
+  const wrapper = mount(host);
+  await flushPromises();
+
+  expect(wrapper.get('[data-test="id-class"]').text()).toBe("table-pinned-left");
+  expect(wrapper.get('[data-test="state-class"]').text()).toBe("none");
+  expect(wrapper.get('[data-test="state-offset"]').text()).toBe("none");
+  expect(wrapper.get('[data-test="warning"]').text()).toContain("预算");
+  wrapper.unmount();
 });
 
 it("loads scoped column preferences, enforces required fields, and persists only column IDs", async () => {
@@ -57,6 +142,73 @@ it("loads scoped column preferences, enforces required fields, and persists only
   await flushPromises();
   expect(restored.get("output").text()).toBe("id");
   restored.unmount();
+});
+
+it("persists fixed positions only for currently authorized columns", async () => {
+  const preferenceKey = "wes-ops-web:columns:v1:test:tenant-a:user-a:users:directory";
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => { values.set(key, value); },
+  };
+  sessionState.subject = {
+    tenantId: "tenant-a", userId: "user-a", sessionId: "session-a",
+    requiresPasswordChange: false, credentialVersion: null, grants: [],
+  };
+  const host = defineComponent({
+    setup() {
+      const showName = ref(true);
+      const columns = useColumns(() => [
+        { key: "id", label: "ID", required: true },
+        ...(showName.value ? [{ key: "name", label: "Name" }] : []),
+      ], { environment: "test", pageId: "users", tableId: "directory", storageProvider: () => storage });
+      return {
+        ...columns,
+        pinName: () => { columns.fixedPositions.value = { name: "right", revoked: "left" }; },
+        revokeName: () => { showName.value = false; },
+      };
+    },
+    template: `<button @click="pinName">Pin</button><button @click="revokeName">Revoke</button>
+      <output data-test="positions">{{ JSON.stringify(fixedPositions) }}</output>`,
+  });
+  const wrapper = mount(host);
+  await flushPromises();
+  await wrapper.get("button:first-of-type").trigger("click");
+  await flushPromises();
+  expect(JSON.parse(values.get(preferenceKey) ?? "{}").fixedPositions).toEqual({ name: "right" });
+
+  await wrapper.get("button:last-of-type").trigger("click");
+  await flushPromises();
+  expect(wrapper.get('[data-test="positions"]').text()).toBe("{}");
+  expect(JSON.parse(values.get(preferenceKey) ?? "{}").fixedPositions).toBeUndefined();
+  wrapper.unmount();
+});
+
+it("persists the user's explicit choice to unpin the primary identifier", async () => {
+  const preferenceKey = "wes-ops-web:columns:v1:test:tenant-a:user-a:users:directory";
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => { values.set(key, value); },
+  };
+  sessionState.subject = {
+    tenantId: "tenant-a", userId: "user-a", sessionId: "session-a",
+    requiresPasswordChange: false, credentialVersion: null, grants: [],
+  };
+  const host = defineComponent({
+    setup() {
+      const columns = useColumns(() => [{ key: "id", label: "ID", required: true }],
+        { environment: "test", pageId: "users", tableId: "directory", storageProvider: () => storage });
+      return { ...columns, unpin: () => { columns.fixedFirstColumn.value = false; } };
+    },
+    template: `<button @click="unpin">Unpin</button><output>{{ fixedFirstColumn }}</output>`,
+  });
+  const wrapper = mount(host);
+  await flushPromises();
+  await wrapper.get("button").trigger("click");
+  await flushPromises();
+  expect(JSON.parse(values.get(preferenceKey) ?? "{}").fixedFirstColumn).toBe(false);
+  wrapper.unmount();
 });
 
 it("keeps preferences isolated by environment and identity", async () => {
@@ -347,7 +499,7 @@ it("keeps named views isolated from default layout and persists them only when e
   expect(wrapper.get('[data-test="dirty"]').text()).toBe("false");
   expect(JSON.parse(values.get(preferenceKey) ?? "{}").views[0].widths).toEqual({ name: 240 });
   expect(Object.keys(JSON.parse(values.get(preferenceKey) ?? "{}").views[0]).sort())
-    .toEqual(["fixedFirstColumn", "id", "knownColumns", "name", "selected", "widths"].sort());
+    .toEqual(["fixedFirstColumn", "fixedPositions", "id", "knownColumns", "name", "selected", "widths"].sort());
   await wrapper.get("button:nth-of-type(6)").trigger("click");
   await flushPromises();
   expect(wrapper.get('[data-test="selected"]').text()).toBe("id");
@@ -405,6 +557,6 @@ it("strips unrelated persisted data from loaded personal views before rewriting 
   const savedView = JSON.parse(values.get(preferenceKey) ?? "{}").views[0];
   expect(savedView.name).toBe("Renamed");
   expect(Object.keys(savedView).sort())
-    .toEqual(["fixedFirstColumn", "id", "knownColumns", "name", "selected", "widths"].sort());
+    .toEqual(["fixedFirstColumn", "fixedPositions", "id", "knownColumns", "name", "selected", "widths"].sort());
   wrapper.unmount();
 });

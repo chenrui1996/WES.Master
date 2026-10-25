@@ -50,12 +50,16 @@ const managementFields = computed(() => new Set(sessionState.subject?.grants.fil
 const canWrite = computed(() => ["Name", "Enabled", "DefaultLanguage"].every(field => managementFields.value.has(field)));
 const canSwitch = computed(() => sessionState.subject?.grants.some(grant => grant.permission === "platform.tenants.switch"
   && grant.scope === 2 && grant.fields.includes("Id")) ?? false);
-const { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning, columnViews } = useColumns(() => rows.value.length ? [
+const {
+  available, selected, visible, widths, widthStyle, fixedFirstColumn, fixedPositions,
+  fixedColumnClass, fixedColumnStyle, actionColumnStyle, pinningWarning, setTableFrame,
+  preferenceWarning, columnViews,
+} = useColumns(() => rows.value.length ? [
   { key: "tenantId", label: "租户标识", required: true, widthClass: "identity" },
   ...rows.value.some(row => row.name !== null) ? [{ key: "name", label: "租户名称", widthClass: "identity" as const }] : [],
   ...rows.value.some(row => row.enabled !== null) ? [{ key: "enabled", label: "状态", widthClass: "status" as const }] : [],
   ...rows.value.some(row => row.defaultLanguage !== null) ? [{ key: "defaultLanguage", label: "默认语言", widthClass: "identity" as const }] : [],
-] : [], { pageId: "platform-tenants", tableId: "directory" });
+] : [], { pageId: "platform-tenants", tableId: "directory", fixedActionWidth: 160 });
 function closeEditor() {
   editor.value = null; Object.assign(form, { name: "", enabled: true, defaultLanguage: "" });
 }
@@ -197,18 +201,20 @@ onBeforeUnmount(() => { clear(); window.removeEventListener("online", connectivi
         <template #empty><p>{{ emptyMessage }}</p></template>
         <template v-if="rows.length">
           <ColumnSettings :columns="available" v-model="selected" v-model:widths="widths"
-            v-model:fixed-first-column="fixedFirstColumn" :preference-warning="preferenceWarning" :column-views="columnViews" />
-          <div class="table-scroll" tabindex="0" aria-label="租户目录">
+            v-model:fixed-first-column="fixedFirstColumn" v-model:fixed-positions="fixedPositions"
+            :preference-warning="preferenceWarning" :column-views="columnViews" />
+          <div :ref="setTableFrame" class="table-scroll" tabindex="0" aria-label="租户目录">
           <p class="table-fixed-notice" role="status">可视区域较窄，固定列暂时停用；请横向滚动查看，避免固定列遮挡内容。</p>
-          <table :class="{ 'table-fixed-first-column': fixedFirstColumn, 'table-fixed-actions': true }"><caption class="hint">当前页可读租户</caption><thead><tr><th v-for="column in visible" :key="column.key" scope="col" :style="widthStyle(column.key)">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
+          <p v-if="pinningWarning" class="table-pinning-warning" role="status">{{ pinningWarning }}</p>
+          <table class="table-fixed-actions"><caption class="hint">当前页可读租户</caption><thead><tr><th v-for="column in visible" :key="column.key" scope="col" :class="fixedColumnClass(column.key)" :style="[widthStyle(column.key), fixedColumnStyle(column.key)]">{{ column.label }}</th><th scope="col" :style="actionColumnStyle">操作</th></tr></thead>
             <tbody><tr v-for="row in rows" :key="row.tenantId">
-              <td v-for="column in visible" :key="column.key">
+              <td v-for="column in visible" :key="column.key" :class="fixedColumnClass(column.key)" :style="fixedColumnStyle(column.key)">
                 <template v-if="column.key === 'tenantId'">{{ row.tenantId }}<span v-if="row.tenantId === sessionState.subject?.tenantId">（当前）</span></template>
                 <template v-else-if="column.key === 'name'">{{ row.name ?? '未授权' }}</template>
                 <template v-else-if="column.key === 'enabled'">{{ row.enabled === null ? '未授权' : row.enabled ? '启用' : '停用' }}</template>
                 <template v-else-if="column.key === 'defaultLanguage'">{{ row.defaultLanguage ?? '未授权' }}</template>
               </td>
-              <td>
+              <td :style="actionColumnStyle">
                 <button v-if="canWrite && row.tenantId === sessionState.subject?.tenantId && row.version && row.name !== null && row.enabled !== null && row.defaultLanguage !== null" data-test="edit-tenant" :disabled="busy || queryStale" @click="open(row)">编辑租户</button>
                 <button v-if="canSwitch && row.tenantId !== sessionState.subject?.tenantId && row.enabled === true" data-test="switch-tenant" :disabled="busy || queryStale" @click="chooseSwitch(row)">切换租户</button>
               </td>

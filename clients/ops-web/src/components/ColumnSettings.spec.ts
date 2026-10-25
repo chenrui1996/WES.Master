@@ -109,6 +109,32 @@ it("uses the field-category width baselines from the dense-page contract", () =>
     .toEqual({ defaultWidth: 240, minWidth: 180, maxWidth: 600 });
 });
 
+it("offers fixed zones for optional columns while keeping the primary identifier controlled separately", async () => {
+  const host = defineComponent({
+    components: { ColumnSettings },
+    setup() {
+      const columns = useColumns(() => [
+        { key: "id", label: "标识", required: true },
+        { key: "name", label: "姓名" },
+      ], { environment: "test", pageId: "users", tableId: "directory" });
+      return { ...columns, fixedPositions: ref<Record<string, "left" | "right">>({}) };
+    },
+    template: `<ColumnSettings :columns="available" v-model="selected" v-model:widths="widths"
+        v-model:fixed-first-column="fixedFirstColumn" v-model:fixed-positions="fixedPositions" />
+      <output data-test="position">{{ fixedPositions.name ?? 'center' }}</output>`,
+  });
+  const wrapper = mount(host);
+
+  await wrapper.get('[data-test="fixed-position-name"]').setValue("left");
+  await wrapper.get('[data-test="cancel-columns"]').trigger("click");
+  expect(wrapper.get('[data-test="position"]').text()).toBe("center");
+  await wrapper.get('[data-test="fixed-position-name"]').setValue("right");
+  await wrapper.get("form").trigger("submit");
+  expect(wrapper.get('[data-test="position"]').text()).toBe("right");
+  expect(wrapper.find('[data-test="fixed-position-id"]').exists()).toBe(false);
+  wrapper.unmount();
+});
+
 it("requires confirmation before abandoning an unsaved personal view", async () => {
   sessionState.subject = {
     tenantId: "tenant-a", userId: "user-a", sessionId: "session-a",

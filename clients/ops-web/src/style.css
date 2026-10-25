@@ -677,33 +677,48 @@ th {
   font-weight: 700;
 }
 
-.table-fixed-first-column thead th:first-child {
-  inset-inline-start: 0;
-  z-index: calc(var(--wes-z-sticky) + 1);
-}
-
-.table-fixed-first-column tbody td:first-child {
+.table-pinned-left,
+.table-pinned-right {
   position: sticky;
   z-index: 1;
-  inset-inline-start: 0;
   background: var(--wes-color-surface);
-  box-shadow: 1px 0 var(--wes-color-border-soft);
+}
+
+.table-pinned-left { inset-inline-start: var(--table-pin-offset, 0px); box-shadow: 1px 0 var(--wes-color-border-soft); }
+.table-pinned-right { inset-inline-end: var(--table-pin-offset, 0px); box-shadow: -1px 0 var(--wes-color-border-soft); }
+
+thead .table-pinned-left,
+thead .table-pinned-right {
+  z-index: calc(var(--wes-z-sticky) + 1);
+  background: var(--wes-color-workspace);
+}
+
+.table-pinning-warning {
+  margin: 0;
+  padding: var(--wes-space-2);
+  border-bottom: 1px solid var(--wes-color-border-soft);
+  color: var(--wes-color-muted);
+  background: var(--wes-color-workspace);
 }
 
 .table-fixed-actions thead th:last-child {
   position: sticky;
-  inset-inline-end: 0;
+  inset-inline-end: var(--table-pin-offset, 0px);
   z-index: calc(var(--wes-z-sticky) + 1);
+  width: 10rem;
   min-width: 10rem;
+  max-width: 10rem;
   background: var(--wes-color-workspace);
   box-shadow: -1px 0 var(--wes-color-border-soft);
 }
 
 .table-fixed-actions tbody td:last-child {
   position: sticky;
-  inset-inline-end: 0;
+  inset-inline-end: var(--table-pin-offset, 0px);
   z-index: 1;
+  width: 10rem;
   min-width: 10rem;
+  max-width: 10rem;
   background: var(--wes-color-surface);
   box-shadow: -1px 0 var(--wes-color-border-soft);
 }
@@ -722,10 +737,10 @@ th {
     display: block;
   }
 
-  .table-fixed-first-column thead th:first-child,
-  .table-fixed-first-column tbody td:first-child,
   .table-fixed-actions thead th:last-child,
-  .table-fixed-actions tbody td:last-child {
+  .table-fixed-actions tbody td:last-child,
+  .table-pinned-left,
+  .table-pinned-right {
     inset-inline-start: auto;
     inset-inline-end: auto;
     box-shadow: none;

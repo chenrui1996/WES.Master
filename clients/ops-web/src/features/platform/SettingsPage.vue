@@ -49,14 +49,20 @@ const dictionaryStaleMessage = computed(() => dictionaryLoading.value
   ? "正在刷新；页面保留的是最近一次已加载的字典目录。"
   : `刷新失败，仍保留最近一次已加载的字典目录：${dictionaryQueryError.value}`);
 const fields = computed(() => new Set(sessionState.subject?.grants.filter(grant => grant.permission === "platform.settings.read").flatMap(grant => grant.fields) ?? []));
-const { available, selected: selectedColumns, visible, widths: settingWidths, widthStyle: settingWidthStyle,
-  fixedFirstColumn: settingsFixedFirstColumn, preferenceWarning, columnViews: settingsColumnViews } = useColumns(() => [
+const settingsColumns = useColumns(() => [
   { key: "id", label: "标识", field: "Id", required: true, widthClass: "identity" as const },
   { key: "key", label: "稳定键", field: "Key", widthClass: "identity" as const },
   { key: "value", label: "当前值", field: "Value", widthClass: "description" as const },
   { key: "source", label: "来源", field: "Source", widthClass: "identity" as const },
   { key: "version", label: "版本", field: "Version", widthClass: "identity" as const },
-].filter(column => fields.value.has(column.field)), { pageId: "platform-settings", tableId: "settings" });
+].filter(column => fields.value.has(column.field)), { pageId: "platform-settings", tableId: "settings", fixedActionWidth: 160 });
+const {
+  available, selected: selectedColumns, visible, widths: settingWidths, widthStyle: settingWidthStyle,
+  fixedFirstColumn: settingsFixedFirstColumn, fixedPositions: settingsFixedPositions,
+  fixedColumnClass: settingsFixedColumnClass, fixedColumnStyle: settingsFixedColumnStyle,
+  actionColumnStyle: settingsActionColumnStyle, pinningWarning: settingsPinningWarning,
+  setTableFrame: settingsSetTableFrame, preferenceWarning, columnViews: settingsColumnViews,
+} = settingsColumns;
 const dictionaryFields = computed(() => new Set(sessionState.subject?.grants.filter(grant => grant.permission === "platform.dictionary.read").flatMap(grant => grant.fields) ?? []));
 const dictColumns = useColumns(() => [
   { key: "id", label: "标识", field: "Id", required: true, widthClass: "identity" as const },
@@ -65,7 +71,13 @@ const dictColumns = useColumns(() => [
   { key: "label", label: "显示文本", field: "Label", widthClass: "description" as const },
   { key: "resolvedLanguage", label: "实际回退语言", field: "Label", widthClass: "identity" as const },
   { key: "version", label: "版本", field: "Version", widthClass: "identity" as const },
-].filter(column => dictionaryFields.value.has(column.field)), { pageId: "platform-settings", tableId: "dictionary" });
+].filter(column => dictionaryFields.value.has(column.field)), { pageId: "platform-settings", tableId: "dictionary", fixedActionWidth: 160 });
+const dictionaryFixedPositions = dictColumns.fixedPositions;
+const dictionaryFixedColumnClass = dictColumns.fixedColumnClass;
+const dictionaryFixedColumnStyle = dictColumns.fixedColumnStyle;
+const dictionaryActionColumnStyle = dictColumns.actionColumnStyle;
+const dictionaryPinningWarning = dictColumns.pinningWarning;
+const dictionarySetTableFrame = dictColumns.setTableFrame;
 function problem(failure: unknown) { error.value = failure instanceof Error ? failure.message : "请求未确认，请重新读取后重试。"; }
 function parseRows<T>(data: unknown, guard: (row: unknown) => row is T): T[] {
   if (!isRecord(data) || data.authorized !== true || !Array.isArray(data.rows) || !data.rows.every(guard))
@@ -215,16 +227,18 @@ onMounted(readSettings); onUnmounted(() => { controller.abort(); readSequence++;
         <button :disabled="busy">查询配置</button>
       </form>
       <ColumnSettings :columns="available" v-model="selectedColumns" v-model:widths="settingWidths"
-        v-model:fixed-first-column="settingsFixedFirstColumn" :preference-warning="preferenceWarning"
+        v-model:fixed-first-column="settingsFixedFirstColumn" v-model:fixed-positions="settingsFixedPositions"
+        :preference-warning="preferenceWarning"
         :column-views="settingsColumnViews" />
       <QueryState label="强类型配置目录" :state="settingsQueryState" :busy="settingsLoading"
         :error-message="settingsQueryError" :stale-message="settingsStaleMessage" @retry="readSettings">
         <template #empty><p>没有可展示的配置。未装配目录时请使用受控初始化，不会回填伪造默认行。</p></template>
-        <div class="table-scroll" :aria-busy="settingsLoading"><p class="table-fixed-notice" role="status">可视区域较窄，固定列暂时停用；请横向滚动查看，避免固定列遮挡内容。</p>
-          <table :class="{ 'table-fixed-first-column': settingsFixedFirstColumn, 'table-fixed-actions': true }"><caption>配置值、来源与当前版本</caption>
-          <thead><tr><th v-for="column in visible" :key="column.key" scope="col" :style="settingWidthStyle(column.key)">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
-          <tbody><tr v-for="row in rows" :key="row.id"><td v-for="column in visible" :key="column.key">{{ settingCell(row, column.key) ?? "未授权" }}</td>
-            <td><button v-if="row.kind !== 'H' && row.version && row.value !== null && canRead('platform.settings.write')" data-test="edit-setting"
+        <div :ref="settingsSetTableFrame" class="table-scroll" :aria-busy="settingsLoading"><p class="table-fixed-notice" role="status">可视区域较窄，固定列暂时停用；请横向滚动查看，避免固定列遮挡内容。</p>
+          <p v-if="settingsPinningWarning" class="table-pinning-warning" role="status">{{ settingsPinningWarning }}</p>
+          <table class="table-fixed-actions"><caption>配置值、来源与当前版本</caption>
+          <thead><tr><th v-for="column in visible" :key="column.key" scope="col" :class="settingsFixedColumnClass(column.key)" :style="[settingWidthStyle(column.key), settingsFixedColumnStyle(column.key)]">{{ column.label }}</th><th scope="col" :style="settingsActionColumnStyle">操作</th></tr></thead>
+          <tbody><tr v-for="row in rows" :key="row.id"><td v-for="column in visible" :key="column.key" :class="settingsFixedColumnClass(column.key)" :style="settingsFixedColumnStyle(column.key)">{{ settingCell(row, column.key) ?? "未授权" }}</td>
+            <td :style="settingsActionColumnStyle"><button v-if="row.kind !== 'H' && row.version && row.value !== null && canRead('platform.settings.write')" data-test="edit-setting"
               :disabled="settingsLoading || settingsQueryState === 'stale'"
               @click="selected = row; value = row.value">编辑此版本</button><span v-else>只读 / 未核验</span></td></tr></tbody>
         </table></div>
@@ -246,15 +260,17 @@ onMounted(readSettings); onUnmounted(() => { controller.abort(); readSequence++;
       </form><p>显示顺序：请求语言 → 当前租户默认语言 → [诊断语言键]。回退不改变业务状态码。</p>
       <ColumnSettings :columns="dictColumns.available.value" v-model="dictColumns.selected.value"
         v-model:widths="dictColumns.widths.value" v-model:fixed-first-column="dictColumns.fixedFirstColumn.value"
+        v-model:fixed-positions="dictionaryFixedPositions"
         :preference-warning="dictColumns.preferenceWarning.value" :column-views="dictColumns.columnViews" />
       <QueryState label="字典与语言目录" :state="dictionaryQueryState" :busy="dictionaryLoading"
         :error-message="dictionaryQueryError" :stale-message="dictionaryStaleMessage" @retry="readDictionary">
         <template #empty><p>当前分类没有可展示的字典项。</p></template>
-        <div class="table-scroll" :aria-busy="dictionaryLoading"><p class="table-fixed-notice" role="status">可视区域较窄，固定列暂时停用；请横向滚动查看，避免固定列遮挡内容。</p>
-          <table :class="{ 'table-fixed-first-column': dictColumns.fixedFirstColumn.value, 'table-fixed-actions': true }"><caption>当前分类的稳定业务码</caption>
-          <thead><tr><th v-for="column in dictColumns.visible.value" :key="column.key" scope="col" :style="dictColumns.widthStyle(column.key)">{{ column.label }}</th><th scope="col">操作</th></tr></thead>
-          <tbody><tr v-for="row in entries" :key="row.id"><td v-for="column in dictColumns.visible.value" :key="column.key">{{ dictionaryCell(row, column.key) ?? "未授权" }}</td>
-            <td><button v-if="row.version && canRead('platform.dictionary.write')" :disabled="dictionaryLoading || dictionaryQueryState === 'stale'"
+        <div :ref="dictionarySetTableFrame" class="table-scroll" :aria-busy="dictionaryLoading"><p class="table-fixed-notice" role="status">可视区域较窄，固定列暂时停用；请横向滚动查看，避免固定列遮挡内容。</p>
+          <p v-if="dictionaryPinningWarning" class="table-pinning-warning" role="status">{{ dictionaryPinningWarning }}</p>
+          <table class="table-fixed-actions"><caption>当前分类的稳定业务码</caption>
+          <thead><tr><th v-for="column in dictColumns.visible.value" :key="column.key" scope="col" :class="dictionaryFixedColumnClass(column.key)" :style="[dictColumns.widthStyle(column.key), dictionaryFixedColumnStyle(column.key)]">{{ column.label }}</th><th scope="col" :style="dictionaryActionColumnStyle">操作</th></tr></thead>
+          <tbody><tr v-for="row in entries" :key="row.id"><td v-for="column in dictColumns.visible.value" :key="column.key" :class="dictionaryFixedColumnClass(column.key)" :style="dictionaryFixedColumnStyle(column.key)">{{ dictionaryCell(row, column.key) ?? "未授权" }}</td>
+            <td :style="dictionaryActionColumnStyle"><button v-if="row.version && canRead('platform.dictionary.write')" :disabled="dictionaryLoading || dictionaryQueryState === 'stale'"
               @click="entry = row; label = row.label ?? ''; deletePending = false">选择字典项</button></td></tr></tbody>
         </table></div>
         <div class="actions"><button :disabled="busy || offset === 0" @click="offset -= 50; readDictionary()">上一页</button><span>从 {{ offset + 1 }} 条起；每页最多 50 条</span>

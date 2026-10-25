@@ -4,6 +4,7 @@ import { isRecord, sessionState } from "../features/identity/identity-api";
 
 /** Column metadata only. Never persists rows, authorization or preferences across identities. */
 export type ColumnWidthClass = "identity" | "status" | "numeric" | "time" | "description";
+export type FixedPosition = "left" | "right";
 export interface AuthorizedColumn {
   key: string;
   label: string;
@@ -15,6 +16,7 @@ export interface ColumnLayout {
   selected: string[];
   widths: Record<string, number>;
   fixedFirstColumn: boolean;
+  fixedPositions: Record<string, FixedPosition>;
   knownColumns: string[];
 }
 export interface SavedColumnView extends ColumnLayout {
@@ -52,6 +54,7 @@ export interface ColumnPreferenceOptions {
   pageId: string;
   tableId: string | (() => string);
   environment?: string;
+  fixedActionWidth?: number;
   storageProvider?: () => Pick<Storage, "getItem" | "setItem">;
 }
 
@@ -61,6 +64,7 @@ interface StoredColumnPreference {
   knownColumns?: string[];
   widths?: Record<string, number>;
   fixedFirstColumn?: boolean;
+  fixedPositions?: Record<string, FixedPosition>;
   views?: SavedColumnView[];
 }
 const invalidPreferenceWarning = "列偏好格式无效，已恢复为当前可读列默认值。";
@@ -89,14 +93,17 @@ function parsePreference(value: string): StoredColumnPreference | null {
       || !parsed.knownColumns.every((item: unknown) => typeof item === "string"))
     || parsed.fixedFirstColumn !== undefined && typeof parsed.fixedFirstColumn !== "boolean") return null;
   if (parsed.widths !== undefined && !isColumnWidths(parsed.widths)) return null;
+  if (parsed.fixedPositions !== undefined && !isFixedPositions(parsed.fixedPositions)) return null;
   if (parsed.views !== undefined && (!Array.isArray(parsed.views) || !parsed.views.every(isSavedColumnView))) return null;
   return { version: 1, selected: parsed.selected,
     ...(parsed.knownColumns === undefined ? {} : { knownColumns: parsed.knownColumns }),
     ...(parsed.widths === undefined ? {} : { widths: parsed.widths }),
     ...(parsed.fixedFirstColumn === undefined ? {} : { fixedFirstColumn: parsed.fixedFirstColumn }),
+    ...(parsed.fixedPositions === undefined ? {} : { fixedPositions: parsed.fixedPositions }),
     ...(parsed.views === undefined ? {} : { views: parsed.views.map((view: SavedColumnView) => ({
       id: view.id, name: view.name, selected: view.selected, knownColumns: view.knownColumns,
       widths: view.widths, fixedFirstColumn: view.fixedFirstColumn,
+      fixedPositions: view.fixedPositions ?? {},
     })) }) };
 }
 
@@ -105,7 +112,8 @@ function isSavedColumnView(value: unknown): value is SavedColumnView {
     && typeof value.name === "string" && value.name.trim().length > 0 && value.name.length <= 48
     && Array.isArray(value.selected) && value.selected.every((item: unknown) => typeof item === "string")
     && Array.isArray(value.knownColumns) && value.knownColumns.every((item: unknown) => typeof item === "string")
-    && isColumnWidths(value.widths) && typeof value.fixedFirstColumn === "boolean";
+    && isColumnWidths(value.widths) && typeof value.fixedFirstColumn === "boolean"
+    && (value.fixedPositions === undefined || isFixedPositions(value.fixedPositions));
 }
 
 function isColumnWidths(value: unknown): value is Record<string, number> {
@@ -113,9 +121,79 @@ function isColumnWidths(value: unknown): value is Record<string, number> {
     typeof width === "number" && Number.isInteger(width) && width >= MIN_COLUMN_WIDTH && width <= MAX_STORED_COLUMN_WIDTH);
 }
 
+function isFixedPositions(value: unknown): value is Record<string, FixedPosition> {
+  return isRecord(value) && Object.values(value).every((position: unknown) => position === "left" || position === "right");
+}
+
 function copyLayout(layout: ColumnLayout): ColumnLayout {
   return { selected: [...layout.selected], widths: { ...layout.widths }, fixedFirstColumn: layout.fixedFirstColumn,
-    knownColumns: [...layout.knownColumns] };
+    fixedPositions: { ...layout.fixedPositions }, knownColumns: [...layout.knownColumns] };
+}
+
+export interface FixedColumnLayoutInput {
+  columns: AuthorizedColumn[];
+  selected: string[];
+  widths: Record<string, number>;
+  fixedFirstColumn: boolean;
+  fixedPositions: Record<string, FixedPosition>;
+  containerWidth: number;
+  actionWidth: number;
+}
+export interface FixedColumnLayout {
+  positions: Record<string, FixedPosition>;
+  offsets: Record<string, number>;
+  actionOffset: number;
+  warning: boolean;
+  mandatoryOverflow: boolean;
+}
+
+export function calculateFixedColumnLayout(input: FixedColumnLayoutInput): FixedColumnLayout {
+  const visible = input.selected.flatMap(key => input.columns.filter(column => column.key === key));
+  const primary = input.columns.find(column => column.required);
+  const primaryVisible = input.fixedFirstColumn && primary && visible.some(column => column.key === primary.key)
+    ? primary : undefined;
+  const positions: Record<string, FixedPosition> = {};
+  if (primaryVisible) positions[primaryVisible.key] = "left";
+
+  const columnWidth = (column: AuthorizedColumn) =>
+    input.widths[column.key] ?? columnWidthPreset(column).defaultWidth;
+  const budget = input.containerWidth > 0 ? input.containerWidth / 2 : Number.POSITIVE_INFINITY;
+  const actionWidth = Number.isFinite(input.actionWidth) ? Math.max(0, input.actionWidth) : 0;
+  let fixedWidth = (primaryVisible ? columnWidth(primaryVisible) : 0) + actionWidth;
+  const mandatoryOverflow = fixedWidth > budget;
+  let warning = mandatoryOverflow;
+
+  for (const column of visible) {
+    if (column.key === primaryVisible?.key) continue;
+    const position = input.fixedPositions[column.key];
+    if (!position) continue;
+    const width = columnWidth(column);
+    if (fixedWidth + width > budget) {
+      warning = true;
+      continue;
+    }
+    positions[column.key] = position;
+    fixedWidth += width;
+  }
+
+  const offsets: Record<string, number> = {};
+  let leftOffset = 0;
+  const leftColumns = visible.filter(column => positions[column.key] === "left");
+  if (primaryVisible) {
+    const primaryIndex = leftColumns.findIndex(column => column.key === primaryVisible.key);
+    if (primaryIndex > 0) leftColumns.unshift(leftColumns.splice(primaryIndex, 1)[0]!);
+  }
+  for (const column of leftColumns) {
+    offsets[column.key] = leftOffset;
+    leftOffset += columnWidth(column);
+  }
+  let rightOffset = actionWidth;
+  for (const column of [...visible].reverse()) {
+    if (positions[column.key] !== "right") continue;
+    offsets[column.key] = rightOffset;
+    rightOffset += columnWidth(column);
+  }
+  return { positions, offsets, actionOffset: 0, warning, mandatoryOverflow };
 }
 
 /** The caller supplies only fields present in the current server projection. Revocation drops preferences. */
@@ -124,9 +202,14 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
   const selected = ref<string[]>([]);
   const widths = ref<Record<string, number>>({});
   const fixedFirstColumn = ref(true);
+  const fixedPositions = ref<Record<string, FixedPosition>>({});
+  const tableFrame = ref<HTMLElement | null>(null);
+  const tableFrameWidth = ref(0);
   const views = ref<SavedColumnView[]>([]);
   const activeViewId = ref<string | null>(null);
-  const defaultLayout = ref<ColumnLayout>({ selected: [], widths: {}, fixedFirstColumn: true, knownColumns: [] });
+  const defaultLayout = ref<ColumnLayout>({
+    selected: [], widths: {}, fixedFirstColumn: true, fixedPositions: {}, knownColumns: [],
+  });
   const activeViewSnapshot = ref<ColumnLayout | null>(null);
   const viewError = ref<string | null>(null);
   const preferenceWarning = ref<string | null>(null);
@@ -139,12 +222,29 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
     return columnPreferenceKey(environment, subject.tenantId, subject.userId, options.pageId, tableId);
   });
   const storageProvider = options.storageProvider ?? (() => window.localStorage);
+  const fixedActionWidth = Number.isFinite(options.fixedActionWidth)
+    ? Math.max(0, options.fixedActionWidth ?? 0) : 0;
+  let tableFrameObserver: ResizeObserver | null = null;
+  watch(tableFrame, frame => {
+    tableFrameObserver?.disconnect();
+    tableFrameObserver = null;
+    tableFrameWidth.value = frame?.clientWidth ?? 0;
+    if (!frame || typeof ResizeObserver === "undefined") return;
+    tableFrameObserver = new ResizeObserver(() => {
+      tableFrameWidth.value = frame.clientWidth;
+    });
+    tableFrameObserver.observe(frame);
+  }, { flush: "post" });
+  onUnmounted(() => tableFrameObserver?.disconnect());
+  function setTableFrame(element: unknown) {
+    tableFrame.value = typeof HTMLElement !== "undefined" && element instanceof HTMLElement ? element : null;
+  }
   const viewDirty = computed(() => activeViewSnapshot.value !== null
     && JSON.stringify(activeViewSnapshot.value) !== JSON.stringify(currentLayout()));
 
   function currentLayout(): ColumnLayout {
     return { selected: [...selected.value], widths: { ...widths.value }, fixedFirstColumn: fixedFirstColumn.value,
-      knownColumns: available.value.map(column => column.key) };
+      fixedPositions: { ...fixedPositions.value }, knownColumns: available.value.map(column => column.key) };
   }
 
   function normalizeLayout(layout: ColumnLayout, columns: AuthorizedColumn[]): ColumnLayout {
@@ -155,6 +255,9 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
       if (!known.has(column.key) && !selectedKeys.includes(column.key)) selectedKeys.push(column.key);
     for (const column of columns)
       if (column.required && !selectedKeys.includes(column.key)) selectedKeys.unshift(column.key);
+    const primaryKey = columns.find(column => column.required)?.key;
+    const normalizedFixedPositions = Object.fromEntries(Object.entries(layout.fixedPositions)
+      .filter(([key, position]) => permitted.has(key) && key !== primaryKey && (position === "left" || position === "right")));
     const normalizedWidths = Object.fromEntries(Object.entries(layout.widths).filter(([key, width]) => {
       const column = columns.find(item => item.key === key);
       if (!column || !Number.isInteger(width)) return false;
@@ -162,6 +265,7 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
       return width >= preset.minWidth && width <= preset.maxWidth;
     }));
     return { selected: selectedKeys, widths: normalizedWidths, fixedFirstColumn: layout.fixedFirstColumn,
+      fixedPositions: normalizedFixedPositions,
       knownColumns: columns.map(column => column.key) };
   }
 
@@ -174,9 +278,12 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
         version: 1,
         selected: normalized.selected,
         knownColumns: normalized.knownColumns,
+        fixedFirstColumn: normalized.fixedFirstColumn,
         ...(Object.keys(normalized.widths).length ? { widths: normalized.widths } : {}),
-        ...(normalized.fixedFirstColumn ? { fixedFirstColumn: true } : {}),
-        ...(savedViews.length ? { views: savedViews } : {}),
+        ...(Object.keys(normalized.fixedPositions).length ? { fixedPositions: normalized.fixedPositions } : {}),
+        ...(savedViews.length ? { views: savedViews.map(view => ({
+          id: view.id, name: view.name, ...normalizeLayout(view, available.value),
+        })) } : {}),
       }));
       preferenceWarning.value = null;
       return true;
@@ -191,7 +298,31 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
     selected.value = [...layout.selected];
     widths.value = { ...layout.widths };
     fixedFirstColumn.value = layout.fixedFirstColumn;
+    fixedPositions.value = { ...layout.fixedPositions };
   }
+  const fixedLayout = computed(() => calculateFixedColumnLayout({
+    columns: available.value,
+    selected: selected.value,
+    widths: widths.value,
+    fixedFirstColumn: fixedFirstColumn.value,
+    fixedPositions: fixedPositions.value,
+    containerWidth: tableFrameWidth.value,
+    actionWidth: fixedActionWidth,
+  }));
+  const pinningWarning = computed(() => !fixedLayout.value.warning ? null
+    : fixedLayout.value.mandatoryOverflow
+      ? "必需固定列宽度超过表格预算，请通过详情查看完整信息。"
+      : "固定列宽度超过表格预算，已取消部分可选固定列。");
+  function fixedColumnClass(key: string): string | undefined {
+    const position = fixedLayout.value.positions[key];
+    return position ? `table-pinned-${position}` : undefined;
+  }
+  function fixedColumnStyle(key: string): Record<string, string> | undefined {
+    const position = fixedLayout.value.positions[key];
+    return position ? { "--table-pin-offset": `${fixedLayout.value.offsets[key] ?? 0}px` } : undefined;
+  }
+  const actionColumnStyle = computed(() => fixedActionWidth > 0
+    ? { "--table-pin-offset": `${fixedLayout.value.actionOffset}px` } : undefined);
 
   function activateView(id: string | null) {
     if (id === null) {
@@ -314,6 +445,8 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
     ];
     for (const column of columns)
       if (column.required && !selected.value.includes(column.key)) selected.value.unshift(column.key);
+    fixedPositions.value = Object.fromEntries(Object.entries(fixedPositions.value)
+      .filter(([key]) => permitted.has(key)));
   }, { immediate: true });
 
   watch(preferenceScope, () => {
@@ -323,16 +456,19 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
     views.value = [];
     activeViewId.value = null;
     activeViewSnapshot.value = null;
-    defaultLayout.value = { selected: [], widths: {}, fixedFirstColumn: true, knownColumns: [] };
+    defaultLayout.value = { selected: [], widths: {}, fixedFirstColumn: true, fixedPositions: {}, knownColumns: [] };
     selected.value = [];
     widths.value = {};
     fixedFirstColumn.value = true;
+    fixedPositions.value = {};
   }, { flush: "sync" });
 
   watch(available, columns => {
     if (!columns.length) return;
     const permitted = new Set(columns.map(column => column.key));
     widths.value = Object.fromEntries(Object.entries(widths.value).filter(([key]) => permitted.has(key)));
+    fixedPositions.value = Object.fromEntries(Object.entries(fixedPositions.value)
+      .filter(([key]) => permitted.has(key)));
     views.value = views.value.map(view => ({ ...view, ...normalizeLayout(view, columns) }));
     defaultLayout.value = normalizeLayout(defaultLayout.value, columns);
   }, { flush: "sync" });
@@ -353,6 +489,7 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
       selected: columns.map(column => column.key),
       widths: {},
       fixedFirstColumn: columns.some(column => column.required),
+      fixedPositions: {},
       knownColumns: columns.map(column => column.key),
     };
     const storedLayout = stored ? normalizeLayout({
@@ -360,6 +497,7 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
       knownColumns: stored.knownColumns ?? [],
       widths: stored.widths ?? {},
       fixedFirstColumn: stored.fixedFirstColumn ?? columns.some(column => column.required),
+      fixedPositions: stored.fixedPositions ?? {},
     }, columns) : fallbackLayout;
     const hasOutOfRangeWidth = Object.entries(stored?.widths ?? {}).some(([columnKey, width]) => {
       const column = columns.find(item => item.key === columnKey);
@@ -382,7 +520,7 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
     hydratedScope.value = key;
   }, { immediate: true, flush: "sync" });
 
-  watch([selected, widths, fixedFirstColumn], () => {
+  watch([selected, widths, fixedFirstColumn, fixedPositions], () => {
     const key = preferenceScope.value;
     if (!key || hydratedScope.value !== key) return;
     if (activeViewId.value !== null) return;
@@ -403,5 +541,9 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
   const columnViews: ColumnViewController = {
     views, activeViewId, viewDirty, viewError, activateView, createView, saveView, renameView, restoreView, removeView,
   };
-  return { available, selected, visible, widths, widthStyle, fixedFirstColumn, preferenceWarning, columnViews };
+  return {
+    available, selected, visible, widths, widthStyle, fixedFirstColumn, fixedPositions,
+    fixedColumnClass, fixedColumnStyle, actionColumnStyle, pinningWarning, setTableFrame,
+    preferenceWarning, columnViews,
+  };
 }

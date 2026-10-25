@@ -1068,7 +1068,7 @@ public sealed class IdentityHttpTests : IAsyncLifetime
         Assert.NotNull((await verify.Sessions.SingleAsync()).RevokedAt);
         var created = await verify.DirectoryUsers.SingleAsync(item => item.Account == "BROWSER-NEW");
         Assert.Equal("Browser subject", created.Name);
-        Assert.True((await verify.PasswordCredentials.SingleAsync(item => item.UserId == created.Id)).Enabled);
+        Assert.False((await verify.PasswordCredentials.SingleAsync(item => item.UserId == created.Id)).Enabled);
         var role = await verify.Roles.SingleAsync(item => item.Code == "fixture-owner");
         Assert.Equal(role.Id, (await verify.Memberships.SingleAsync(item => item.UserId == created.Id)).RoleId);
         Assert.Equal(2, await verify.CommandReceipts.CountAsync());

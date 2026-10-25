@@ -9,7 +9,7 @@
 |---|---|---|
 | Component suite | `npm test` in `clients\ops-web` | 12 files, 73 passed, 0 failed |
 | Strict type-check and production build | `npm run build` in `clients\ops-web` | `vue-tsc --noEmit` and Vite build passed |
-| Real browser | `RealBrowserUsesHttpsOwnerIdentityAndAllNamedPlatformPages` through the controlled .NET fixture | 1 passed; HTTPS Kestrel, built same-origin client, identity, named platform pages, authorized writes, and logout |
+| Real browser | `RealBrowserUsesHttpsOwnerIdentityAndAllNamedPlatformPages` through the controlled .NET fixture | 1 passed; HTTPS Kestrel, built same-origin client, identity, named platform pages, authorized writes, explicit credential-disable confirmation, HTTP 204, refreshed disabled state, and logout |
 
 The browser fixture obtains its URL from the test host, uses a generated certificate and `wes_test`, and disables trace/video/screenshot recording. It refuses to run without the fixture-provided `WES_E2E_URL`; do not point Playwright at a production endpoint.
 

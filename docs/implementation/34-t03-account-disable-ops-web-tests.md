@@ -17,8 +17,10 @@
 - `DirectoryPersistenceTests`：22 passed，0 failed。
 - `CredentialDisableHttpChecksVersionAndRevokesCurrentFamily`：1 passed，0 failed；HTTPS Host + `wes_test`真实owner。
 - `UsersPage.spec.ts`及`identity-api.spec.ts`定向：21 passed，0 failed；全Ops Web：75 passed，0 failed。
+- `RealBrowserUsesHttpsOwnerIdentityAndAllNamedPlatformPages`：1 passed；隔离HTTPS Kestrel/真实Chromium中，用户创建和凭据/角色设置后执行停用确认，观察HTTP 204、成功提示、刷新后动作消失及MySQL中凭据已停用。
 - `npm run build`：vue-tsc严格类型检查与Vite生产构建通过。
 - 全solution Release：Architecture 29、Modules 218、Persistence 317、Route 228，共**792 passed、0 failed、0 skipped**。
+- 首次并行solution运行时，既有`RealDependency_HealthyDisconnectedThenRecovered`在多个测试工程同时运行下失败；该1秒外部MySQL探针隔离复跑通过，之后`-m:1`串行全solution回归完整通过。该环境负载失败保留记录，未通过放宽探针门限处理。
 - 所有修改的C#源/测试文件格式校验及`git diff --check`通过。
 
 ## 复跑命令
@@ -26,8 +28,10 @@
 ```powershell
 dotnet test tests\Persistence\Wes.Persistence.Tests.csproj --no-restore -c Release --filter "FullyQualifiedName~ReadUsers_ProjectsCredentialVersionOnlyWhenGranted"
 dotnet test tests\Modules\Wes.Modules.Tests.csproj --no-restore -c Release --filter "FullyQualifiedName~CredentialDisableHttpChecksVersionAndRevokesCurrentFamily"
+dotnet test tests\Modules\Wes.Modules.Tests.csproj --no-restore -c Release --filter "FullyQualifiedName~RealBrowserUsesHttpsOwnerIdentityAndAllNamedPlatformPages" --logger "console;verbosity=quiet"
 npm test -- --run src/features/platform/UsersPage.spec.ts src/features/identity/identity-api.spec.ts
 npm run build
+dotnet test WES.slnx --no-restore -c Release -m:1 --logger "console;verbosity=quiet"
 ```
 
 实现前持久层测试因JSON缺少`credentialVersion`属性而失败；Vue测试因页面没有禁用动作而失败。修复后各自通过。

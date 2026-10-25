@@ -190,6 +190,15 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
   const assigned = page.waitForResponse(value => value.url().includes("/roles") && value.request().method() === "PUT");
   await page.getByRole("button", { name: "确认替换角色", exact: true }).click();
   expect((await assigned).status()).toBe(200);
+  await row.getByTestId("disable-credential").click();
+  await expect(page.getByText(/该用户的全部现有会话将被撤销/)).toBeVisible();
+  await expect(page.getByText(/停用后不能通过此页面重新启用凭据/)).toBeVisible();
+  const disabled = page.waitForResponse(value =>
+    value.url().includes("/api/platform/users/") && value.url().endsWith("/disable") && value.request().method() === "POST");
+  await page.getByRole("button", { name: "确认停用凭据", exact: true }).click();
+  expect((await disabled).status()).toBe(204);
+  await expect(page.getByText("登录凭据已停用，现有会话已撤销；列表已重新读取。")).toBeVisible();
+  await expect(row.getByTestId("disable-credential")).toHaveCount(0);
   expect(failures).toEqual([]);
   await page.getByRole("button", { name: "退出当前会话" }).click();
   await expect(page.getByRole("heading", { name: "登录运行管理" })).toBeVisible();

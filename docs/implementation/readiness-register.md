@@ -181,5 +181,6 @@
 
 - 用户目录仅向具备该目标用户`platform.users.read`的`Credential`字段权限者投影不含秘密的凭据版本；查询只选择用户ID和版本。缺该字段权限不暴露版本，也不显示禁用入口。
 - 具备当前`Enabled`写权限的页面动作显式二次确认后，按凭据版本调用已有HTTP owner；不会误用用户档案版本。HTTP 204成功形态只在该命令允许，权限/版本仍由服务端复验。
-- 定向字段投影、真实HTTP、Ops Web 75项测试、严格类型构建及格式检查通过；全solution现为Architecture29、Modules218、Persistence317、Route228，共**792 passed**。792替代791。
+- 定向字段投影、真实HTTP、Ops Web 75项测试、严格类型构建及格式检查通过；隔离HTTPS真实浏览器现覆盖显式确认、204、刷新后的禁用状态及数据库持久化。全solution现为Architecture29、Modules218、Persistence317、Route228，共**792 passed**。792替代791。
+- 最新串行Release全solution验证完成：792 passed、0 failed、0 skipped；一次并行全solution运行中的1秒MySQL readiness探针失败已单独复跑通过，串行全套通过，门限未修改。
 - 不增加密码启用/重置，不替代生产、PDA、人工缩放、保留治理或现场H验收；T03/T04仍为partial。

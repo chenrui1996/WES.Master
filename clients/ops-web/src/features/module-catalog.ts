@@ -53,7 +53,7 @@ export class ModuleCatalog {
 
   private pending: Promise<boolean> | null = null;
 
-  constructor(private readonly request: typeof fetch = fetch) {}
+  constructor(private readonly request: typeof fetch = globalThis.fetch.bind(globalThis)) {}
 
   load(force = false): Promise<boolean> {
     if (this.pending) return this.pending;

@@ -23,6 +23,22 @@ describe("module catalog", () => {
     }));
   });
 
+  it("calls the default browser fetch with its required global receiver", async () => {
+    const request = vi.fn(function (this: typeof globalThis): Promise<Response> {
+      expect(this).toBe(globalThis);
+      return Promise.resolve(new Response(JSON.stringify(catalog())));
+    });
+    vi.stubGlobal("fetch", request);
+
+    try {
+      const client = new ModuleCatalog();
+      expect(await client.load()).toBe(true);
+      expect(request).toHaveBeenCalledOnce();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("rejects missing, duplicate, unknown, and invalid catalog entries", () => {
     expect(() => parseModuleCatalog({ modules: [] })).toThrow("模块配置响应无效");
     expect(() => parseModuleCatalog({ modules: [

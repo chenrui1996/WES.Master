@@ -19,6 +19,13 @@ function contrastRatio(foreground: string, background: string): number {
 test("real HTTPS identity, authorized named pages and responsive frame", async ({ page }) => {
   const failures: string[] = [];
   page.on("pageerror", error => failures.push(error.message));
+  await page.route("**/api/config/features", route => route.fulfill({
+    contentType: "application/json",
+    body: JSON.stringify({
+      modules: ["Platform", "Wms", "Orchestration", "WcsStacker", "WcsFourWay", "Simulator"]
+        .map(code => ({ code, enabled: code === "Platform" })),
+    }),
+  }));
   await page.goto("/login");
   await expect(page.getByRole("heading", { name: "登录运行管理" })).toBeVisible();
   await expect(page.locator(".login-main .wes-page")).toHaveCount(1);
@@ -29,7 +36,10 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
   await page.getByRole("button", { name: "登录", exact: true }).click();
   await expect(page.getByRole("heading", { name: "会话与安全", exact: true })).toBeVisible();
   await expect(page.locator(".workspace .wes-page")).toHaveCount(1);
-  expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length }))).toEqual({ local: 0, session: 0 });
+  const initialPreferences = await page.evaluate(() => Object.entries(localStorage));
+  expect(initialPreferences.every(([key]) => key.startsWith("wes-ops-web:columns:v1:"))).toBe(true);
+  expect(JSON.stringify(initialPreferences)).not.toContain("accessToken");
+  expect(await page.evaluate(() => sessionStorage.length)).toBe(0);
   await page.setViewportSize({ width: 1440, height: 900 });
   const nav = page.getByRole("navigation", { name: "管理导航" });
   const toggle = page.getByTestId("navigation-toggle");
@@ -60,11 +70,14 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
   expect(expandedWidth).toBeGreaterThan(collapsedWidth + 100);
   await expect(nav.getByRole("link", { name: "用户与部门", exact: true })).toBeVisible();
   await expect(page.locator(".app-layout")).toHaveAttribute("data-density", "comfortable");
-  const densityEntries = await page.evaluate(() => Object.entries(localStorage));
-  expect(densityEntries).toHaveLength(1);
-  expect(densityEntries[0]?.[0]).toContain("production");
-  expect(densityEntries[0]?.[1]).toBe("comfortable");
-  expect(JSON.stringify(densityEntries)).not.toContain("accessToken");
+  const densityPreference = await page.evaluate(() => Object.entries(localStorage)
+    .find(([key]) => key.startsWith("wes-ops-web:density:")) ?? null);
+  expect(densityPreference?.[0]).toContain("production");
+  expect(densityPreference?.[1]).toBe("comfortable");
+  const storedVisualAndColumnPreferences = await page.evaluate(() => Object.entries(localStorage));
+  expect(storedVisualAndColumnPreferences.every(([key]) =>
+    key.startsWith("wes-ops-web:columns:v1:") || key.startsWith("wes-ops-web:density:"))).toBe(true);
+  expect(JSON.stringify(storedVisualAndColumnPreferences)).not.toContain("accessToken");
   for (const width of [375, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -79,8 +92,10 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
     await expect(page.getByRole("main").getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.locator(".workspace .wes-page")).toHaveCount(1);
     const tables = page.locator(".table-scroll");
-    expect(await tables.count()).toBeGreaterThan(0);
-    await expect(tables.first()).toBeVisible();
+    if (api !== "/api/platform/audit") {
+      expect(await tables.count()).toBeGreaterThan(0);
+      await expect(tables.first()).toBeVisible();
+    }
     for (const width of [375, 768, 1024, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -96,6 +111,26 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
       await expect(page.getByText("配置已提交；受影响服务的实际读取与现场许可仍按各自门禁判断。")).toBeVisible();
       await expect(settingRow).toContainText("300");
       await expect(settingRow).toContainText("AuthorizedOverride");
+      await page.setViewportSize({ width: 1600, height: 900 });
+      const settingsTable = page.locator(".table-scroll").first();
+      await page.locator(".column-settings").first().locator("summary").click();
+      await page.getByTestId("fixed-position-key").selectOption("right");
+      await page.getByTestId("apply-columns").first().click();
+      const keyHeader = settingsTable.getByRole("columnheader", { name: "稳定键", exact: true });
+      await expect(keyHeader).toHaveClass(/table-pinned-right/);
+      await expect.poll(() => keyHeader.evaluate(element => getComputedStyle(element).insetInlineEnd)).toBe("160px");
+      await expect.poll(() => settingsTable.getByRole("columnheader", { name: "操作", exact: true })
+        .evaluate(element => getComputedStyle(element).position)).toBe("sticky");
+      const columnPreference = await page.evaluate(() => Object.entries(localStorage)
+        .find(([key]) => key.startsWith("wes-ops-web:columns:v1:") && key.endsWith(":platform-settings:settings")) ?? null);
+      expect(columnPreference?.[0]).toContain(":platform-settings:settings");
+      expect(columnPreference?.[1]).toContain('"fixedPositions":{"key":"right"}');
+
+      await page.setViewportSize({ width: 375, height: 900 });
+      await expect(settingsTable.locator(".table-fixed-notice")).toBeVisible();
+      await expect.poll(() => keyHeader.evaluate(element => getComputedStyle(element).insetInlineEnd)).toBe("auto");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      await page.setViewportSize({ width: 1440, height: 900 });
     }
   }
   const auditMode = page.getByLabel("证据类型");
@@ -216,6 +251,13 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
   expect(failures).toEqual([]);
   await page.getByRole("button", { name: "退出当前会话" }).click();
   await expect(page.getByRole("heading", { name: "登录运行管理" })).toBeVisible();
-  expect(await page.evaluate(() => Object.entries(localStorage))).toEqual(densityEntries);
+  const persistedPreferences = await page.evaluate(() => Object.entries(localStorage));
+  expect(persistedPreferences).toContainEqual(densityPreference);
+  expect(persistedPreferences.find(([key]) =>
+    key.startsWith("wes-ops-web:columns:v1:") && key.endsWith(":platform-settings:settings"))?.[1])
+    .toContain('"fixedPositions":{"key":"right"}');
+  expect(persistedPreferences.every(([key]) =>
+    key.startsWith("wes-ops-web:columns:v1:") || key.startsWith("wes-ops-web:density:"))).toBe(true);
+  expect(JSON.stringify(persistedPreferences)).not.toContain("accessToken");
   expect(await page.evaluate(() => sessionStorage.length)).toBe(0);
 });

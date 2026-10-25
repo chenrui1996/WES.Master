@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Wes.Platform.Domain;
 using Wes.Platform.Features.Directory;
+using Wes.Platform.Features.Messaging;
 using Wes.Platform.Features.Tenancy;
 using Wes.Platform.Infrastructure.Messaging;
 using Wes.Platform.Infrastructure.Persistence;
@@ -409,6 +410,49 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
             _clock, TimeSpan.FromSeconds(30));
         Assert.Equal(PlatformOutboxPublishResult.Published,
             Assert.Single(await successfulDispatcher.DispatchDueAsync(10)));
+    }
+
+    /// <summary>T05: Outbox diagnostics require current All-scope authority and never return payload data.</summary>
+    [Fact]
+    public async Task PlatformOutboxQuery_RequiresCurrentAllScopeGrantAndProjectsSafeMetadata()
+    {
+        await CreateAsync();
+        await using (var seed = Open())
+        {
+            seed.Audit.Add(new PlatformAudit(_tenant, _actor, Guid.NewGuid(), Guid.NewGuid(),
+                PlatformAuditAction.UserChanged, null, Guid.NewGuid().ToString("D"), _clock.Now));
+            await seed.SaveChangesAsync();
+        }
+
+        OutboxQueryPage denied;
+        await using (var database = Open())
+            denied = await new QueryOutbox(database, _clock).ReadAsync(_context);
+
+        Assert.False(denied.Authorized);
+        Assert.Empty(denied.Rows);
+
+        await using (var grantDatabase = Open())
+        {
+            var role = await grantDatabase.Roles.SingleAsync();
+            role.Change(role.Version, true,
+            [
+                Grant("platform.messages.read", "EventId", "Status", "CreatedAt", "Owner", "ContractName", "Payload")
+            ]);
+            await grantDatabase.SaveChangesAsync();
+        }
+
+        await using var authorizedDatabase = Open();
+        var authorized = await new QueryOutbox(authorizedDatabase, _clock).ReadAsync(_context, limit: 1);
+
+        Assert.True(authorized.Authorized);
+        var row = Assert.Single(authorized.Rows);
+        Assert.Equal("platform.audit", row.ContractName);
+        Assert.Equal("Platform", row.Owner);
+        Assert.Equal(OutboxMessageStatus.Pending, row.Status);
+        Assert.DoesNotContain("Payload", System.Text.Json.JsonSerializer.Serialize(row), StringComparison.Ordinal);
+        var secondPage = await new QueryOutbox(authorizedDatabase, _clock).ReadAsync(_context, offset: 1, limit: 1);
+        Assert.Single(secondPage.Rows);
+        Assert.NotEqual(row.EventId, secondPage.Rows[0].EventId);
     }
 
     /// <summary>T05: transient transport failures persist retry state without losing the original event.</summary>

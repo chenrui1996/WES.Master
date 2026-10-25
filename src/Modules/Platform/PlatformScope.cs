@@ -6,6 +6,7 @@ using Wes.Platform.Features.Audit;
 using Wes.Platform.Features.Authorization;
 using Wes.Platform.Features.Directory;
 using Wes.Platform.Features.Identity;
+using Wes.Platform.Features.Messaging;
 using Wes.Platform.Features.Settings;
 using Wes.Platform.Features.Tenancy;
 using Wes.Platform.Infrastructure.Persistence;
@@ -215,6 +216,9 @@ public sealed class PlatformScope : IAsyncDisposable
     public Task<LoginEventPage> LoginEventsAsync(TenantContext subject, DateTimeOffset from, DateTimeOffset to, int offset, int limit,
         LoginEventKind? kind, Guid? correlation, CancellationToken ct) =>
         new QueryLoginEvents(_database, _clock, _logs.CreateLogger<QueryLoginEvents>()).ReadAsync(subject, from, to, offset, limit, kind, correlation, ct);
+    /// <summary>Reads only current-authorized Platform Outbox metadata; payloads are never projected.</summary>
+    public Task<OutboxQueryPage> OutboxAsync(TenantContext subject, int offset, int limit, CancellationToken ct) =>
+        new QueryOutbox(_database, _clock).ReadAsync(subject, offset, limit, ct);
     /// <summary>Disposes the owned module unit of work.</summary>
     public ValueTask DisposeAsync() => _database.DisposeAsync();
     private LoginSourceDbContext Sources() => new(new DbContextOptionsBuilder<LoginSourceDbContext>().UseMySQL(_connection,

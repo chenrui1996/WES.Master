@@ -108,6 +108,7 @@ public static class PlatformEndpoints
                 owner.Directory.DeleteDictionaryAsync(subject, id, expectedVersion, correlation, ct)));
         group.MapGet("/settings", SettingsAsync);
         group.MapPut("/settings/{id:guid}", ChangeSettingAsync);
+        group.MapGet("/messages", OutboxAsync);
         group.MapGet("/audit", AuditAsync);
         group.MapGet("/login-events", LoginEventsAsync);
     }
@@ -209,6 +210,14 @@ public static class PlatformEndpoints
         var subject = IdentityRuntime.Subject(http.User);
         await using var database = factory.Open(subject.TenantId);
         var result = await database.AuditAsync(subject, from, to, offset, limit, ct, action, correlationId);
+        return result.Authorized ? Results.Ok(result) : Results.Forbid();
+    }
+    private static async Task<IResult> OutboxAsync(HttpContext http, IdentityDatabase factory, CancellationToken ct,
+        int offset = 0, int limit = 50)
+    {
+        var subject = IdentityRuntime.Subject(http.User);
+        await using var database = factory.Open(subject.TenantId);
+        var result = await database.OutboxAsync(subject, offset, limit, ct);
         return result.Authorized ? Results.Ok(result) : Results.Forbid();
     }
     private static async Task<IResult> LoginEventsAsync(HttpContext http, IdentityDatabase factory, TimeProvider clock, ILoggerFactory logs, CancellationToken ct,

@@ -760,6 +760,24 @@ public sealed class IdentityHttpTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.MethodNotAllowed, edit.StatusCode);
     }
 
+    /// <summary>Outbox metadata is hidden by default and requires the dedicated current-session read grant.</summary>
+    [Fact]
+    public async Task OutboxHttpRequiresDedicatedReadPermissionAndNeverExposesPayload()
+    {
+        await SignInAsync();
+
+        using var denied = await _client.GetAsync("/api/platform/messages?limit=1");
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+
+        await GrantPlatformAsync();
+        using var authorized = await _client.GetAsync("/api/platform/messages?limit=1");
+        Assert.Equal(HttpStatusCode.OK, authorized.StatusCode);
+        var page = await authorized.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(page.GetProperty("authorized").GetBoolean());
+        Assert.All(page.GetProperty("rows").EnumerateArray(),
+            row => Assert.False(row.TryGetProperty("payload", out _)));
+    }
+
     /// <summary>Authorized action/correlation filters run before pagination and cannot become hidden-field oracles.</summary>
     [Fact]
     [Trait("CaseId", "PLATFORM-HTTP-007")]
@@ -1008,9 +1026,11 @@ public sealed class IdentityHttpTests : IAsyncLifetime
         string[] fields = ["Id", "Account", "Name", "DepartmentId", "Enabled", "Version", "Roles", "Credential",
             "Code", "Rules", "DefaultLanguage", "Key", "Value", "Source", "Category", "LanguageKey", "Label",
             "Translations", "References", "Delete", "OccurredAt", "ActorId", "TargetId", "CorrelationId", "Action",
-            "BeforeVersion", "AfterVersion", "Kind", "AccountDigest", "SourceDigest", "SessionId", "ParentId", "AffectedSubjects"];
+            "BeforeVersion", "AfterVersion", "Kind", "AccountDigest", "SourceDigest", "SessionId", "ParentId",
+            "AffectedSubjects", "EventId", "Status", "CreatedAt", "Owner", "ContractName", "SchemaVersion", "Attempts",
+            "NextAttemptAt", "PublishedAt", "LastErrorCategory"];
         string[] permissions = ["platform.users", "platform.departments", "platform.roles", "platform.tenants",
-            "platform.dictionary", "platform.settings", "platform.audit"];
+            "platform.dictionary", "platform.settings", "platform.audit", "platform.messages"];
         var grants = permissions.SelectMany(permission => new[] { ".read", ".write" }
             .Select(action => new PermissionGrant(permission + action, DataScope.All, ImmutableHashSet<Guid>.Empty,
                 fields.ToImmutableHashSet(StringComparer.Ordinal)))).ToArray();

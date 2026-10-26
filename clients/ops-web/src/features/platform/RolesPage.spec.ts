@@ -41,17 +41,23 @@ it("previews the selected version and authorized current membership count withou
   expect(wrapper.find('[data-test="role-impact"]').exists()).toBe(false);
   wrapper.unmount();
 });
-it("loads later authorized department candidates without dropping already selected rules", async () => {
-  vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(JSON.stringify({ authorized: true, rows:
-    !url.includes("departments") ? [] : url.includes("offset=50") ? [{ id: "d-later", name: "后页部门", enabled: true }]
-      : Array.from({ length: 50 }, (_, index) => ({ id: `d-${index}`, name: `部门${index}`, enabled: true })),
-  }))));
+it("loads authorized department candidates in 25-row pages without dropping earlier options", async () => {
+  const reads: string[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    reads.push(url);
+    return new Response(JSON.stringify({ authorized: true, rows:
+      !url.includes("departments") ? [] : url.includes("offset=25") ? [{ id: "d-later", name: "后页部门", enabled: true }]
+        : Array.from({ length: 25 }, (_, index) => ({ id: `d-${index}`, name: `部门${index}`, enabled: true })),
+    }));
+  }));
   sessionState.subject!.grants[2]!.scope = 2;
   const wrapper = mount(RolesPage); await flushPromises();
+  expect(reads).toContain("/api/platform/departments?offset=0&limit=25");
   await wrapper.get('[data-test="new-role"]').trigger("click");
   await wrapper.get('[name="permission"]').setValue("platform.users.read");
   await wrapper.get('[name="scope"]').setValue("1");
   await wrapper.get('[data-test="more-departments"]').trigger("click"); await flushPromises();
+  expect(reads).toContain("/api/platform/departments?offset=25&limit=25");
   expect(wrapper.find('input[name="grantDepartment"][value="d-later"]').exists()).toBe(true);
   expect(wrapper.find('input[name="grantDepartment"][value="d-0"]').exists()).toBe(true);
   expect(wrapper.find('[data-test="more-departments"]').exists()).toBe(false);

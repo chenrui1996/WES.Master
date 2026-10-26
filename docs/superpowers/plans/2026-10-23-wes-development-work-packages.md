@@ -93,6 +93,7 @@
 - [x] DTC-UI-016 跨标签首选项变化不覆盖当前未提交列设置草稿，受控StorageEvent和显式应用流程已验证；见[实施](../../implementation/59-t06-column-preference-cross-tab-draft.md)及[测试](../../implementation/60-t06-column-preference-cross-tab-draft-tests.md)。存储禁用与配额失败提示/当前布局保留见[实施](../../implementation/63-t06-column-preference-storage-failures.md)及[测试](../../implementation/64-t06-column-preference-storage-failures-tests.md)；授权schema变化后规范化移除撤权列并保留稳定ID布局见[实施](../../implementation/65-t06-column-preference-schema-migration.md)及[测试](../../implementation/66-t06-column-preference-schema-migration-tests.md)。真实浏览器故障与其它页面场景仍待，整项不标完成。
 - [x] DTC-UI-015 的本机偏好作用域切换首片已验证：同一存储下租户、主体与环境独立读写且恢复各自列布局；见[实施](../../implementation/61-t06-column-preference-scope-isolation.md)及[测试](../../implementation/62-t06-column-preference-scope-isolation-tests.md)。此受控组件测试不替代完整DTC-UI-015实体/登出和无业务写E2E。
 - [x] DTC-UI-015 登出时清空当前列布局易失状态、保留匹配主体的本机布局并在同主体重新认证后恢复，受控身份/组件测试已通过；见[实施](../../implementation/69-t06-column-preference-logout-boundary.md)及[测试](../../implementation/70-t06-column-preference-logout-boundary-tests.md)。不覆盖页面行数据或关联缓存的完整登出E2E。
+- [x] DTC-UI-022 Platform Roles/Users授权部门/角色候选远程首片改为25条/页并验证offset连续、旧页候选保留；见[实施](../../implementation/71-t06-department-candidate-page-size.md)及[测试](../../implementation/72-t06-department-candidate-page-size-tests.md)。搜索竞态、伪造ID提交及其他选择器仍待验收。
 - [ ] 实现语义HTML/Composition API/strict TS与Element Plus已有组件复用；白名单偏好不存业务数据/secret/待写。核对/已有导出固定有序ID及读值、水位TTL600秒，权限撤销直接失效；实时offset变化不承诺无丢重。
 - [ ] 60条动态更新/增删、599/600秒快照、单位混合不求和、200%字体/+40%翻译/768/1024/1440与局部滚动验收；RVT-06/07。组件绿不代表64页绿，T32逐PAGE适用性再验，PDA/地图不机械套Grid。
 

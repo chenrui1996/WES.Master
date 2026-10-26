@@ -117,15 +117,23 @@ it("clears prior query rows as soon as the filter scope changes", async () => {
 
 afterEach(() => { vi.unstubAllGlobals(); forgetIdentity(); });
 it("makes later authorized department and role candidates selectable without dropping the first page", async () => {
-  vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(JSON.stringify({ authorized: true, rows:
-    url.includes("/departments") ? url.includes("offset=50") ? [{ id: "d-later", name: "后页部门", enabled: true }]
-      : Array.from({ length: 50 }, (_, index) => ({ id: `d-${index}`, name: `部门${index}`, enabled: true }))
-    : url.includes("/roles") ? url.includes("offset=50") ? [{ id: "r-later", code: "LATER", enabled: true }]
-      : Array.from({ length: 50 }, (_, index) => ({ id: `r-${index}`, code: `ROLE${index}`, enabled: true })) : [user],
-  }))));
+  const reads: string[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    reads.push(url);
+    return new Response(JSON.stringify({ authorized: true, rows:
+    url.includes("/departments") ? url.includes("offset=25") ? [{ id: "d-later", name: "后页部门", enabled: true }]
+      : Array.from({ length: 25 }, (_, index) => ({ id: `d-${index}`, name: `部门${index}`, enabled: true }))
+    : url.includes("/roles") ? url.includes("offset=25") ? [{ id: "r-later", code: "LATER", enabled: true }]
+      : Array.from({ length: 25 }, (_, index) => ({ id: `r-${index}`, code: `ROLE${index}`, enabled: true })) : [user],
+    }));
+  }));
   const wrapper = mount(UsersPage); await flushPromises();
+  expect(reads).toContain("/api/platform/departments?offset=0&limit=25");
+  expect(reads).toContain("/api/platform/roles?offset=0&limit=25");
   await wrapper.get('[data-test="more-departments"]').trigger("click"); await flushPromises();
   await wrapper.get('[data-test="more-roles"]').trigger("click"); await flushPromises();
+  expect(reads).toContain("/api/platform/departments?offset=25&limit=25");
+  expect(reads).toContain("/api/platform/roles?offset=25&limit=25");
   await wrapper.get('[data-test="new-user"]').trigger("click");
   expect(wrapper.find('[name="departmentId"] option[value="d-later"]').exists()).toBe(true);
   expect(wrapper.find('[name="departmentId"] option[value="d-0"]').exists()).toBe(true);

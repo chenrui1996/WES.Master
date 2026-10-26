@@ -385,7 +385,7 @@ onBeforeUnmount(() => {
             <label>姓名<input v-model="form.name" name="userName" required maxlength="128" /></label>
             <label>部门<select v-model="form.departmentId" name="departmentId" required><option value="">选择启用部门</option>
               <option v-for="department in profileDepartments" :key="department.id" :value="department.id">{{ department.name ?? department.code ?? department.id }}</option></select></label>
-            <p class="hint">部门候选每次读取 50 项，可继续加载；仅显示启用且可写的部门。</p>
+            <p class="hint">部门候选每次读取 25 项，可继续加载；仅显示启用且可写的部门。</p>
             <label v-if="mode === 'edit'" class="check"><input v-model="form.enabled" type="checkbox" />启用用户</label>
             <p v-if="mode === 'edit'" class="hint">停用会撤销目标用户的现有会话；重新启用档案不能恢复已停用凭据。</p>
           </template>
@@ -400,7 +400,7 @@ onBeforeUnmount(() => {
           </template>
           <template v-else>
             <p>替换 {{ selectedUser?.account ?? selectedUser?.id }} 的角色关联。提交前请核对，移除角色立即影响权限。</p>
-            <p class="hint">角色候选每次读取 50 项，可继续加载；不可选或尚未加载的已有角色不会自动移除。</p>
+            <p class="hint">角色候选每次读取 25 项，可继续加载；不可选或尚未加载的已有角色不会自动移除。</p>
             <label v-for="role in roleCandidates" :key="role.id" class="check"><input v-model="form.roleIds" type="checkbox" :value="role.id" />{{ role.code ?? role.id }}</label>
             <p v-for="id in unavailableRoles" :key="id">当前关联不可选角色：{{ roles.find(role => role.id === id)?.code ?? id }}。
               保留会阻止提交；如需移除，请显式确认。

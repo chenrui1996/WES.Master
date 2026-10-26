@@ -2,6 +2,7 @@ import { ref, shallowRef } from "vue";
 import { api, ApiError } from "../identity/identity-api";
 
 interface CandidatePage<T> { authorized: boolean; rows: T[] }
+const candidatePageSize = 25;
 
 export function useDirectoryCandidates<T extends { id: string }>(path: string) {
   const rows = shallowRef<T[]>([]);
@@ -17,14 +18,15 @@ export function useDirectoryCandidates<T extends { id: string }>(path: string) {
     const current = generation;
     loading.value = true;
     try {
-      const response = await api<CandidatePage<T>>(`${path}?offset=${append ? nextOffset : 0}&limit=50`, { signal });
+      const response = await api<CandidatePage<T>>(
+        `${path}?offset=${append ? nextOffset : 0}&limit=${candidatePageSize}`, { signal });
       if (current !== generation) return null;
-      if (response.authorized !== true || !Array.isArray(response.rows) || response.rows.length > 50
+      if (response.authorized !== true || !Array.isArray(response.rows) || response.rows.length > candidatePageSize
         || response.rows.some(row => !row || typeof row.id !== "string"))
         throw new ApiError(403, "DirectoryCandidatesDenied", "未提供");
       rows.value = append ? [...new Map([...rows.value, ...response.rows].map(row => [row.id, row])).values()] : response.rows;
-      nextOffset = (append ? nextOffset : 0) + 50;
-      more.value = response.rows.length === 50;
+      nextOffset = (append ? nextOffset : 0) + candidatePageSize;
+      more.value = response.rows.length === candidatePageSize;
       return response;
     } finally { if (current === generation) loading.value = false; }
   }

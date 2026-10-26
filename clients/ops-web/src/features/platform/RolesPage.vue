@@ -122,6 +122,9 @@ function closeEditor() {
   departmentReferenceError.value = "";
   editor.value = null; Object.assign(form, { code: "", enabled: true, rules: [] }); resetDraft();
 }
+watch(departmentCatalog.denied, denied => {
+  if (denied) closeEditor();
+}, { flush: "sync" });
 function clear(preserveRows = false) {
   generation++; controller?.abort();
   if (departmentSearchTimer) clearTimeout(departmentSearchTimer);
@@ -187,21 +190,22 @@ async function resolveExistingDepartmentReferences() {
 function scheduleDepartmentSearch(code: string) {
   if (departmentSearchTimer) clearTimeout(departmentSearchTimer);
   departmentCatalog.reset();
-  candidateError.value = "";
   if (!editor.value || !draft.permission || draft.scope !== 1 || !canSearchDepartmentCode.value || !controller) return;
+  candidateError.value = "";
   const current = generation;
   departmentSearchTimer = setTimeout(async () => {
     departmentSearchTimer = undefined;
     if (current !== generation || !controller) return;
     try {
       const response = await departmentCatalog.read(controller.signal, false, code);
-      if (current !== generation) return;
+      if (current !== generation || !response) return;
       if (response?.authorized !== true) candidateError.value = "无权查询部门代码。指定部门规则不能提交。";
     } catch (reason) {
       if (current === generation && reason instanceof ApiError && reason.status === 403) {
         clear();
         candidateError.value = "无权查询部门代码，已清除未提交的权限草稿。";
       } else if (current === generation && !isAbortError(reason)) {
+        closeEditor();
         candidateError.value = `部门代码查询失败，请重试。${reason instanceof Error ? reason.message : ""}`;
       }
     }
@@ -226,9 +230,8 @@ async function load() {
     if (!canRead("platform.departments.read")) return;
     try {
       const response = await departmentCatalog.read(signal);
-      if (current !== generation) return;
-      if (response?.authorized === true && Array.isArray(response.rows)) departments.value = response.rows;
-      else candidateError.value = "无权读取部门候选。指定部门规则不能提交。";
+      if (current !== generation || !response) return;
+      if (response.authorized !== true) candidateError.value = "无权读取部门候选。指定部门规则不能提交。";
     } catch (reason) {
       if (current === generation && !isAbortError(reason))
         candidateError.value = `部门候选读取失败，请重新读取。${reason instanceof Error ? reason.message : ""}`;
@@ -256,8 +259,10 @@ async function moreCandidates() {
   const current = generation; candidateError.value = "";
   try { await departmentCatalog.read(controller.signal, true); }
   catch (reason) {
-    if (current === generation && !isAbortError(reason))
+    if (current === generation && !isAbortError(reason)) {
+      closeEditor();
       candidateError.value = `后续部门候选读取失败，请重试。${reason instanceof Error ? reason.message : ""}`;
+    }
   }
 }
 function covered(rule: Grant) {

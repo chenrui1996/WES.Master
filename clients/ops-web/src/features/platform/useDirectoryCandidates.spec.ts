@@ -117,3 +117,107 @@ it("lets the newest exact-code query replace candidates when responses arrive ou
   expect(wrapper.get('[data-test="ids"]').text()).toBe("AB");
   wrapper.unmount();
 });
+
+function fullPage() {
+  return new Response(JSON.stringify({ authorized: true,
+    rows: Array.from({ length: 25 }, (_, index) => ({ id: `d-${index}` })) }));
+}
+
+it.each([401, 403, "denied"] as const)("clears protected candidates and more on append %s and permits recovery", async status => {
+  const fetcher = vi.fn().mockResolvedValueOnce(fullPage())
+    .mockResolvedValueOnce(status === "denied"
+      ? new Response('{"authorized":false,"rows":[]}')
+      : new Response('{"code":"CandidateDenied"}', { status }))
+    .mockResolvedValueOnce(response("recovered"));
+  vi.stubGlobal("fetch", fetcher);
+  const directory = useDirectoryCandidates<{ id: string }>("/api/platform/departments");
+  await directory.read(new AbortController().signal);
+  expect(directory.more.value).toBe(true);
+  await expect(directory.read(new AbortController().signal, true)).rejects.toThrow();
+  expect(directory.rows.value).toEqual([]);
+  expect(directory.more.value).toBe(false);
+  await directory.read(new AbortController().signal);
+  expect(directory.rows.value).toEqual([{ id: "recovered" }]);
+});
+
+it.each([401, 403, "denied"] as const)("clears previous scope before a new-filter %s response", async status => {
+  const pending = deferredResponse();
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(fullPage()).mockReturnValueOnce(pending.promise));
+  const directory = useDirectoryCandidates<{ id: string }>("/api/platform/departments");
+  await directory.read(new AbortController().signal, false, "A");
+  const read = directory.read(new AbortController().signal, false, "AB");
+  const rejection = expect(read).rejects.toThrow();
+  expect(directory.rows.value).toEqual([]);
+  expect(directory.more.value).toBe(false);
+  pending.resolve(status === "denied" ? new Response('{"authorized":false,"rows":[]}')
+    : new Response("{}", { status }));
+  await rejection;
+  expect(directory.rows.value).toEqual([]);
+});
+
+it.each(["reset", "abort", "supersede"] as const)(
+  "suppresses a late failure after %s without poisoning newer results", async action => {
+    const stale = deferredResponse();
+    vi.stubGlobal("fetch", vi.fn().mockReturnValueOnce(stale.promise).mockResolvedValueOnce(response("current")));
+    const directory = useDirectoryCandidates<{ id: string }>("/api/platform/departments");
+    const controller = new AbortController();
+    const first = directory.read(controller.signal);
+    const outcome = first.then(value => value, () => "stale error");
+    if (action === "reset") directory.reset();
+    if (action === "abort") controller.abort();
+    await directory.read(new AbortController().signal, false, "NEW");
+    stale.resolve(new Response('{"code":"OldFailure"}', { status: 403 }));
+    expect(await outcome).toBeNull();
+    expect(directory.rows.value).toEqual([{ id: "current" }]);
+    expect(directory.loading.value).toBe(false);
+  });
+
+it("invalidates an externally cancelled request even when transport resolves successfully", async () => {
+  const pending = deferredResponse();
+  const fetcher = vi.fn().mockReturnValueOnce(pending.promise);
+  vi.stubGlobal("fetch", fetcher);
+  const directory = useDirectoryCandidates<{ id: string }>("/api/platform/departments");
+  const controller = new AbortController();
+  const read = directory.read(controller.signal);
+  controller.abort();
+  expect(directory.loading.value).toBe(false);
+  pending.resolve(response("cancelled"));
+  expect(await read).toBeNull();
+  expect(directory.rows.value).toEqual([]);
+  await directory.read(controller.signal);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+
+it("deduplicates stable IDs while advancing pages and explicitly rejects a current 503", async () => {
+  const fetcher = vi.fn().mockResolvedValueOnce(fullPage())
+    .mockResolvedValueOnce(new Response('{"authorized":true,"rows":[{"id":"d-0"},{"id":"d-25"}]}'))
+    .mockResolvedValueOnce(new Response('{"code":"Unavailable"}', { status: 503 }));
+  vi.stubGlobal("fetch", fetcher);
+  const directory = useDirectoryCandidates<{ id: string }>("/api/platform/departments");
+  await directory.read(new AbortController().signal);
+  await directory.read(new AbortController().signal, true);
+  expect(directory.rows.value).toHaveLength(26);
+  expect(directory.rows.value.filter(row => row.id === "d-0")).toHaveLength(1);
+  await expect(directory.read(new AbortController().signal)).rejects.toThrow("Unavailable");
+  expect(directory.rows.value).toEqual([]);
+  expect(directory.more.value).toBe(false);
+});
+
+it("does not let a late call with an already-aborted signal clear newer query state", async () => {
+  const pending = deferredResponse();
+  const fetcher = vi.fn().mockReturnValueOnce(pending.promise);
+  vi.stubGlobal("fetch", fetcher);
+  const directory = useDirectoryCandidates<{ id: string }>("/api/platform/departments");
+  const obsolete = new AbortController();
+  obsolete.abort();
+  const current = directory.read(new AbortController().signal, false, "NEW");
+
+  expect(await directory.read(obsolete.signal, false, "OLD")).toBeNull();
+  expect(directory.loading.value).toBe(true);
+  pending.resolve(response("current"));
+  await current;
+  expect(directory.rows.value).toEqual([{ id: "current" }]);
+  expect(await directory.read(obsolete.signal)).toBeNull();
+  expect(directory.rows.value).toEqual([{ id: "current" }]);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});

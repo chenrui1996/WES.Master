@@ -20,6 +20,72 @@ beforeEach(() => {
     ] };
 });
 afterEach(() => { vi.unstubAllGlobals(); forgetIdentity(); });
+it.each([403, 503, "denied"] as const)("clears the real role draft and selected department labels after candidate %s", async status => {
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (url.includes("/departments?") && url.includes("offset=25"))
+      return status === "denied" ? new Response('{"authorized":false,"rows":[]}')
+        : new Response('{"code":"DepartmentCandidatesRevoked"}', { status });
+    return new Response(JSON.stringify({ authorized: true, rows: url.includes("/departments?")
+      ? Array.from({ length: 25 }, (_, index) => ({ id: `d${index + 1}`, name: `PROTECTED-${index}`, enabled: true }))
+      : [] }));
+  }));
+  const wrapper = mount(RolesPage); await flushPromises();
+  await wrapper.get('[data-test="new-role"]').trigger("click");
+  await wrapper.get('[name="permission"]').setValue("platform.users.read");
+  await wrapper.get('[name="scope"]').setValue("1");
+  await wrapper.get('input[name="grantDepartment"][value="d1"]').setValue(true);
+  expect(wrapper.get('[data-test="selected-departments"]').text()).toContain("PROTECTED-0");
+  await wrapper.get('[data-test="more-departments"]').trigger("click"); await flushPromises();
+  expect(wrapper.find('[data-test="role-form"]').exists()).toBe(false);
+  expect(wrapper.text()).not.toContain("PROTECTED-0");
+  expect(wrapper.find('[data-test="more-departments"]').exists()).toBe(false);
+  expect(wrapper.findAll('[role="alert"]').some(alert => alert.text().includes("候选读取失败"))).toBe(true);
+  wrapper.unmount();
+});
+it.each(["denied", "stale-failure"] as const)("keeps code-search errors scoped to the current role draft: %s", async scenario => {
+  vi.useFakeTimers();
+  sessionState.subject!.grants[3]!.fields.push("Code");
+  const first = deferredResponse();
+  const second = deferredResponse();
+  vi.stubGlobal("fetch", vi.fn((url: string) => {
+    if (url.includes("code=A&") || url.endsWith("code=A")) return first.promise;
+    if (url.endsWith("code=AB")) return second.promise;
+    return Promise.resolve(new Response(JSON.stringify({ authorized: true,
+      rows: url.includes("/departments?") ? [{ id: "d1", name: "PROTECTED", enabled: true }] : [] })));
+  }));
+  const wrapper = mount(RolesPage);
+  try {
+    await flushPromises();
+    await wrapper.get('[data-test="new-role"]').trigger("click");
+    await wrapper.get('[name="permission"]').setValue("platform.users.read");
+    await wrapper.get('[name="scope"]').setValue("1");
+    await wrapper.get('input[name="grantDepartment"][value="d1"]').setValue(true);
+    await wrapper.get('[name="departmentCode"]').setValue("A");
+    await vi.advanceTimersByTimeAsync(250);
+    expect(wrapper.find('input[name="grantDepartment"]').exists()).toBe(false);
+    if (scenario === "denied") {
+      first.resolve(new Response('{"authorized":false,"rows":[]}'));
+      await flushPromises();
+      expect(wrapper.find('[data-test="role-form"]').exists()).toBe(false);
+      expect(wrapper.text()).not.toContain("PROTECTED");
+      expect(wrapper.findAll('[role="alert"]').some(alert => alert.text().includes("无权查询部门代码"))).toBe(true);
+    } else {
+      await wrapper.get('[name="departmentCode"]').setValue("AB");
+      await vi.advanceTimersByTimeAsync(250);
+      second.resolve(new Response('{"authorized":true,"rows":[{"id":"d1","name":"CURRENT","enabled":true}]}'));
+      await flushPromises();
+      first.resolve(new Response('{"code":"OldCandidateFailure"}', { status: 403 }));
+      await flushPromises();
+      expect(wrapper.get('input[name="grantDepartment"][value="d1"]').element).toBeDefined();
+      expect(wrapper.get('[data-test="role-form"]').text()).toContain("CURRENT");
+      expect(wrapper.text()).not.toContain("OldCandidateFailure");
+      expect(wrapper.text()).not.toContain("无权查询部门代码");
+    }
+  } finally {
+    wrapper.unmount();
+    vi.useRealTimers();
+  }
+});
 it("queries exact role code and permission before returning to the first page", async () => {
   const reads: string[] = [];
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {

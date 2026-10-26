@@ -8,28 +8,33 @@ export function useDirectoryCandidates<T extends { id: string }>(path: string) {
   const rows = shallowRef<T[]>([]);
   const more = ref(false);
   const loading = ref(false);
+  const denied = ref(false);
   let generation = 0;
   let nextOffset = 0;
   let currentCode = "";
   let activeController: AbortController | undefined;
   function reset() {
     generation++; activeController?.abort(); activeController = undefined;
-    rows.value = []; more.value = false; loading.value = false; nextOffset = 0; currentCode = "";
+    rows.value = []; more.value = false; loading.value = false; denied.value = false; nextOffset = 0; currentCode = "";
   }
   async function read(signal: AbortSignal, append = false, code?: string) {
+    if (signal.aborted) return null;
     if (append && (loading.value || !more.value)) return null;
+    const current = ++generation;
+    activeController?.abort();
     if (!append) {
-      generation++;
-      activeController?.abort();
       currentCode = code?.trim() ?? "";
       nextOffset = 0;
+      rows.value = []; more.value = false;
     }
-    const current = generation;
+    denied.value = false;
     const requestController = new AbortController();
     activeController = requestController;
-    const abort = () => requestController.abort();
-    if (signal.aborted) abort();
-    else signal.addEventListener("abort", abort, { once: true });
+    const abort = () => {
+      if (current === generation) reset();
+      else requestController.abort();
+    };
+    signal.addEventListener("abort", abort, { once: true });
     loading.value = true;
     try {
       const query = new URLSearchParams({
@@ -39,7 +44,7 @@ export function useDirectoryCandidates<T extends { id: string }>(path: string) {
       if (currentCode) query.set("code", currentCode);
       const response = await api<CandidatePage<T>>(
         `${path}?${query}`, { signal: requestController.signal });
-      if (current !== generation) return null;
+      if (current !== generation || requestController.signal.aborted) return null;
       if (response.authorized !== true || !Array.isArray(response.rows) || response.rows.length > candidatePageSize
         || response.rows.some(row => !row || typeof row.id !== "string"))
         throw new ApiError(403, "DirectoryCandidatesDenied", "未提供");
@@ -47,6 +52,11 @@ export function useDirectoryCandidates<T extends { id: string }>(path: string) {
       nextOffset = (append ? nextOffset : 0) + candidatePageSize;
       more.value = response.rows.length === candidatePageSize;
       return response;
+    } catch (reason) {
+      if (current !== generation || requestController.signal.aborted) return null;
+      rows.value = []; more.value = false; nextOffset = 0;
+      denied.value = reason instanceof ApiError && [401, 403].includes(reason.status);
+      throw reason;
     } finally {
       signal.removeEventListener("abort", abort);
       if (current === generation) {
@@ -55,5 +65,5 @@ export function useDirectoryCandidates<T extends { id: string }>(path: string) {
       }
     }
   }
-  return { rows, more, loading, read, reset };
+  return { rows, more, loading, denied, read, reset };
 }

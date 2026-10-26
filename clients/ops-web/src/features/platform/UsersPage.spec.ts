@@ -7,6 +7,34 @@ const user = { id: "u1", account: "ALICE", name: "Alice", departmentId: "d1", en
   version: "user-v1", credentialVersion: null as string | null, roleIds: ["r1"] };
 const departments = [{ id: "d1", name: "收货", code: "IN", enabled: true, version: "d-v1" },
   { id: "d2", name: "停用部门", code: "OLD", enabled: false, version: "d-v2" }];
+it.each([403, 503, "denied"] as const)("discards the actual user role editor and protected labels after candidate %s", async status => {
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (url.includes("/roles?") && url.includes("offset=25"))
+      return status === "denied" ? new Response('{"authorized":false,"rows":[]}')
+        : new Response('{"code":"RoleCandidatesRevoked"}', { status });
+    return new Response(JSON.stringify({ authorized: true, rows: url.includes("/roles/references") ? []
+      : url.includes("/roles?") ? Array.from({ length: 25 }, (_, index) => ({
+        id: `r${index + 1}`, code: `PROTECTED-${index}`, enabled: true,
+      })) : url.includes("/departments") ? departments : [user] }));
+  }));
+  const wrapper = mount(UsersPage); await flushPromises();
+  await wrapper.get('[data-test="roles-user"]').trigger("click"); await flushPromises();
+  expect(wrapper.get('[data-test="user-form"]').text()).toContain("PROTECTED-0");
+  await wrapper.get('[data-test="more-roles"]').trigger("click"); await flushPromises();
+  expect(wrapper.find('[data-test="user-form"]').exists()).toBe(false);
+  expect(wrapper.text()).not.toContain("PROTECTED-0");
+  expect(wrapper.find('[data-test="more-roles"]').exists()).toBe(false);
+  expect(wrapper.findAll('[role="alert"]').some(alert => alert.text().includes("候选读取失败"))).toBe(true);
+  wrapper.unmount();
+});
+it("reports a current initial candidate failure rather than silently showing an empty selector", async () => {
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => url.includes("/roles?")
+    ? new Response('{"code":"CandidatesUnavailable"}', { status: 503 })
+    : new Response(JSON.stringify({ authorized: true, rows: url.includes("/departments") ? departments : [user] }))));
+  const wrapper = mount(UsersPage); await flushPromises();
+  expect(wrapper.findAll('[role="alert"]').some(alert => alert.text().includes("候选读取失败"))).toBe(true);
+  wrapper.unmount();
+});
 beforeEach(() => {
   setAccessToken("opaque", "2099-01-01T00:00:00Z");
   sessionState.subject = { tenantId: "t1", userId: "me", sessionId: "s1", requiresPasswordChange: false, credentialVersion: null,

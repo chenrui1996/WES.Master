@@ -117,6 +117,14 @@ function closeEditor() {
   mode.value = null; selectedUser.value = null;
   Object.assign(form, { account: "", name: "", departmentId: "", enabled: true, password: "", roleIds: [] });
 }
+function closeCandidateEditors() {
+  closeEditor(); rolesReady.value = false;
+  departmentEditor.value = null; parentEditor.value = null; parentValue.value = "";
+  Object.assign(departmentForm, { code: "", name: "", enabled: true, parentId: "" });
+}
+watch([departmentCatalog.denied, roleCatalog.denied], denied => {
+  if (denied.some(Boolean)) closeCandidateEditors();
+}, { flush: "sync" });
 function clear(preserveRows = false) {
   generation++; controller?.abort();
   if (!preserveRows) {
@@ -190,7 +198,7 @@ async function load() {
   const queryKey = currentQuery.value;
   const preserveRows = rows.value.length > 0 && lastSuccessfulQuery.value === queryKey;
   clear(preserveRows); error.value = ""; queryError.value = "";
-  candidateError.value = "关联候选读取失败或无权查看。请重新读取；未加载的关联不能提交。"; message.value = "";
+  candidateError.value = ""; message.value = "";
   const current = generation;
   controller = new AbortController();
   const signal = controller.signal;
@@ -204,11 +212,8 @@ async function load() {
       canRead("platform.roles.read") ? roleCatalog.read(signal) : Promise.resolve(null),
     ]);
     if (current !== generation) return;
-    const [departmentResult, roleResult] = results;
-    if (departmentResult.status === "fulfilled" && departmentResult.value?.authorized === true)
-      departments.value = departmentResult.value.rows;
+    const [, roleResult] = results;
     if (roleResult.status === "fulfilled" && roleResult.value?.authorized === true) {
-      roles.value = roleResult.value.rows;
       rolesReady.value = true;
     }
     if (results.some(result => result.status === "rejected" || result.value?.authorized === false))
@@ -236,11 +241,14 @@ async function moreCandidates(kind: "departments" | "roles") {
   if (busy.value || loading.value || !controller) return;
   const current = generation;
   const catalog = kind === "departments" ? departmentCatalog : roleCatalog;
-  candidateError.value = "关联候选读取失败或无权查看。请重新读取；未加载的关联不能提交。";
+  candidateError.value = "";
   try {
     await catalog.read(controller.signal, true);
   } catch (reason) {
-    if (current === generation) candidateError.value = `后续关联候选读取失败，请重试。${reason instanceof Error ? reason.message : ""}`;
+    if (current === generation && !isAbortError(reason)) {
+      closeCandidateEditors();
+      candidateError.value = `后续关联候选读取失败，请重试。${reason instanceof Error ? reason.message : ""}`;
+    }
   }
 }
 function writable(fields: string[], row?: UserRow, targetDepartmentId?: string) {

@@ -1129,6 +1129,76 @@ public sealed class IdentityHttpTests : IAsyncLifetime
         Assert.Equal("CODE-SCOPED", row.GetProperty("code").GetString());
     }
 
+    /// <summary>Department reference resolution returns only ID-authorized rows and projects other fields per resource.</summary>
+    [Fact]
+    [Trait("CaseId", "DTC-UI-022")]
+    public async Task DepartmentReferenceResolutionReturnsAuthorizedFieldProjections()
+    {
+        await SignInAsync();
+        Guid firstId, secondId, missingId;
+        await using (var seed = Open())
+        {
+            var first = new DirectoryDepartment(_tenant, "REF-A", "Reference A");
+            var second = new DirectoryDepartment(_tenant, "REF-B", "Reference B");
+            seed.Departments.AddRange(first, second);
+            firstId = first.Id; secondId = second.Id; missingId = Guid.NewGuid();
+            var role = new AccessRole(_tenant, "department-reference-reader",
+            [
+                new PermissionGrant("platform.departments.read", DataScope.All, ImmutableHashSet<Guid>.Empty,
+                    ImmutableHashSet.Create("Id")),
+                new PermissionGrant("platform.departments.read", DataScope.Departments,
+                    ImmutableHashSet.Create(firstId), ImmutableHashSet.Create("Name", "Code")),
+                new PermissionGrant("platform.departments.read", DataScope.Departments,
+                    ImmutableHashSet.Create(secondId), ImmutableHashSet.Create("Enabled"))
+            ]);
+            seed.Roles.Add(role);
+            seed.Memberships.Add(new RoleMembership(_tenant, _user, role.Id));
+            await seed.SaveChangesAsync();
+        }
+
+        using var response = await _client.GetAsync(
+            $"/api/platform/departments/references?ids={firstId:D}&ids={secondId:D}&ids={missingId:D}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(page.GetProperty("authorized").GetBoolean());
+        var rows = page.GetProperty("rows").EnumerateArray().ToArray();
+        Assert.Equal(2, rows.Length);
+        var firstRow = Assert.Single(rows, row => row.GetProperty("id").GetGuid() == firstId);
+        Assert.Equal("Reference A", firstRow.GetProperty("name").GetString());
+        Assert.Equal("REF-A", firstRow.GetProperty("code").GetString());
+        var secondRow = Assert.Single(rows, row => row.GetProperty("id").GetGuid() == secondId);
+        Assert.Equal(JsonValueKind.Null, secondRow.GetProperty("name").ValueKind);
+        Assert.Equal(JsonValueKind.Null, secondRow.GetProperty("code").ValueKind);
+        Assert.DoesNotContain(rows, row => row.GetProperty("id").GetGuid() == missingId);
+    }
+
+    /// <summary>Department reference resolution requires ID authorization and rejects unbounded or empty batches.</summary>
+    [Fact]
+    [Trait("CaseId", "DTC-UI-022")]
+    public async Task DepartmentReferenceResolutionEnforcesAuthorizationAndBatchBounds()
+    {
+        await SignInAsync();
+        await using (var seed = Open())
+        {
+            var role = new AccessRole(_tenant, "department-name-only-reader",
+            [
+                new PermissionGrant("platform.departments.read", DataScope.All, ImmutableHashSet<Guid>.Empty,
+                    ImmutableHashSet.Create("Name"))
+            ]);
+            seed.Roles.Add(role);
+            seed.Memberships.Add(new RoleMembership(_tenant, _user, role.Id));
+            await seed.SaveChangesAsync();
+        }
+
+        using var denied = await _client.GetAsync($"/api/platform/departments/references?ids={Guid.NewGuid():D}");
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+        using var empty = await _client.GetAsync("/api/platform/departments/references");
+        Assert.Equal(HttpStatusCode.BadRequest, empty.StatusCode);
+        var tooManyIds = string.Join("&ids=", Enumerable.Range(0, 101).Select(_ => Guid.NewGuid().ToString("D")));
+        using var tooMany = await _client.GetAsync($"/api/platform/departments/references?ids={tooManyIds}");
+        Assert.Equal(HttpStatusCode.BadRequest, tooMany.StatusCode);
+    }
+
     /// <summary>A forged role reference is rejected by the owner without changing membership, version, or audit.</summary>
     [Fact]
     [Trait("CaseId", "DTC-UI-022")]

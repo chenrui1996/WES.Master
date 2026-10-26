@@ -109,10 +109,38 @@ public sealed partial class DirectoryService
         if (code is not null) departmentQuery = departmentQuery.Where(x => x.Code == code);
         var rows = await departmentQuery
             .OrderBy(x => x.Code).ThenBy(x => x.Id).Skip(offset).Take(limit).ToListAsync(cancellationToken);
+        return new(true, await ProjectDepartmentsAsync(context, rows, grants, cancellationToken));
+    }
+
+    /// <summary>Resolves a bounded set of saved department references without depending on a catalog page.</summary>
+    public async Task<DirectoryPage<DepartmentDirectoryRow>> ReadDepartmentReferencesAsync(TenantContext context,
+        IReadOnlyCollection<Guid> requestedIds, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(requestedIds);
+        GuardRead();
+        var ids = requestedIds.Distinct().ToArray();
+        if (ids.Length is 0 or > 100 || ids.Contains(Guid.Empty))
+            throw new ArgumentException("Department reference batches require 1 to 100 nonempty unique IDs.", nameof(requestedIds));
+
+        var grants = await Authorization.ReadGrantsAsync(context, cancellationToken);
+        var readableIds = grants.Where(x => x.Permission == "platform.departments.read" && x.Fields.Contains("Id")).ToArray();
+        if (readableIds.Length == 0) return new(false, []);
+        var all = readableIds.Any(x => x.Scope == DataScope.All);
+        var permittedIds = readableIds.Where(x => x.Scope == DataScope.Departments)
+            .SelectMany(x => x.Departments).Distinct().ToArray();
+        var query = database.Departments.AsNoTracking().Where(AnyId<DirectoryDepartment>(x => x.Id, ids));
+        if (!all) query = query.Where(AnyId<DirectoryDepartment>(x => x.Id, permittedIds));
+        var rows = await query.OrderBy(x => x.Code).ThenBy(x => x.Id).ToListAsync(cancellationToken);
+        return new(true, await ProjectDepartmentsAsync(context, rows, grants, cancellationToken));
+    }
+
+    private async Task<ImmutableArray<DepartmentDirectoryRow>> ProjectDepartmentsAsync(TenantContext context,
+        IReadOnlyCollection<DirectoryDepartment> rows, IEnumerable<PermissionGrant> grants, CancellationToken cancellationToken)
+    {
         var parentIds = rows.Where(row => row.ParentId.HasValue).Select(row => row.ParentId!.Value).Distinct().ToArray();
         var parents = await database.Departments.AsNoTracking().Where(AnyId<DirectoryDepartment>(x => x.Id, parentIds))
             .ToDictionaryAsync(row => row.Id, cancellationToken);
-        return new(true, rows.Select(row =>
+        return rows.Select(row =>
         {
             var fields = Fields(context, "platform.departments.read", Guid.Empty, row.Id, grants);
             return new DepartmentDirectoryRow(row.Id, Pick(fields, "Code", row.Code), Pick(fields, "Name", row.Name),
@@ -120,7 +148,7 @@ public sealed partial class DirectoryService
                 fields.Contains("ParentId") ? row.ParentId : null,
                 fields.Contains("ParentId") && row.ParentId is { } parent && parents.TryGetValue(parent, out var source)
                     && Fields(context, "platform.departments.read", Guid.Empty, parent, grants).Contains("Name") ? source.Name : null);
-        }).ToImmutableArray());
+        }).ToImmutableArray();
     }
 
     /// <summary>Roles are tenant-wide resources; scoped grants never become global role/rule visibility.</summary>

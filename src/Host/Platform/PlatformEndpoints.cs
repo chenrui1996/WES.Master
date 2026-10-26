@@ -82,6 +82,7 @@ public static class PlatformEndpoints
             input.RoleIds is null || input.RoleIds.Length > 100 ? Results.BadRequest() :
             await WriteAsync(http, factory, clock, (owner, subject, correlation) =>
                 owner.Directory.ChangeMembershipsAsync(subject, id, input.ExpectedVersion, input.RoleIds, correlation, ct)));
+        group.MapGet("/departments/references", DepartmentReferencesAsync);
         group.MapGet("/departments", DepartmentsAsync);
         group.MapPost("/departments", async (CreateDepartmentInput input, HttpContext http, IdentityDatabase factory, TimeProvider clock, CancellationToken ct) =>
             await WriteAsync(http, factory, clock, (owner, subject, correlation) =>
@@ -138,6 +139,14 @@ public static class PlatformEndpoints
         var subject = IdentityRuntime.Subject(http.User);
         await using var database = factory.Open(subject.TenantId);
         return Page(await database.Directory.ReadDepartmentsAsync(subject, offset, limit, ct, code));
+    }
+    private static async Task<IResult> DepartmentReferencesAsync(HttpContext http, IdentityDatabase factory,
+        CancellationToken ct, Guid[]? ids = null)
+    {
+        if (ids is null || ids.Length is 0 or > 100 || ids.Contains(Guid.Empty)) return Results.BadRequest();
+        var subject = IdentityRuntime.Subject(http.User);
+        await using var database = factory.Open(subject.TenantId);
+        return Page(await database.Directory.ReadDepartmentReferencesAsync(subject, ids, ct));
     }
     private static async Task<IResult> RolesAsync(HttpContext http, IdentityDatabase factory, TimeProvider clock, CancellationToken ct,
         int offset = 0, int limit = 50, string? code = null, string? permission = null)

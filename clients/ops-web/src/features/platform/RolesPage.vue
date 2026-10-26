@@ -26,6 +26,11 @@ const filters = reactive({ code: "", permission: "" });
 const departmentSearch = ref("");
 const selectedDepartmentSummaries = ref(new Map<string, DepartmentRow>());
 let departmentSearchTimer: ReturnType<typeof setTimeout> | undefined;
+const resolvedDepartmentReferences = ref(new Map<string, DepartmentRow>());
+const resolvingDepartmentReferences = ref(false);
+const departmentReferenceError = ref("");
+let departmentReferenceGeneration = 0;
+let departmentReferenceController: AbortController | undefined;
 const readFields = computed(() => new Set(sessionState.subject?.grants.filter(grant =>
   grant.permission === "platform.roles.read" && grant.scope === 2).flatMap(grant => grant.fields)));
 const departmentReadGrants = computed(() => sessionState.subject?.grants.filter(grant =>
@@ -109,6 +114,12 @@ watch(() => draft.scope, scope => {
   if (scope === 1 && editor.value && !departments.value.length) scheduleDepartmentSearch("");
 });
 function closeEditor() {
+  departmentReferenceGeneration++;
+  departmentReferenceController?.abort();
+  departmentReferenceController = undefined;
+  resolvedDepartmentReferences.value = new Map();
+  resolvingDepartmentReferences.value = false;
+  departmentReferenceError.value = "";
   editor.value = null; Object.assign(form, { code: "", enabled: true, rules: [] }); resetDraft();
 }
 function clear(preserveRows = false) {
@@ -122,6 +133,57 @@ function clear(preserveRows = false) {
   closeEditor(); loading.value = false; busy.value = false; queryError.value = "";
 }
 function isAbortError(reason: unknown) { return reason instanceof Error && reason.name === "AbortError"; }
+function departmentReferenceLabel(id: string) {
+  const row = resolvedDepartmentReferences.value.get(id);
+  if (!row) return "关联不可用或当前无权查看";
+  const label = row.code && row.name ? `${row.code} · ${row.name}`
+    : row.name ? row.name : row.code ? `代码 ${row.code}` : `部门标识 ${id}（名称未授权）`;
+  return row.enabled === false ? `${label}（已停用）` : label;
+}
+async function resolveExistingDepartmentReferences() {
+  const ids = [...new Set(form.rules.filter(rule => rule.scope === 1).flatMap(rule => rule.departments))];
+  if (!ids.length) return;
+  const current = ++departmentReferenceGeneration;
+  const requestController = new AbortController();
+  departmentReferenceController = requestController;
+  resolvingDepartmentReferences.value = true;
+  departmentReferenceError.value = "";
+  const resolved = new Map<string, DepartmentRow>();
+  try {
+    for (let start = 0; start < ids.length; start += 100) {
+      const batch = ids.slice(start, start + 100);
+      const query = new URLSearchParams();
+      for (const id of batch) query.append("ids", id);
+      const response = await api<Page<DepartmentRow>>(`/api/platform/departments/references?${query}`, {
+        signal: requestController.signal,
+      });
+      if (current !== departmentReferenceGeneration) return;
+      const allowedIds = new Set(batch);
+      const returnedIds = Array.isArray(response.rows) ? response.rows.map(row => row?.id) : [];
+      if (response.authorized !== true || !Array.isArray(response.rows) || response.rows.length > batch.length
+        || response.rows.some(row => !row || typeof row.id !== "string" || !allowedIds.has(row.id)
+          || !(row.code === null || typeof row.code === "string")
+          || !(row.name === null || typeof row.name === "string")
+          || !(row.enabled === null || typeof row.enabled === "boolean")
+          || resolved.has(row.id))
+        || new Set(returnedIds).size !== returnedIds.length)
+        throw new ApiError(403, "DepartmentReferencesDenied", "未提供");
+      for (const row of response.rows) resolved.set(row.id, row);
+      resolvedDepartmentReferences.value = new Map(resolved);
+    }
+  } catch (reason) {
+    if (current === departmentReferenceGeneration && !isAbortError(reason)) {
+      departmentReferenceError.value = reason instanceof ApiError && reason.status === 403
+        ? "部分或全部部门关联不可用，或当前无权查看。"
+        : `部门关联读取失败，请重试。${reason instanceof Error ? reason.message : ""}`;
+    }
+  } finally {
+    if (current === departmentReferenceGeneration) {
+      resolvingDepartmentReferences.value = false;
+      if (departmentReferenceController === requestController) departmentReferenceController = undefined;
+    }
+  }
+}
 function scheduleDepartmentSearch(code: string) {
   if (departmentSearchTimer) clearTimeout(departmentSearchTimer);
   departmentCatalog.reset();
@@ -211,6 +273,7 @@ function open(row?: RoleRow) {
   Object.assign(form, { code: row?.code ?? "", enabled: row?.enabled ?? true,
     rules: row?.rules?.map(rule => ({ ...rule, departments: [...rule.departments], fields: [...rule.fields] })) ?? [] });
   error.value = ""; message.value = "";
+  if (row) void resolveExistingDepartmentReferences();
 }
 function addRule() {
   const rule: Grant = { permission: draft.permission, scope: Number(draft.scope),
@@ -220,6 +283,12 @@ function addRule() {
     || !covered(rule)) {
     error.value = "规则无效：请选择可委派权限、范围、至少一个字段；指定部门须选择启用且可委派的部门。"; return;
   }
+  const resolved = new Map(resolvedDepartmentReferences.value);
+  for (const id of rule.departments) {
+    const summary = selectedDepartmentSummaries.value.get(id);
+    if (summary) resolved.set(id, summary);
+  }
+  resolvedDepartmentReferences.value = resolved;
   form.rules.push(rule); resetDraft(); error.value = "";
 }
 async function submit() {
@@ -342,8 +411,12 @@ onBeforeUnmount(() => { clear(); window.removeEventListener("online", connectivi
           <label v-if="editor !== 'new'" class="check"><input v-model="form.enabled" type="checkbox" />启用角色</label>
           <h2>权限规则</h2>
           <p v-if="!form.rules.length" class="hint">当前没有权限规则。保存空规则不会授予任何权限。</p>
+          <p v-if="resolvingDepartmentReferences" role="status">正在读取已保存部门关联…</p>
+          <p v-if="departmentReferenceError" data-test="department-reference-error" role="alert">{{ departmentReferenceError }}</p>
           <ol><li v-for="(rule, index) in form.rules" :key="index">{{ rule.permission }} · {{ scopeName(rule.scope) }} · {{ rule.fields.join('、') }}
-            <span v-if="rule.scope === 1"> · {{ rule.departments.join('、') }}</span>
+            <span v-if="rule.scope === 1"> · 部门：
+              <span v-for="departmentId in rule.departments" :key="departmentId" data-test="existing-department-reference">{{ departmentReferenceLabel(departmentId) }} </span>
+            </span>
             <button type="button" :aria-label="`移除第${index + 1}条规则`" @click="form.rules.splice(index, 1)">移除规则</button>
           </li></ol>
           <fieldset><legend>新增权限规则</legend>

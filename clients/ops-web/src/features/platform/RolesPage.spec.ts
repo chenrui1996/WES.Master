@@ -57,6 +57,119 @@ it("previews the selected version and authorized current membership count withou
   expect(wrapper.find('[data-test="role-impact"]').exists()).toBe(false);
   wrapper.unmount();
 });
+it("resolves saved department references independently when editing a role", async () => {
+  const firstId = "12345678-1234-1234-1234-123456789001";
+  const hiddenId = "12345678-1234-1234-1234-123456789002";
+  const disabledId = "12345678-1234-1234-1234-123456789003";
+  const reads: string[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    reads.push(url);
+    if (url.includes("/departments/references?")) return new Response(JSON.stringify({ authorized: true, rows: [
+      { id: firstId, code: "READ-01", name: "收货部门", enabled: true },
+      { id: disabledId, code: "OLD-03", name: "停用部门", enabled: false },
+    ] }));
+    return new Response(JSON.stringify({ authorized: true, rows: url.includes("/api/platform/roles?")
+      ? [{ id: "r1", code: "OPS", enabled: true, version: "v1", rules: [
+        { permission: "platform.users.read", scope: 1, departments: [firstId, hiddenId, disabledId], fields: ["Name"] },
+      ] }]
+      : [] }));
+  }));
+  sessionState.subject!.grants[3]!.fields.push("Code");
+  const wrapper = mount(RolesPage);
+  await flushPromises();
+  await wrapper.get('[data-test="edit-role"]').trigger("click");
+  await flushPromises();
+
+  expect(reads.some(url => url === `/api/platform/departments/references?ids=${firstId}&ids=${hiddenId}&ids=${disabledId}`)).toBe(true);
+  expect(wrapper.get('[data-test="role-form"]').text()).toContain("READ-01 · 收货部门");
+  expect(wrapper.get('[data-test="role-form"]').text()).toContain("OLD-03 · 停用部门（已停用）");
+  expect(wrapper.get('[data-test="role-form"]').text()).toContain("关联不可用或当前无权查看");
+  expect(wrapper.get('[data-test="role-form"]').text()).not.toContain(hiddenId);
+  wrapper.unmount();
+});
+it("does not let a late department reference response overwrite a different edited role", async () => {
+  const oldDepartment = "12345678-1234-1234-1234-123456789011";
+  const newDepartment = "12345678-1234-1234-1234-123456789012";
+  const pendingOld = deferredResponse();
+  vi.stubGlobal("fetch", vi.fn((url: string) => {
+    if (url.includes("/departments/references?") && url.includes(oldDepartment)) return pendingOld.promise;
+    if (url.includes("/departments/references?")) return Promise.resolve(new Response(JSON.stringify({ authorized: true, rows: [
+      { id: newDepartment, code: "NEW", name: "新部门", enabled: true },
+    ] })));
+    if (url.includes("/api/platform/roles?")) return Promise.resolve(new Response(JSON.stringify({ authorized: true, rows: [
+      { id: "r-old", code: "OLD", enabled: true, version: "v1", rules: [
+        { permission: "platform.users.read", scope: 1, departments: [oldDepartment], fields: ["Name"] },
+      ] },
+      { id: "r-new", code: "NEW", enabled: true, version: "v2", rules: [
+        { permission: "platform.users.read", scope: 1, departments: [newDepartment], fields: ["Name"] },
+      ] },
+    ] })));
+    return Promise.resolve(new Response(JSON.stringify({ authorized: true, rows: [] })));
+  }));
+  const wrapper = mount(RolesPage);
+  await flushPromises();
+  await wrapper.findAll('[data-test="edit-role"]')[0]!.trigger("click");
+  await wrapper.findAll('[data-test="role-form"] button').find(button => button.text() === "取消")!.trigger("click");
+  await wrapper.findAll('[data-test="edit-role"]')[1]!.trigger("click");
+  await flushPromises();
+  pendingOld.resolve(new Response(JSON.stringify({ authorized: true, rows: [
+    { id: oldDepartment, code: "OLD", name: "旧部门", enabled: true },
+  ] })));
+  await flushPromises();
+
+  expect(wrapper.get('[data-test="role-form"]').text()).toContain("NEW · 新部门");
+  expect(wrapper.get('[data-test="role-form"]').text()).not.toContain("OLD · 旧部门");
+  wrapper.unmount();
+});
+it("shows reference read denial without revealing unavailable department IDs", async () => {
+  const restrictedId = "12345678-1234-1234-1234-123456789021";
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (url.includes("/departments/references?"))
+      return new Response('{"code":"Forbidden","detail":"restricted"}', { status: 403 });
+    return new Response(JSON.stringify({ authorized: true, rows: url.includes("/api/platform/roles?")
+      ? [{ id: "r1", code: "OPS", enabled: true, version: "v1", rules: [
+        { permission: "platform.users.read", scope: 1, departments: [restrictedId], fields: ["Name"] },
+      ] }]
+      : [] }));
+  }));
+  const wrapper = mount(RolesPage);
+  await flushPromises();
+  await wrapper.get('[data-test="edit-role"]').trigger("click");
+  await flushPromises();
+
+  expect(wrapper.get('[data-test="department-reference-error"]').text()).toContain("当前无权查看");
+  expect(wrapper.get('[data-test="role-form"]').text()).toContain("关联不可用或当前无权查看");
+  expect(wrapper.get('[data-test="role-form"]').text()).not.toContain(restrictedId);
+  wrapper.unmount();
+});
+it("resolves more than 100 saved department references in bounded owner batches", async () => {
+  const ids = Array.from({ length: 101 }, (_, index) =>
+    `00000000-0000-0000-0000-${String(index + 1).padStart(12, "0")}`);
+  const batches: string[][] = [];
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (url.includes("/departments/references?")) {
+      const requested = new URL(url, "https://test.local").searchParams.getAll("ids");
+      batches.push(requested);
+      return new Response(JSON.stringify({ authorized: true, rows: requested.map((id, index) => ({
+        id, code: `D-${batches.length}-${index}`, name: `部门-${id.slice(-3)}`, enabled: true,
+      })) }));
+    }
+    return new Response(JSON.stringify({ authorized: true, rows: url.includes("/api/platform/roles?")
+      ? [{ id: "r1", code: "OPS", enabled: true, version: "v1", rules: [
+        { permission: "platform.users.read", scope: 1, departments: ids, fields: ["Name"] },
+      ] }]
+      : [] }));
+  }));
+  const wrapper = mount(RolesPage);
+  await flushPromises();
+  await wrapper.get('[data-test="edit-role"]').trigger("click");
+  await flushPromises();
+
+  expect(batches.map(batch => batch.length)).toEqual([100, 1]);
+  expect(wrapper.get('[data-test="role-form"]').text()).toContain(`部门-${ids[0]!.slice(-3)}`);
+  expect(wrapper.get('[data-test="role-form"]').text()).toContain(`部门-${ids[100]!.slice(-3)}`);
+  wrapper.unmount();
+});
 it("loads authorized department candidates in 25-row pages without dropping earlier options", async () => {
   const reads: string[] = [];
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
@@ -111,7 +224,7 @@ it("debounces department code lookup and retains an explicitly selected departme
   expect(wrapper.find('input[name="grantDepartment"][value="d2"]').exists()).toBe(true);
   await wrapper.get('input[name="grantField"][value="Name"]').setValue(true);
   await wrapper.get('[data-test="add-rule"]').trigger("click");
-  expect(wrapper.get('[data-test="role-form"]').text()).toContain("d1");
+  expect(wrapper.get('[data-test="role-form"]').text()).toContain("部门A");
   wrapper.unmount();
   vi.useRealTimers();
 });

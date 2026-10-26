@@ -18,6 +18,8 @@ Platform 增加 `platform_inbox_receipts`，主键为 tenant、稳定 consumer I
 
 现有Inbox migration已包含`TenantId, ProcessedAt, Consumer`索引，本切片无schema迁移。此原语不注册周期Job、不自行提交事务、不触碰Outbox或业务效果；清理Job调度、运行时owner注册和过期重投现场验证仍未完成。清理只在PAR-09既定58天最大恢复窗口之外开始，不代替领域唯一身份/tombstone。
 
+保存失败恢复补充见[实施](49-t05-inbox-retention-save-recovery.md)及[测试](50-t05-inbox-retention-save-recovery-tests.md)：删除许可绑定暂存时的显式事务，仅在保存成功后消耗；保存失败不再误拒绝仍有效同事务中的显式重试，旧许可不能跨事务沿用。
+
 ## 未完成边界
 
 - 尚无实际消息订阅/ACK 适配器、consumer 注册、托管 publisher 周期扫描或 broker 崩溃窗口验证。

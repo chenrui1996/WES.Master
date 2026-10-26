@@ -20,6 +20,6 @@
 
 ## 未完成边界
 
-- Inbox 保留清理与定期策略尚未实现；重放仅覆盖 Platform 安全审计事件，不表示其他 owner 的重放API已经建立。
+- Inbox 90天有界清理原语及保存失败恢复已实现，见[保留与消费](37-t05-platform-inbox.md)及[恢复测试](50-t05-inbox-retention-save-recovery-tests.md)；定期调度尚未实现。重放仅覆盖 Platform 安全审计事件，不表示其他 owner 的重放API已经建立。
 - Notifications 聚合页、其它 owner 的 Outbox/Inbox API、真实 Broker、托管 publisher 周期任务和生产恢复演练仍未实现。
 - 该读端点仅用于限定范围的诊断元数据，不是审计导出，也不提供 payload 读取能力。

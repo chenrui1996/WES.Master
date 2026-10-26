@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -154,6 +155,79 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         }
         await using var verifyOtherTenant = Open(tenant: _otherTenant);
         Assert.Single(await verifyOtherTenant.InboxReceipts.ToListAsync());
+    }
+
+    /// <summary>T05: a failed DELETE must not consume the permission needed to retry an already staged retention batch.</summary>
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task PlatformInboxRetention_FailedSaveCanRetryInTheSameTransaction(bool synchronous, bool acceptAllChanges)
+    {
+        var now = await SeedExpiredInboxReceiptsAsync(2);
+        var failure = new FailFirstInboxDelete();
+        await using (var cleanup = Open(failure))
+        {
+            await using var transaction = await cleanup.Database.BeginTransactionAsync();
+            Assert.Equal(2, await PlatformInboxRetention.RemoveExpiredAsync(cleanup, now, 2));
+            var error = synchronous
+                ? Assert.Throws<DbUpdateException>(() => cleanup.SaveChanges(acceptAllChanges))
+                : await Assert.ThrowsAsync<DbUpdateException>(() => cleanup.SaveChangesAsync(acceptAllChanges));
+            Assert.IsType<InjectedInboxDeleteException>(error.InnerException);
+            Assert.Equal(1, failure.DeleteAttempts);
+            Assert.Equal(2, cleanup.ChangeTracker.Entries<PlatformInboxReceipt>().Count(entry => entry.State == EntityState.Deleted));
+            Assert.Equal(2, synchronous ? cleanup.SaveChanges(acceptAllChanges) : await cleanup.SaveChangesAsync(acceptAllChanges));
+            Assert.True(failure.DeleteAttempts >= 2);
+            await transaction.CommitAsync();
+        }
+        await using var verify = Open();
+        Assert.Empty(await verify.InboxReceipts.ToListAsync());
+    }
+
+    /// <summary>T05: rollback cannot carry a staged deletion permit outside its original owner transaction.</summary>
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task PlatformInboxRetention_PermitCannotOutliveItsTransaction(bool synchronous, bool replaceTransaction)
+    {
+        var now = await SeedExpiredInboxReceiptsAsync(1);
+        await using (var cleanup = Open())
+        {
+            await using (var transaction = await cleanup.Database.BeginTransactionAsync())
+            {
+                Assert.Equal(1, await PlatformInboxRetention.RemoveExpiredAsync(cleanup, now));
+                await transaction.RollbackAsync();
+            }
+            await using var replacement = replaceTransaction ? await cleanup.Database.BeginTransactionAsync() : null;
+            if (synchronous) Assert.Throws<InvalidOperationException>(() => cleanup.SaveChanges());
+            else await Assert.ThrowsAsync<InvalidOperationException>(() => cleanup.SaveChangesAsync());
+        }
+        await using var verify = Open();
+        Assert.Single(await verify.InboxReceipts.ToListAsync());
+    }
+
+    /// <summary>T05: successful persistence consumes the permit even when the tracked entity is later reattached.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PlatformInboxRetention_SuccessfulSaveConsumesItsPermit(bool synchronous)
+    {
+        var now = await SeedExpiredInboxReceiptsAsync(1);
+        await using var cleanup = Open();
+        await using var transaction = await cleanup.Database.BeginTransactionAsync();
+        Assert.Equal(1, await PlatformInboxRetention.RemoveExpiredAsync(cleanup, now));
+        var receipt = Assert.Single(cleanup.ChangeTracker.Entries<PlatformInboxReceipt>()).Entity;
+        Assert.Equal(1, synchronous ? cleanup.SaveChanges() : await cleanup.SaveChangesAsync());
+        cleanup.InboxReceipts.Remove(receipt);
+        if (synchronous) Assert.Throws<InvalidOperationException>(() => cleanup.SaveChanges());
+        else await Assert.ThrowsAsync<InvalidOperationException>(() => cleanup.SaveChangesAsync());
+        cleanup.ChangeTracker.Clear();
+        await transaction.CommitAsync();
+        await using var verify = Open();
+        Assert.Empty(await verify.InboxReceipts.ToListAsync());
     }
 
     /// <summary>T05: ordinary owner writes cannot delete Inbox receipts outside the retention primitive.</summary>
@@ -1399,6 +1473,20 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
         return await Service(db).CreateUserAsync(_context, "TARGET", name, _department, Guid.NewGuid());
     }
 
+    private async Task<DateTimeOffset> SeedExpiredInboxReceiptsAsync(int count)
+    {
+        var now = _clock.Now;
+        _clock.Now = now - PlatformInboxRetention.Retention - TimeSpan.FromSeconds(1);
+        for (var index = 0; index < count; index++)
+        {
+            await using var seed = Open();
+            await new PlatformInboxConsumer(seed, _clock).ProcessAsync(
+                CreateInboxEnvelope(), "platform.audit.retention-retry", (_, _, _) => Task.CompletedTask);
+        }
+        _clock.Now = now;
+        return now;
+    }
+
     private PlatformOutboxEnvelope CreateInboxEnvelope() =>
         new(_tenant, Guid.NewGuid(), "platform.audit", 1, "Platform", Guid.NewGuid(),
             Guid.NewGuid().ToString("D"), Guid.NewGuid(), null, _clock.Now, "{}");
@@ -1448,6 +1536,50 @@ public sealed class DirectoryReceiptTests : IAsyncLifetime
     {
         public DateTimeOffset Now { get; set; } = new(2026, 10, 24, 4, 0, 0, TimeSpan.Zero);
         public override DateTimeOffset GetUtcNow() => Now;
+    }
+
+    private sealed class InjectedInboxDeleteException : Exception;
+
+    private sealed class FailFirstInboxDelete : DbCommandInterceptor
+    {
+        public int DeleteAttempts { get; private set; }
+
+        private void Inspect(DbCommand command)
+        {
+            if (command.CommandText.Contains("DELETE FROM `platform_inbox_receipts`", StringComparison.Ordinal)
+                && ++DeleteAttempts == 1)
+                throw new InjectedInboxDeleteException();
+        }
+
+        public override InterceptionResult<int> NonQueryExecuting(
+            DbCommand command, CommandEventData eventData, InterceptionResult<int> result)
+        {
+            Inspect(command);
+            return result;
+        }
+
+        public override ValueTask<InterceptionResult<int>> NonQueryExecutingAsync(
+            DbCommand command, CommandEventData eventData, InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            Inspect(command);
+            return ValueTask.FromResult(result);
+        }
+
+        public override InterceptionResult<DbDataReader> ReaderExecuting(
+            DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result)
+        {
+            Inspect(command);
+            return result;
+        }
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            Inspect(command);
+            return ValueTask.FromResult(result);
+        }
     }
 
     private sealed class FailAfterSave : SaveChangesInterceptor

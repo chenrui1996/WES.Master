@@ -8,7 +8,7 @@ namespace Wes.Platform.Infrastructure.Persistence;
 /// <summary>Platform-owned persistence only. Every operational instance requires an explicit trusted tenant.</summary>
 public sealed partial class PlatformDbContext : DbContext
 {
-    private readonly HashSet<PlatformInboxReceipt> _inboxRetentionDeletes = [];
+    private readonly Dictionary<PlatformInboxReceipt, Guid> _inboxRetentionDeletes = [];
 
     /// <summary>Rejects absent tenant identity before any model, query, or database connection is used.</summary>
     public PlatformDbContext(DbContextOptions<PlatformDbContext> options, Guid tenantId) : base(options)
@@ -53,8 +53,8 @@ public sealed partial class PlatformDbContext : DbContext
         IReadOnlyCollection<PlatformInboxReceipt> receipts,
         DateTimeOffset cutoff)
     {
-        if (Database.CurrentTransaction is null)
-            throw new InvalidOperationException("Inbox retention requires an explicit owner transaction.");
+        var transaction = Database.CurrentTransaction
+            ?? throw new InvalidOperationException("Inbox retention requires an explicit owner transaction.");
         if (receipts.Count > 200)
             throw new ArgumentOutOfRangeException(nameof(receipts), "Inbox retention batches cannot exceed 200 receipts.");
         foreach (var receipt in receipts)
@@ -67,7 +67,7 @@ public sealed partial class PlatformDbContext : DbContext
         }
 
         foreach (var receipt in receipts)
-            _inboxRetentionDeletes.Add(receipt);
+            _inboxRetentionDeletes[receipt] = transaction.TransactionId;
         InboxReceipts.RemoveRange(receipts);
     }
 
@@ -271,15 +271,19 @@ public sealed partial class PlatformDbContext : DbContext
     {
         StageOutboxMessages();
         ValidateWriteScope();
-        return base.SaveChanges(acceptAllChangesOnSuccess);
+        var result = base.SaveChanges(acceptAllChangesOnSuccess);
+        _inboxRetentionDeletes.Clear();
+        return result;
     }
 
     /// <summary>Protects asynchronous writes and propagates cancellation into the owner transaction.</summary>
-    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         StageOutboxMessages();
         ValidateWriteScope();
-        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        _inboxRetentionDeletes.Clear();
+        return result;
     }
 
     private void StageOutboxMessages()
@@ -304,7 +308,9 @@ public sealed partial class PlatformDbContext : DbContext
         {
             if (entry.Entity is PlatformInboxReceipt inboxReceipt
                 && entry.State != EntityState.Added
-                && (entry.State != EntityState.Deleted || !_inboxRetentionDeletes.Remove(inboxReceipt)))
+                && (entry.State != EntityState.Deleted
+                    || !_inboxRetentionDeletes.TryGetValue(inboxReceipt, out var transactionId)
+                    || Database.CurrentTransaction?.TransactionId != transactionId))
             {
                 throw new InvalidOperationException("Platform message receipts are append-only outside bounded Inbox retention.");
             }

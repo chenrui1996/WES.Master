@@ -195,3 +195,9 @@
 - 定向字段投影、真实HTTP、Ops Web 75项测试、严格类型构建及格式检查通过；隔离HTTPS真实浏览器现覆盖显式确认、204、刷新后的禁用状态及数据库持久化。全solution现为Architecture29、Modules218、Persistence317、Route228，共**792 passed**。792替代791。
 - 最新串行Release全solution验证完成：792 passed、0 failed、0 skipped；一次并行全solution运行中的1秒MySQL readiness探针失败已单独复跑通过，串行全套通过，门限未修改。
 - 不增加密码启用/重置，不替代生产、PDA、人工缩放、保留治理或现场H验收；T03/T04仍为partial。
+
+### T07 PAR-04 纯文件内容校验基础
+
+- Platform 内纯校验器已完成：20 MiB实际字节边界、允许扩展名与MIME一致性、基础PDF/PNG/JPEG签名、严格UTF-8/NUL检查及常见可执行/容器签名与明显活动标记拒绝；返回稳定拒绝码，不保留输入内容。
+- 定向测试38项通过；Platform/Host/测试项目Release依赖图构建成功，0 warning/0 error；整solution串行Release回归884 passed、0 failed、0 skipped；修改文件格式检查和`git diff --check`通过。实施与具体证据见[T07校验实施](83-t07-file-content-validation.md)和[T07校验测试](84-t07-file-content-validation-tests.md)。
+- 仅完成PAR-04内容校验基础。脚本文本检测为有限启发式，不是安全扫描或深度格式验证；不含上传/隔离存储/扫描/授权下载/清理，不设置Available状态。T04/T06硬依赖、扫描及存储配置仍未关闭，T07整包继续未完成。

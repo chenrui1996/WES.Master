@@ -108,6 +108,7 @@
 
 **Interfaces:** 消费实体授权/存储扫描能力；产出FUNC-PLAT-005/PAGE-PLAT-007的隔离→扫描→Available引用，Workflow只存该受权引用，不接真实secret或任意URL。
 
+- [x] PAR-04独立内容校验基础：20 MiB边界、允许类型的扩展名/MIME/基础签名或UTF-8一致性及常见禁用签名检查；Release定向38项通过，详见[实施记录](../../implementation/83-t07-file-content-validation.md)和[测试记录](../../implementation/84-t07-file-content-validation-tests.md)。不包含上传、存储、扫描、Available或T07整包验收。
 - [ ] DTC-PLAT-007/VAL-05先红：20MiB/+1字节、伪MIME/宏文档/禁类型、存储失败/扫描60秒超时、600秒未恢复、在用引用24小时后清理、跨租户下载。
 - [ ] 实现类型/签名/UTF-8与禁NUL验证、隔离存储、扫描结果/失败回收与明确处理问题；扫描服务无值不Available，清孤儿需确认无引用。
 - [ ] 跑存储中断/外部DB非ACID恢复/API鉴权/页面回填；只存合法文件hash/摘要不存secret，确认既有受权干净文件不被新上传故障误禁。

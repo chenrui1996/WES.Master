@@ -3,13 +3,18 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import ColumnSettings from "../../components/ColumnSettings.vue";
 import QueryState from "../../components/QueryState.vue";
 import { useColumns } from "../../components/useColumns";
-import { api, isRecord, sessionState } from "../identity/identity-api";
+import { ApiError, api, isRecord, sessionState } from "../identity/identity-api";
 interface AuditRow { id: string; occurredAt: string; actorId: string | null; targetId: string | null; correlationId: string | null; action: number | null; beforeVersion: string | null; afterVersion: string | null }
 interface EventRow { id: string; occurredAt: string; kind: number | null; correlationId: string | null; accountDigest: string | null; sourceDigest: string | null; sessionId: string | null }
 const mode = ref("audit"); const from = ref(new Date(Date.now() - 86400000).toISOString().slice(0, 16));
 const to = ref(new Date().toISOString().slice(0, 16)); const offset = ref(0);
+const pageSize = ref(25);
 const kind = ref(""); const action = ref(""); const correlation = ref(""); const rows = ref<(AuditRow | EventRow)[]>([]);
 const error = ref(""); const busy = ref(false); let controller = new AbortController(); let sequence = 0;
+let lastSuccessfulQuery: string | null = null;
+const currentQuery = computed(() => JSON.stringify([
+  mode.value, from.value, to.value, offset.value, pageSize.value, kind.value, action.value, correlation.value,
+]));
 const queryState = computed(() => busy.value
   ? rows.value.length ? "stale" : "loading"
   : error.value ? rows.value.length ? "stale" : "error"
@@ -38,34 +43,57 @@ const {
     { key: "sessionId", label: "会话", field: "SessionId", widthClass: "identity" as const },
   ]),
 ].filter(column => fields.value.has(column.field)), { pageId: "platform-audit", tableId: () => mode.value });
+function invalidate(preserveRows = false) {
+  sequence++; controller.abort(); controller = new AbortController(); busy.value = false;
+  if (!preserveRows) { rows.value = []; lastSuccessfulQuery = null; }
+}
 async function read() {
-  const request = ++sequence; error.value = ""; busy.value = true;
+  const fingerprint = currentQuery.value;
+  invalidate(lastSuccessfulQuery === fingerprint);
+  const request = sequence; const signal = controller.signal; const requestedMode = mode.value;
+  error.value = "";
   const start = Date.parse(`${from.value}Z`); const end = Date.parse(`${to.value}Z`);
   if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
-    rows.value = []; error.value = "请输入有效的 UTC 起止时间，结束时间必须晚于开始时间。"; busy.value = false; return;
+    rows.value = []; lastSuccessfulQuery = null;
+    error.value = "请输入有效的 UTC 起止时间，结束时间必须晚于开始时间。"; return;
   }
-  const params = new URLSearchParams({ from: new Date(start).toISOString(), to: new Date(end).toISOString(), offset: String(offset.value), limit: "50" });
+  const params = new URLSearchParams({ from: new Date(start).toISOString(), to: new Date(end).toISOString(), offset: String(offset.value), limit: String(pageSize.value) });
   if (mode.value === "login-events" && kind.value && fields.value.has("Kind")) params.set("kind", kind.value);
   if (mode.value === "audit" && action.value && fields.value.has("Action")) params.set("action", action.value);
   if (correlation.value && fields.value.has("CorrelationId")) params.set("correlationId", correlation.value);
-  const fingerprint = `${mode.value}|${from.value}|${to.value}|${offset.value}|${kind.value}|${action.value}|${correlation.value}`;
+  busy.value = true;
   try {
-    const data: unknown = await api(`/api/platform/${mode.value}?${params}`, { signal: controller.signal });
-    if (!isRecord(data) || data.authorized !== true || !Array.isArray(data.rows)) throw new Error("审计响应无效，请重新读取。");
+    const data: unknown = await api(`/api/platform/${requestedMode}?${params}`, { signal });
+    if (request !== sequence || fingerprint !== currentQuery.value) return;
+    if (isRecord(data) && data.authorized === false) throw new ApiError(403, "AuditReadForbidden", "未提供");
+    if (!isRecord(data) || data.authorized !== true || !Array.isArray(data.rows)
+      || data.rows.length > pageSize.value) throw new Error("审计响应无效，请重新读取。");
     const projected = data.rows.map((row: unknown) => {
       if (!isRecord(row) || typeof row.id !== "string" || typeof row.occurredAt !== "string" || !Number.isFinite(Date.parse(row.occurredAt)))
         throw new Error("审计行格式无效，已丢弃本页。");
       const text = (key: string) => typeof row[key] === "string" ? row[key] : null;
-      if (mode.value === "audit") return { id: row.id, occurredAt: row.occurredAt, correlationId: text("correlationId"),
+      if (requestedMode === "audit") return { id: row.id, occurredAt: row.occurredAt, correlationId: text("correlationId"),
         actorId: text("actorId"), targetId: text("targetId"), action: typeof row.action === "number" ? row.action : null,
         beforeVersion: text("beforeVersion"), afterVersion: text("afterVersion") };
       return { id: row.id, occurredAt: row.occurredAt, correlationId: text("correlationId"), accountDigest: text("accountDigest"),
         sourceDigest: text("sourceDigest"), sessionId: text("sessionId"), kind: typeof row.kind === "number" ? row.kind : null };
     });
-    if (request === sequence && fingerprint === `${mode.value}|${from.value}|${to.value}|${offset.value}|${kind.value}|${action.value}|${correlation.value}`)
-      rows.value = projected;
-  } catch (failure) { if (!controller.signal.aborted && request === sequence) error.value = failure instanceof Error ? failure.message : "审计读取失败。"; }
+    rows.value = projected;
+    lastSuccessfulQuery = fingerprint;
+  } catch (failure) {
+    if (!signal.aborted && request === sequence) {
+      if (failure instanceof ApiError && [401, 403].includes(failure.status)) {
+        rows.value = []; lastSuccessfulQuery = null;
+      }
+      error.value = failure instanceof Error ? failure.message : "审计读取失败。";
+    }
+  }
   finally { if (request === sequence) busy.value = false; }
+}
+function page(delta: -1 | 1) {
+  if (busy.value || delta === -1 && offset.value === 0
+    || delta === 1 && (error.value || rows.value.length !== pageSize.value)) return;
+  offset.value = Math.max(0, offset.value + delta * pageSize.value); void read();
 }
 function cell(row: AuditRow | EventRow, key: string) {
   if (key === "id") return row.id;
@@ -78,16 +106,17 @@ function cell(row: AuditRow | EventRow, key: string) {
   }
   return null;
 }
-watch([mode, from, to, kind, action, correlation], () => { sequence++; offset.value = 0; rows.value = []; });
+watch([mode, from, to, kind, action, correlation, pageSize], () => {
+  invalidate(); offset.value = 0; error.value = "";
+}, { flush: "sync" });
 watch([() => sessionState.subject, () => sessionState.token], () => {
-  controller.abort(); controller = new AbortController(); sequence++;
-  rows.value = []; offset.value = 0; kind.value = ""; action.value = ""; correlation.value = ""; busy.value = false;
+  invalidate(); offset.value = 0; kind.value = ""; action.value = ""; correlation.value = "";
   error.value = "身份或权限已变更，旧证据已清除，请重新查询。";
 }, { deep: true, flush: "sync" });
 onMounted(read); onUnmounted(() => { controller.abort(); sequence++; });
 </script>
 <template>
-  <section class="wes-page"><header><p class="eyebrow">只读证据</p><h1>审计与登录事件</h1><p>历史记录不可编辑、删除或批量改写。查询为当前权限下的实时分页，不是固定水位导出。</p></header>
+  <section class="wes-page"><header><p class="eyebrow">只读证据</p><h1>审计与登录事件</h1><p>历史记录不可编辑、删除或批量改写。查询为当前权限下的实时分页，不是固定水位导出；数据变化时不保证跨请求无丢重。</p></header>
     <form class="toolbar" @submit.prevent="offset = 0; read()">
       <label for="audit-mode">证据类型<select id="audit-mode" v-model="mode"><option value="audit">业务审计</option><option value="login-events">登录安全事件（需 All 范围）</option></select></label>
       <label for="audit-from">开始时间（UTC，含）<input id="audit-from" v-model="from" type="datetime-local" required></label>
@@ -95,7 +124,7 @@ onMounted(read); onUnmounted(() => { controller.abort(); sequence++; });
       <label v-if="mode === 'login-events' && fields.has('Kind')" for="event-kind">事件码<input id="event-kind" v-model="kind" inputmode="numeric" pattern="[0-9]+"></label>
       <label v-if="mode === 'audit' && fields.has('Action')" for="audit-action">审计动作码<input id="audit-action" v-model="action" inputmode="numeric" pattern="[0-9]+"></label>
       <label v-if="fields.has('CorrelationId')" for="event-correlation">关联 UUID<input id="event-correlation" v-model="correlation" maxlength="36"></label>
-      <button :disabled="busy">查询证据</button>
+      <button type="submit" :disabled="busy">查询证据</button>
     </form><ColumnSettings :columns="available" v-model="selected" v-model:widths="widths"
       v-model:fixed-first-column="fixedFirstColumn" v-model:fixed-positions="fixedPositions"
       :preference-warning="preferenceWarning" :column-views="columnViews" />
@@ -112,7 +141,13 @@ onMounted(read); onUnmounted(() => { controller.abort(); sequence++; });
           :class="fixedColumnClass(column.key)" :style="fixedColumnStyle(column.key)">{{ cell(row, column.key) ?? "未授权 / 不适用" }}</td></tr></tbody>
       </table></div>
     </QueryState>
-    <div class="actions"><button :disabled="busy || offset === 0" @click="offset -= 50; read()">上一页</button><span>第 {{ offset / 50 + 1 }} 页 · 最多 50 条</span>
-      <button :disabled="busy || rows.length < 50" @click="offset += 50; read()">下一页</button></div>
+    <nav class="actions" aria-label="证据分页">
+      <label for="audit-limit">每页条数<select id="audit-limit" v-model.number="pageSize" @change="read">
+        <option :value="25">25</option><option :value="50">50</option><option :value="100">100</option>
+      </select></label>
+      <button type="button" :disabled="busy || offset === 0" @click="page(-1)">上一页</button>
+      <span aria-live="polite">实时 · 第 {{ offset / pageSize + 1 }} 页 · 本页 {{ rows.length }} 条（最多 {{ pageSize }} 条）</span>
+      <button type="button" data-test="next-page" :disabled="busy || !!error || rows.length !== pageSize" @click="page(1)">下一页</button>
+    </nav>
   </section>
 </template>

@@ -100,6 +100,47 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     }
+    if (api === "/api/platform/audit") {
+      await page.getByLabel("开始时间（UTC，含）").fill("2026-10-24T00:00");
+      await page.getByLabel("结束时间（UTC，不含）").fill("2026-10-25T00:00");
+      await page.getByLabel("关联 UUID").fill(process.env.WES_E2E_AUDIT_CORRELATION!);
+      const firstPage = page.waitForResponse(value =>
+        value.url().includes("/api/platform/audit?") && new URL(value.url()).searchParams.get("limit") === "25");
+      await page.getByRole("button", { name: "查询证据", exact: true }).click();
+      expect((await firstPage).status()).toBe(200);
+      const evidenceRows = page.locator(".query-state tbody tr");
+      await expect(evidenceRows).toHaveCount(25);
+      const firstIds = await evidenceRows.locator("td:first-child").allTextContents();
+      const pagination = page.getByRole("navigation", { name: "证据分页", exact: true });
+      await expect(pagination).toContainText("实时");
+      await expect(page.getByText(/不保证跨请求无丢重/)).toBeVisible();
+      const secondPage = page.waitForResponse(value =>
+        value.url().includes("/api/platform/audit?") && new URL(value.url()).searchParams.get("offset") === "25");
+      await pagination.getByRole("button", { name: "下一页", exact: true }).click();
+      expect((await secondPage).status()).toBe(200);
+      await expect(evidenceRows).toHaveCount(25);
+      const secondIds = await evidenceRows.locator("td:first-child").allTextContents();
+      const thirdPage = page.waitForResponse(value =>
+        value.url().includes("/api/platform/audit?") && new URL(value.url()).searchParams.get("offset") === "50");
+      await pagination.getByRole("button", { name: "下一页", exact: true }).click();
+      expect((await thirdPage).status()).toBe(200);
+      await expect(evidenceRows).toHaveCount(10);
+      const thirdIds = await evidenceRows.locator("td:first-child").allTextContents();
+      expect(new Set([...firstIds, ...secondIds, ...thirdIds]).size).toBe(60);
+      await expect(pagination.getByRole("button", { name: "下一页", exact: true })).toBeDisabled();
+      for (const size of ["50", "100"]) {
+        const resized = page.waitForResponse(value => value.url().includes("/api/platform/audit?")
+          && new URL(value.url()).searchParams.get("limit") === size
+          && new URL(value.url()).searchParams.get("offset") === "0");
+        await pagination.getByRole("combobox", { name: "每页条数", exact: true }).selectOption(size);
+        expect((await resized).status()).toBe(200);
+        await expect(evidenceRows).toHaveCount(size === "50" ? 50 : 60);
+      }
+      for (const width of [375, 768, 1024, 1440]) {
+        await page.setViewportSize({ width, height: 900 });
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      }
+    }
     if (api === "/api/platform/settings") {
       const settingRow = page.getByRole("row").filter({ hasText: "query.snapshotTtlSeconds" });
       await settingRow.getByTestId("edit-setting").click();
@@ -196,6 +237,7 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
   await auditMode.selectOption("login-events");
   await page.getByLabel("开始时间（UTC，含）").fill("2026-10-24T00:00");
   await page.getByLabel("结束时间（UTC，不含）").fill("2026-10-25T00:00");
+  await page.getByLabel("关联 UUID").fill("");
   const loginEvents = page.waitForResponse(value => value.url().includes("/api/platform/login-events") && value.request().method() === "GET");
   const queryButton = page.getByRole("button", { name: "查询证据", exact: true });
   let queryButtonReached = false;

@@ -1150,10 +1150,14 @@ public sealed class IdentityHttpTests : IAsyncLifetime
     {
         await GrantPlatformAsync();
         Guid settingId;
+        var auditCorrelation = Guid.NewGuid();
         await using (var seed = Open())
         {
             var setting = new VersionedSetting(_tenant, "query.snapshotTtlSeconds");
             seed.Settings.Add(setting);
+            seed.Audit.AddRange(Enumerable.Range(0, 60).Select(index =>
+                new PlatformAudit(_tenant, _user, Guid.NewGuid(), auditCorrelation,
+                    PlatformAuditAction.RoleChanged, null, Guid.NewGuid().ToString("D"), _clock.GetUtcNow().AddSeconds(index))));
             await seed.SaveChangesAsync();
             settingId = setting.Id;
         }
@@ -1188,6 +1192,7 @@ public sealed class IdentityHttpTests : IAsyncLifetime
         start.ArgumentList.Add(Path.Combine(web, "node_modules", "@playwright", "test", "cli.js"));
         start.ArgumentList.Add("test"); start.ArgumentList.Add("--config=playwright.config.ts");
         start.Environment["WES_E2E_URL"] = address; start.Environment["WES_E2E_TENANT"] = _tenant.ToString("D");
+        start.Environment["WES_E2E_AUDIT_CORRELATION"] = auditCorrelation.ToString("D");
         using var process = Process.Start(start)!;
         var output = process.StandardOutput.ReadToEndAsync(); var errors = process.StandardError.ReadToEndAsync();
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(3));

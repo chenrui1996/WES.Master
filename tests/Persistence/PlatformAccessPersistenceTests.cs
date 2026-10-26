@@ -585,6 +585,55 @@ public sealed class PlatformAccessPersistenceTests : IAsyncLifetime
         Assert.Equal(page.Rows[1].Id, Assert.Single(next.Rows).Id);
     }
 
+    /// <summary>Live offsets read sixty stable rows, observe intervening facts, and immediately recheck role access.</summary>
+    [Fact]
+    [Trait("CaseId", "AUDIT-REALTIME-001")]
+    public async Task AuditQuery_SixtyRows_PageBoundariesAreLiveAndAuthorizationIsCurrent()
+    {
+        var (context, roleId, _) = await SeedAsync();
+        await using (var seed = Open(_tenant))
+        {
+            var role = await seed.Roles.SingleAsync(item => item.Id == roleId);
+            role.Change(role.Version, true, [new PermissionGrant("platform.audit.read", DataScope.All,
+                ImmutableHashSet<Guid>.Empty, ImmutableHashSet.Create("Id", "OccurredAt"))]);
+            seed.Audit.AddRange(Enumerable.Range(0, 60).Select(index =>
+                new PlatformAudit(_tenant, _actor, Guid.NewGuid(), Guid.NewGuid(),
+                    PlatformAuditAction.RoleChanged, null, Guid.NewGuid().ToString("D"), Now.AddSeconds(index))));
+            await seed.SaveChangesAsync();
+        }
+        await using var read = Open(_tenant);
+        var query = AuditQuery(read);
+        var first = await query.ReadAsync(context, Now.AddSeconds(-1), Now.AddMinutes(2), limit: 25);
+        var second = await query.ReadAsync(context, Now.AddSeconds(-1), Now.AddMinutes(2), offset: 25, limit: 25);
+        var third = await query.ReadAsync(context, Now.AddSeconds(-1), Now.AddMinutes(2), offset: 50, limit: 25);
+        Assert.All(new[] { first, second, third }, page => Assert.True(page.Authorized));
+        Assert.Equal(25, first.Rows.Length);
+        Assert.Equal(25, second.Rows.Length);
+        Assert.Equal(10, third.Rows.Length);
+        Assert.Equal(60, first.Rows.Concat(second.Rows).Concat(third.Rows).Select(row => row.Id).Distinct().Count());
+        var larger = await query.ReadAsync(context, Now.AddSeconds(-1), Now.AddMinutes(2), limit: 50);
+        Assert.Equal(first.Rows.Concat(second.Rows).Select(row => row.Id), larger.Rows.Select(row => row.Id));
+        var all = await query.ReadAsync(context, Now.AddSeconds(-1), Now.AddMinutes(2), limit: 100);
+        Assert.Equal(60, all.Rows.Length);
+        await using (var writer = Open(_tenant))
+        {
+            writer.Audit.Add(new PlatformAudit(_tenant, _actor, Guid.NewGuid(), Guid.NewGuid(),
+                PlatformAuditAction.RoleChanged, null, Guid.NewGuid().ToString("D"), Now.AddSeconds(-1)));
+            await writer.SaveChangesAsync();
+        }
+        var shifted = await query.ReadAsync(context, Now.AddSeconds(-1), Now.AddMinutes(2), offset: 25, limit: 25);
+        Assert.Equal(first.Rows[^1].Id, shifted.Rows[0].Id);
+        await using (var writer = Open(_tenant))
+        {
+            var role = await writer.Roles.SingleAsync(item => item.Id == roleId);
+            role.Change(role.Version, false, role.Rules);
+            await writer.SaveChangesAsync();
+        }
+        var denied = await query.ReadAsync(context, Now.AddSeconds(-1), Now.AddMinutes(2), offset: 25, limit: 25);
+        Assert.False(denied.Authorized);
+        Assert.Empty(denied.Rows);
+    }
+
     /// <summary>Permission denial is explicit; invalid pagination/time input cannot silently become a broad query.</summary>
     [Fact]
     [Trait("CaseId", "AUDIT-QUERY-001")]

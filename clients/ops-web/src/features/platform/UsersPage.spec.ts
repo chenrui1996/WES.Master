@@ -76,7 +76,7 @@ it("distinguishes the first empty directory, a submitted empty filter, and a fai
   const emptyState = wrapper.get('[aria-label="用户目录"]');
   expect(emptyState.text()).toContain("尚无可读用户");
   expect(emptyState.text()).toContain("新建用户档案");
-  expect(wrapper.get('[data-test="new-user"]').exists()).toBe(true);
+  expect(wrapper.find('[data-test="new-user"]').exists()).toBe(true);
 
   await wrapper.get('[name="filterAccount"]').setValue("MISSING");
   expect(emptyState.text()).toContain("筛选条件已更改");

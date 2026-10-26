@@ -517,13 +517,21 @@
         "dependencies": {
           "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
           "Serilog.AspNetCore": "[10.0.0, )",
-          "Wes.Platform": "[1.0.0, )"
+          "Wes.Platform": "[1.0.0, )",
+          "Wes.Wms": "[1.0.0, )"
         }
       },
       "wes.platform": {
         "type": "Project",
         "dependencies": {
           "BCrypt.Net-Next": "[4.2.1, )",
+          "MySql.Data": "[9.7.0, )",
+          "MySql.EntityFrameworkCore": "[10.0.7, )"
+        }
+      },
+      "wes.wms": {
+        "type": "Project",
+        "dependencies": {
           "MySql.Data": "[9.7.0, )",
           "MySql.EntityFrameworkCore": "[10.0.7, )"
         }

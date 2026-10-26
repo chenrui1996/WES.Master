@@ -4,6 +4,7 @@ using Serilog;
 using Wes.Host.Identity;
 using Wes.Host.Platform;
 using Wes.Host.Runtime;
+using Wes.Host.Wms;
 using Wes.Platform;
 
 using var bootstrapLogger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
@@ -16,12 +17,14 @@ builder.Services.AddWesIdentity(builder.Configuration);
 builder.Services.AddWesPlatformFiles(builder.Environment);
 builder.Services.AddWesPlatformRetention(builder.Configuration);
 builder.Services.AddWesPlatformPublisher(builder.Configuration);
+builder.Services.AddWesWmsMasterData();
 builder.Services.AddHealthChecks()
     .AddCheck("ApplicationNotAssembled",
         () => HealthCheckResult.Unhealthy("Business persistence and control modules have not been assembled."),
         tags: ["application"]);
 
 await using var app = builder.Build();
+_ = app.Services.GetRequiredService<WmsMasterDataSettings>();
 if (app.Services.GetRequiredService<PlatformFileSettings>().Enabled)
     _ = app.Services.GetRequiredService<PlatformFileAdapters>();
 if (args.Contains("--wes-provision=true", StringComparer.Ordinal))
@@ -36,7 +39,8 @@ if (app.Configuration.GetValue<bool>("Wes:Identity:Enabled"))
     _ = app.Services.GetRequiredService<IdentitySettings>();
     app.Use(async (http, next) =>
     {
-        if (http.Request.Path.StartsWithSegments("/api/identity") || http.Request.Path.StartsWithSegments("/api/platform"))
+        if (http.Request.Path.StartsWithSegments("/api/identity") || http.Request.Path.StartsWithSegments("/api/platform")
+            || http.Request.Path.StartsWithSegments("/api/wms"))
             http.Response.OnStarting(() =>
             {
                 http.Response.Headers.CacheControl = "no-store";
@@ -48,6 +52,7 @@ if (app.Configuration.GetValue<bool>("Wes:Identity:Enabled"))
     app.UseAuthorization();
     app.MapWesIdentity();
     app.MapWesPlatform();
+    app.MapWesWmsMasterData();
     app.MapOperationsWeb();
 }
 app.MapHealthChecks("/health/live", new HealthCheckOptions

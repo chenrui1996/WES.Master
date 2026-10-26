@@ -314,3 +314,9 @@
 - WMS公开单资源读取owner边界与当前authority端口，不引用Platform程序集/私表。creator来自WMS永久创建事实；Platform公开字段查询自行查creator当前目录部门，再逐次核验调用者当前会话/成员/角色/目录，精确匹配warehouse/location permission和完整字段；缺creator/字段拒绝，不返回半投影。
 - 新增**22项真实MySQL联动**通过，包括Own/Departments/All、另一owner移部门/撤角色/成员/session、实际跨tenant资源、错误字段比较器、缺策略/结果、取消及安全DB错误。联合主数据/账本/Platform回归**159 passed**，领域/授权**32 passed**、完整架构**29 passed**；Release全solution构建**0警告/0错误**。见[设计](117-t08-current-master-data-reads.md)/[证据](118-t08-current-master-data-reads-tests.md)。
 - 本片无迁移/依赖/前端变化，仅运行相关定向验证，不声称已重跑整套.NET/Vitest。真实Platform-backed适配器仍仅用于测试装配，尚无Host生产注册、HTTP/目录/页面或创建授权；其他T08生命周期与五包剩余门禁保持未完成。
+
+### T08 默认关闭的主数据详情HTTP
+
+- Host已通过公开应用边界装配真实Platform当前authority，复用现有JWT `tid/sub/sid`解析。显式`Wes:WmsMasterData:Enabled`且Identity启用才映射两个GET，默认不注册；HTTPS/no-store、完整固定字段、当前角色/字段及登出撤销、实际跨tenant资源、禁止写动词已验证。不自动授予既有管理员权限或执行迁移。
+- 新增**6项配置+11项真实MySQL/JWT HTTP**，最终完整串行Release Architecture **29**、Modules **524**、Persistence **571**、Route **228**，共**1352 passed、0 failed、0 skipped**；全solution构建**0警告/0错误**。首次7项500与复用既有JWT subject的修正据实记录，未改claims/断言；见[设计](119-t08-master-data-detail-http.md)/[证据](120-t08-master-data-detail-http-tests.md)。
+- 本片无新迁移/前端变化，HTTP新用例使用TestServer，既有两套真实HTTPS浏览器由完整回归覆盖，不冒充WMS新增浏览器验收。列表/树/页面、当前创建授权、编辑启停/容器/Outbox及其他T08范围尚未完成；T04/T05/T06/T07/T08整体仍不关闭，生产/现场及ApplicationNotAssembled门禁不变。

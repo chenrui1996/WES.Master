@@ -66,6 +66,8 @@ T08主数据续实施：[禁用仓库/库位创建基础](docs/implementation/11
 
 T08授权详情续实施：[当前主数据读取](docs/implementation/117-t08-current-master-data-reads.md)及[证据](docs/implementation/118-t08-current-master-data-reads-tests.md)以WMS创建事实和Platform当前会话/角色/creator部门衔接公开应用边界，Own/Departments/All逐次复验完整字段，无私表跨引用。新增22项真实MySQL联动，联合159项、领域32项及架构29项通过；构建零警告/错误。尚无Host生产注册/HTTP/列表/页面或创建授权，不把应用详情基础当作T08整体关闭。
 
+T08详情HTTP续实施：[默认关闭的只读接线](docs/implementation/119-t08-master-data-detail-http.md)及[证据](docs/implementation/120-t08-master-data-detail-http-tests.md)接通真实Platform当前授权适配器、既有JWT subject和仓/位两个GET。新增6项配置/11项HTTP，最终完整.NET **1352项通过**、构建零警告/错误；跨tenant、撤权/登出、HTTPS/no-store和无写入口已测。仅显式部署装配，不自动迁移/授予权限；列表/树/页面、创建授权、完整主数据生命周期及T08整包仍未完成。
+
 | 文档组 | 内容 |
 |---|---|
 | 项目治理 | [业务范围与现状矩阵](docs/01-business-scope-and-status.md)、[系统架构](docs/02-system-architecture.md)、[工程/注释/文档规范](docs/03-engineering-governance.md)、[需求追踪矩阵](docs/04-requirement-design-test-traceability.md)、[ADR](docs/adr/README.md) |

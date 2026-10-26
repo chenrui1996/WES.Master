@@ -7,4 +7,7 @@
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <ProjectReference Include="..\Modules\Platform\Wes.Platform.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Modules\Wms\Wes.Wms.csproj" />
+  </ItemGroup>
 </Project>

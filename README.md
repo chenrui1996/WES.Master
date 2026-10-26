@@ -42,6 +42,8 @@ T07续实施：[隔离文件生命周期与存储/扫描基础](docs/implementat
 
 T05续实施：[托管Platform发布调度](docs/implementation/95-t05-hosted-platform-publisher.md)及[测试证据](docs/implementation/96-t05-hosted-platform-publisher-tests.md)接通默认禁用的显式tenant/batch周期和公共owner发布边界；缺少显式transport时拒绝启用，不提供None/成功fallback。调度器、lease和真实MySQL测试不代替真实Broker、Notifications聚合及T05整体合同。
 
+T08续实施：[WMS owner账本核心](docs/implementation/97-t08-owner-ledger-core.md)及[测试证据](docs/implementation/98-t08-owner-ledger-core-tests.md)新增独立余额/永久记账身份/不可变流水、精确收发和成对移账事务、版本与业务身份防重。内部记账原语没有Host/API接线，不代替实体授权、主数据、保护量持久化与完整业务用例；T08仍未整体关闭。
+
 以下是本轮已整理的文档章节。每份功能规格都有测试设计，并在总追踪矩阵中关联需求 ID、设计章节、测试 ID 和验收结果；测试用例尚非自动化测试结果。
 
 | 文档组 | 内容 |

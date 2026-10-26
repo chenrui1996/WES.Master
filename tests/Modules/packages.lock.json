@@ -701,7 +701,11 @@
         }
       },
       "wes.wms": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "MySql.Data": "[9.7.0, )",
+          "MySql.EntityFrameworkCore": "[10.0.7, )"
+        }
       }
     }
   }

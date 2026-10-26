@@ -234,3 +234,11 @@
 - 启用必须明确Identity、Outbox/MessageQueue能力、1..100唯一tenant白名单、1..3600秒周期、1..100 batch及唯一singleton transport。缺少真实adapter时拒绝启用，不提供None/成功fallback。每tenant每tick只一batch、60秒合作取消预算、90秒持久lease，整轮后固定延迟，不循环清空积压。
 - 共用严格配置读取原语后，原保留维护34项Host及12项真实MySQL回归通过；新增publisher25项Host、5项真实MySQL验证配置/装配、allowlist/batch、预算/停止、有限持久状态及安全数据库失败。完整串行Release现为Architecture **29**、Modules **409**、Persistence **381**、Route **228**，合计 **1047 passed、0 failed、0 skipped**；修改C#格式及diff验证通过。见[设计](95-t05-hosted-platform-publisher.md)/[测试](96-t05-hosted-platform-publisher-tests.md)。
 - **T05仍partial**：当前没有实际transport注册，真实Broker断连/ACK丢失、跨owner、Notifications聚合页与完整合同未验收。调度器不代表Broker投递或业务exactly-once，T04/T06/T07/T08也没有因此整体关闭。未新增依赖、迁移或生产连接。
+
+### T08 WMS owner账本与持久化核心
+
+- WMS新增自己的DbContext、三张余额/posting/entry表及独立迁移历史，无Platform或其他模块项目依赖/表外键。余额只从0开始、维度不可变；内部收发和同维度成对移账以显式事务生成永久业务身份/不可变流水和精确余额，不向Host暴露任意改账API。
+- tenant/operation和tenant/kind/execution身份防重，重复命令或换operation的同执行单元只一次库存效果；冲突payload拒绝。双余额版本、真实并发CAS、Save成功后故障/取消整笔回滚均验证。新posting和entry必须带齐同次精确余额效果，拒绝空posting和向历史posting添加虚假事实。
+- 实测修复MySQL默认排序合并大小写/重音批次的缺口，Batch列显式二进制排序；无批次使用非空空串保证唯一键有效。精确6位小数/UTC微秒、跨tenant读写及不可改历史均通过真实Provider测试。授权仍只能由后续业务owner实时核验，本数据库隔离不代替授权。
+- 新增11项余额领域和25项真实MySQL测试，原39项数量/保护回归通过。完整串行Release现为Architecture **29**、Modules **420**、Persistence **406**、Route **228**，合计 **1083 passed、0 failed、0 skipped**；格式、diff、model/snapshot和迁移SQL检查通过。见[设计](97-t08-owner-ledger-core.md)/[证据](98-t08-owner-ledger-core-tests.md)。
+- **T08仍partial**：主数据、业务授权、保护量/预留/在途/Unknown持久化、WMS Outbox与API/页面尚未完成；未将内部账本基础接入真实库存或生产Host，不以1083项回归关闭T04–T08。

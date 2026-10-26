@@ -25,6 +25,32 @@ public sealed class MySqlConnectionGuardTests
         Assert.Equal("business", new MySqlConnectionStringBuilder(source).Database);
     }
 
+    /// <summary>Locates the one authorized sibling source in both normal and Git worktree layouts.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("CaseId", "MYSQL-GUARD-002")]
+    public void AuthorizedSourcePath_ResolvesProjectSiblingFromRepositoryOrWorktreeRoot(bool worktree)
+    {
+        var temporaryRoot = Path.Combine(Path.GetTempPath(), $"wes-path-{Guid.NewGuid():N}");
+        var repositoryRoot = worktree
+            ? Path.Combine(temporaryRoot, "WES.Master.worktrees", "worktree")
+            : Path.Combine(temporaryRoot, "WES.Master");
+        var expected = Path.Combine(temporaryRoot, "Seven.Master", "Seven.Net8", "Seven.WebApi", "appsettings.json");
+        try
+        {
+            Directory.CreateDirectory(repositoryRoot);
+            Directory.CreateDirectory(Path.GetDirectoryName(expected)!);
+            Directory.CreateDirectory(Path.Combine(repositoryRoot, "Seven.Master", "Seven.Net8", "Seven.WebApi"));
+
+            Assert.Equal(expected, MySqlTestConnection.ResolveAuthorizedSourcePath(new DirectoryInfo(repositoryRoot)));
+        }
+        finally
+        {
+            if (Directory.Exists(temporaryRoot)) Directory.Delete(temporaryRoot, recursive: true);
+        }
+    }
+
     /// <summary>Rejects incomplete or malformed configuration without reflecting its contents.</summary>
     [Theory]
     [InlineData("")]

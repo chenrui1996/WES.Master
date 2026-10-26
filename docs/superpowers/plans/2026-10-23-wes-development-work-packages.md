@@ -95,6 +95,7 @@
 - [x] DTC-UI-015 登出时清空当前列布局易失状态、保留匹配主体的本机布局并在同主体重新认证后恢复，受控身份/组件测试已通过；见[实施](../../implementation/69-t06-column-preference-logout-boundary.md)及[测试](../../implementation/70-t06-column-preference-logout-boundary-tests.md)。不覆盖页面行数据或关联缓存的完整登出E2E。
 - [x] DTC-UI-022 Platform Roles/Users授权部门/角色候选远程首片改为25条/页并验证offset连续、旧页候选保留；见[实施](../../implementation/71-t06-department-candidate-page-size.md)及[测试](../../implementation/72-t06-department-candidate-page-size-tests.md)。搜索竞态、伪造ID提交及其他选择器仍待验收。
 - [x] DTC-UI-022 为共享候选读取器补充reset前延迟响应不得覆盖新候选状态的受控回归测试；见[实施](../../implementation/73-t06-stale-directory-candidate-response.md)及[测试](../../implementation/74-t06-stale-directory-candidate-response-tests.md)。未增加搜索API或将此等同A/AB搜索竞态。
+- [x] DTC-UI-022 以真实MySQL/HTTP验证不存在角色ID的用户角色替换命令被拒绝且用户版本、成员关联、审计无变化；worktree环境下授权配置源解析和完整Identity HTTP类回归也通过；见[实施](../../implementation/75-t06-reject-unresolved-role-candidate.md)及[测试](../../implementation/76-t06-reject-unresolved-role-candidate-tests.md)。
 - [ ] 实现语义HTML/Composition API/strict TS与Element Plus已有组件复用；白名单偏好不存业务数据/secret/待写。核对/已有导出固定有序ID及读值、水位TTL600秒，权限撤销直接失效；实时offset变化不承诺无丢重。
 - [ ] 60条动态更新/增删、599/600秒快照、单位混合不求和、200%字体/+40%翻译/768/1024/1440与局部滚动验收；RVT-06/07。组件绿不代表64页绿，T32逐PAGE适用性再验，PDA/地图不机械套Grid。
 

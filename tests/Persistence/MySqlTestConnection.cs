@@ -69,13 +69,18 @@ internal static class MySqlTestConnection
             root = root.Parent;
         }
 
-        if (root?.Parent is null)
-        {
-            throw new InvalidOperationException("Cannot locate the authorized sibling configuration.");
-        }
+        if (root is null) throw new InvalidOperationException("Cannot locate the authorized sibling configuration.");
+        return FromAuthorizedSource(ReadSource(ResolveAuthorizedSourcePath(root)));
+    }
 
-        var path = Path.Combine(root.Parent.FullName, "Seven.Master", "Seven.Net8", "Seven.WebApi", "appsettings.json");
-        return FromAuthorizedSource(ReadSource(path));
+    internal static string ResolveAuthorizedSourcePath(DirectoryInfo repositoryRoot)
+    {
+        ArgumentNullException.ThrowIfNull(repositoryRoot);
+        var projectRoot = repositoryRoot.Parent;
+        if (projectRoot?.Name.EndsWith(".worktrees", StringComparison.OrdinalIgnoreCase) == true)
+            projectRoot = projectRoot.Parent;
+        if (projectRoot is null) throw new InvalidOperationException("Cannot locate the authorized sibling configuration.");
+        return Path.Combine(projectRoot.FullName, "Seven.Master", "Seven.Net8", "Seven.WebApi", "appsettings.json");
     }
 
     internal static async Task<MySqlConnection> OpenAsync(string connectionString)

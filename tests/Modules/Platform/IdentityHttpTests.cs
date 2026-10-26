@@ -1042,6 +1042,36 @@ public sealed class IdentityHttpTests : IAsyncLifetime
         Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
     }
 
+    /// <summary>A forged role reference is rejected by the owner without changing membership, version, or audit.</summary>
+    [Fact]
+    [Trait("CaseId", "DTC-UI-022")]
+    public async Task MembershipCommandRejectsUnknownRoleIdWithoutBusinessWrites()
+    {
+        await SignInAsync();
+        await GrantPlatformAsync();
+        string userVersion;
+        Guid[] existingRoleIds;
+        int auditCount;
+        await using (var read = Open())
+        {
+            var user = await read.DirectoryUsers.SingleAsync(item => item.Id == _user);
+            userVersion = user.Version;
+            existingRoleIds = await read.Memberships.Where(item => item.UserId == _user)
+                .Select(item => item.RoleId).ToArrayAsync();
+            auditCount = await read.Audit.CountAsync();
+        }
+
+        using var response = await _client.PutAsJsonAsync($"/api/platform/users/{_user:D}/roles",
+            new { expectedVersion = userVersion, roleIds = existingRoleIds.Append(Guid.NewGuid()).ToArray() });
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+
+        await using var verify = Open();
+        Assert.Equal(userVersion, (await verify.DirectoryUsers.SingleAsync(item => item.Id == _user)).Version);
+        Assert.Equal(existingRoleIds.Order(), await verify.Memberships.Where(item => item.UserId == _user)
+            .Select(item => item.RoleId).Order().ToArrayAsync());
+        Assert.Equal(auditCount, await verify.Audit.CountAsync());
+    }
+
     /// <summary>Named filters must execute before pagination rather than merely decorate a client control.</summary>
     [Theory]
     [InlineData("/api/platform/roles?code=not-present")]

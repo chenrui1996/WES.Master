@@ -259,3 +259,10 @@
 - 新增20项真实MySQL协调测试，原8项文件持久化共28项通过；覆盖真正LocalQuarantineStore联动、开始claim失败无IO、证据错配、存储故障恢复、取消/迟到、并发单claim及删除后确认失败。完整串行Release现为Architecture **29**、Modules **420**、Persistence **449**、Route **228**，共 **1126 passed、0 failed、0 skipped**，见[设计](101-t07-file-processing-coordination.md)/[证据](102-t07-file-processing-coordination-tests.md)。
 - GitHub连接恢复，普通push已将本地账本`0fe4984`及持久预留`9b18172`推送到既有origin/main（由`fd23831`前进到`9b18172`）；此前TLS失败是历史阻断，不再将这两笔写为未推送。未关闭证书校验、未force-push。
 - **T07仍partial**：内部协调无Host/API注册；实体当前授权、受权上传/绑定/下载、页面与真实ClamAV健康/病毒库验收仍未完成。受控scanner不是恶意软件清除证明；本片不关闭T04–T08、不更改生产或现场安全许可。
+
+### T07 当前授权暂存文件访问
+
+- 新增PlatformScope具名暂存文件应用入口；复用当前目录/session/角色/字段授权，以持久creator及当前目录部门匹配Own/Departments/All。暂存权限不等于业务实体权限：实际存在引用或计数非零一律拒绝，未实现的业务附件授权不以tenant相同替代。
+- 元数据、Scan/Delete与Content分别要求明确字段，读取中撤权/绑定/版本变化不交付字节；只有Available/Stored且真实SHA256/长度一致才可交付。下载审计显式提交后交付，审计错误/保存后取消清零缓冲并回滚；结果不默认JSON输出内容，Dispose清零。
+- 新增21项真实MySQL授权测试，文件相关49项定向通过；完整串行Release为Architecture **29**、Modules **420**、Persistence **470**、Route **228**，共 **1147 passed、0 failed、0 skipped**。格式与diff检查通过，见[设计](103-t07-authorized-staging-file-access.md)/[证据](104-t07-authorized-staging-file-access-tests.md)。审计FileDownloaded追加int11，既有数值不改；无新表/迁移或依赖。
+- **T07仍partial**：尚无上传、业务绑定/实体附件下载、HTTP/页面接线与真实扫描/部署ACL验收。现有应用边界仅授权暂存范围，不开放未知owner引用。T04/T05/T06/T07/T08整体保持真实状态，不调用完成工具代签。

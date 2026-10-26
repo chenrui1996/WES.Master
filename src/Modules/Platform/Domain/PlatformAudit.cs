@@ -24,7 +24,9 @@ public enum PlatformAuditAction
     /// <summary>Tenant metadata/state changed.</summary>
     TenantChanged,
     /// <summary>A stable dictionary entry, translation or reference changed.</summary>
-    DictionaryChanged
+    DictionaryChanged,
+    /// <summary>Verified unbound file bytes were authorized for delivery after a current scope check.</summary>
+    FileDownloaded
 }
 
 /// <summary>Append-only audit fact staged with the owner mutation; no general request/payload string is accepted.</summary>

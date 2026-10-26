@@ -2,6 +2,7 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
 import { forgetIdentity, sessionState } from "../features/identity/identity-api";
+import ColumnSettings from "./ColumnSettings.vue";
 import { calculateFixedColumnLayout, columnPreferenceKey, useColumns } from "./useColumns";
 
 afterEach(() => { vi.restoreAllMocks(); forgetIdentity(); });
@@ -424,17 +425,24 @@ it("announces cross-tab updates to scoped preferences without applying them to c
     requiresPasswordChange: false, credentialVersion: null, grants: [],
   };
   const host = defineComponent({
+    components: { ColumnSettings },
     setup() { return useColumns(() => [
       { key: "id", label: "ID", required: true }, { key: "name", label: "Name" },
     ], { environment: "test", pageId: "users", tableId: "directory", storageProvider: () => storage }); },
-    template: `<output>{{ selected.join(',') }}</output><p role="status">{{ preferenceWarning }}</p>`,
+    template: `<ColumnSettings :columns="available" v-model="selected" />
+      <output>{{ selected.join(',') }}</output><p role="status">{{ preferenceWarning }}</p>`,
   });
   const wrapper = mount(host);
   await flushPromises();
+  await wrapper.get('input[value="name"]').setValue(false);
+  expect(wrapper.get('input[value="name"]').element).toHaveProperty("checked", false);
   window.dispatchEvent(new StorageEvent("storage", { key: preferenceKey, newValue: '{"version":1,"selected":["name"]}' }));
   await flushPromises();
   expect(wrapper.get('[role="status"]').text()).toContain("其他标签页");
+  expect(wrapper.get('input[value="name"]').element).toHaveProperty("checked", false);
   expect(wrapper.get("output").text()).toBe("id,name");
+  await wrapper.get('[data-test="apply-columns"]').trigger("submit");
+  expect(wrapper.get("output").text()).toBe("id");
   wrapper.unmount();
 });
 

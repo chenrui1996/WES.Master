@@ -90,6 +90,7 @@
 - [x] DTC-UI-001 在Platform Audit页的慢请求首片已验证：200ms不显示占位，300ms后显示授权列形状的骨架；同scope刷新保留原证据并显示上次成功UTC读取时间。见[实施](../../implementation/53-t06-audit-slow-query-state.md)及[测试](../../implementation/54-t06-audit-slow-query-state-tests.md)。其余PAGE适用性与DTC-UI-001整体仍待逐项验收。
 - [x] DTC-UI-002 在Platform Users页首片已验证：区分首次无用户、筛选未提交、已提交条件无匹配和查询失败；见[实施](../../implementation/55-t06-users-empty-states.md)及[测试](../../implementation/56-t06-users-empty-states-tests.md)。用户目录不适用队列zero-work；其他PAGE/队列适用性仍待验收。
 - [x] DTC-UI-014 共享列设置首片已验证方向键排序草稿/显式应用与identity宽度160/600上下边界；见[实施](../../implementation/57-t06-column-settings-keyboard-widths.md)及[测试](../../implementation/58-t06-column-settings-keyboard-widths-tests.md)。其他页面长业务码、固定列/宽屏及全合同仍未验收。
+- [x] DTC-UI-016 跨标签首选项变化不覆盖当前未提交列设置草稿，受控StorageEvent和显式应用流程已验证；见[实施](../../implementation/59-t06-column-preference-cross-tab-draft.md)及[测试](../../implementation/60-t06-column-preference-cross-tab-draft-tests.md)。schema升级及其它损坏/存储失败变体仍单独适用，整项不标完成。
 - [ ] 实现语义HTML/Composition API/strict TS与Element Plus已有组件复用；白名单偏好不存业务数据/secret/待写。核对/已有导出固定有序ID及读值、水位TTL600秒，权限撤销直接失效；实时offset变化不承诺无丢重。
 - [ ] 60条动态更新/增删、599/600秒快照、单位混合不求和、200%字体/+40%翻译/768/1024/1440与局部滚动验收；RVT-06/07。组件绿不代表64页绿，T32逐PAGE适用性再验，PDA/地图不机械套Grid。
 

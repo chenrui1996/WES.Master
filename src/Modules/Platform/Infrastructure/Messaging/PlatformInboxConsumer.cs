@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Wes.Platform.Domain;
 using Wes.Platform.Infrastructure.Persistence;
 
+using Wes.Platform.Messaging;
+
 namespace Wes.Platform.Infrastructure.Messaging;
 
 /// <summary>Commits one consumer effect with its owner-local inbox receipt.</summary>

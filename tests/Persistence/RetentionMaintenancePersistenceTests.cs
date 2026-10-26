@@ -8,6 +8,7 @@ using Wes.Platform.Features.Messaging;
 using Wes.Platform.Features.Tenancy;
 using Wes.Platform.Infrastructure.Messaging;
 using Wes.Platform.Infrastructure.Persistence;
+using Wes.Platform.Messaging;
 using Xunit;
 
 namespace Wes.Persistence.Tests;
@@ -54,6 +55,54 @@ public sealed class RetentionMaintenancePersistenceTests : IAsyncLifetime
         await using var verify = Open(_tenant);
         Assert.Equal(cutoff.AddSeconds(1), (await verify.CommandReceipts.SingleAsync()).CreatedAt);
         Assert.Equal(cutoff.AddSeconds(1), (await verify.InboxReceipts.SingleAsync()).ProcessedAt);
+    }
+
+    [Theory]
+    [InlineData(PlatformOutboxTransportOutcome.Acknowledged)]
+    [InlineData(PlatformOutboxTransportOutcome.TemporaryFailure)]
+    [InlineData(PlatformOutboxTransportOutcome.PermanentFailure)]
+    public async Task PublicPublisherUsesBoundedCurrentTenantAndPersistsFiniteDeliveryOutcome(PlatformOutboxTransportOutcome outcome)
+    {
+        for (var index = 0; index < 3; index++) await SeedAsync(_tenant, _clock.GetUtcNow());
+        await SeedAsync(_other, _clock.GetUtcNow());
+        var transport = new PublisherTransport(outcome);
+        PlatformPublishBatchResult result;
+        await using (var scope = new PlatformScope(_connection, _tenant, _clock, NullLoggerFactory.Instance))
+            result = await scope.PublishDueEventsAsync(transport, 2);
+        Assert.Equal(outcome == PlatformOutboxTransportOutcome.Acknowledged ? 2 : 0, result.Published);
+        Assert.Equal(outcome == PlatformOutboxTransportOutcome.TemporaryFailure ? 2 : 0, result.RetryScheduled);
+        Assert.Equal(outcome == PlatformOutboxTransportOutcome.PermanentFailure ? 2 : 0, result.Quarantined);
+        Assert.Equal(0, result.NotClaimed);
+        Assert.Equal(2, transport.Sent.Count);
+        Assert.All(transport.Sent, item => Assert.Equal(_tenant, item.TenantId));
+        await using var verify = Open(_tenant);
+        var messages = await verify.OutboxMessages.ToListAsync();
+        var expected = outcome switch
+        {
+            PlatformOutboxTransportOutcome.Acknowledged => OutboxMessageStatus.Published,
+            PlatformOutboxTransportOutcome.PermanentFailure => OutboxMessageStatus.Quarantined,
+            _ => OutboxMessageStatus.Pending
+        };
+        Assert.All(messages.Where(item => transport.Sent.Any(sent => sent.EventId == item.EventId)),
+            item => Assert.Equal(expected, item.Status));
+        await using var other = Open(_other);
+        Assert.Equal(OutboxMessageStatus.Pending, (await other.OutboxMessages.SingleAsync()).Status);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PublicPublisherDatabaseErrorsAreSanitized(bool transient)
+    {
+        var fault = new PublisherQueryFault(transient);
+        await using var owner = Open(_tenant, fault);
+        var error = await Assert.ThrowsAsync<PlatformPublisherDatabaseException>(() =>
+            PlatformPublishing.DispatchAsync(owner, new PublisherTransport(PlatformOutboxTransportOutcome.Acknowledged),
+                _clock, 1, CancellationToken.None));
+        Assert.True(fault.Reached);
+        Assert.Equal(transient, error.IsTransient);
+        Assert.Null(error.InnerException);
+        Assert.DoesNotContain("injected-secret", error.ToString());
     }
 
     [Theory]
@@ -225,6 +274,33 @@ public sealed class RetentionMaintenancePersistenceTests : IAsyncLifetime
     private sealed class Clock(DateTimeOffset? now = null) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now ?? new DateTimeOffset(2026, 10, 26, 0, 0, 0, TimeSpan.Zero);
+    }
+
+    private sealed class PublisherTransport(PlatformOutboxTransportOutcome outcome) : IPlatformOutboxTransport
+    {
+        public List<PlatformOutboxEnvelope> Sent { get; } = [];
+        public Task<PlatformOutboxTransportOutcome> PublishAsync(PlatformOutboxEnvelope envelope, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            Sent.Add(envelope);
+            return Task.FromResult(outcome);
+        }
+    }
+
+    private sealed class PublisherQueryFault(bool transient) : DbCommandInterceptor
+    {
+        public bool Reached { get; private set; }
+        public override ValueTask<InterceptionResult<System.Data.Common.DbDataReader>> ReaderExecutingAsync(
+            System.Data.Common.DbCommand command, CommandEventData eventData,
+            InterceptionResult<System.Data.Common.DbDataReader> result, CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains("platform_outbox", StringComparison.Ordinal))
+            {
+                Reached = true;
+                throw new InjectedDatabaseFailure(transient);
+            }
+            return ValueTask.FromResult(result);
+        }
     }
 
     private sealed class AfterSaveFault(CancellationTokenSource cancellation, bool cancel) : SaveChangesInterceptor

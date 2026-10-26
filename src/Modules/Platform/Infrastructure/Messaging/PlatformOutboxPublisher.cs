@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Wes.Platform.Domain;
 using Wes.Platform.Infrastructure.Persistence;
+using Wes.Platform.Messaging;
 
 namespace Wes.Platform.Infrastructure.Messaging;
 

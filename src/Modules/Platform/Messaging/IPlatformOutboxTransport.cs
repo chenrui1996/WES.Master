@@ -1,4 +1,4 @@
-namespace Wes.Platform.Infrastructure.Messaging;
+namespace Wes.Platform.Messaging;
 
 /// <summary>Stable wire envelope projected from an owner-local outbox row.</summary>
 public sealed record PlatformOutboxEnvelope(

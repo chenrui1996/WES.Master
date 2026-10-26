@@ -1,7 +1,6 @@
 using System.Data.Common;
 using System.Runtime.CompilerServices;
 using Microsoft.EntityFrameworkCore;
-using MySql.Data.MySqlClient;
 using Wes.Platform.Features.Directory;
 using Wes.Platform.Infrastructure.Messaging;
 using Wes.Platform.Infrastructure.Persistence;
@@ -60,5 +59,5 @@ internal static class PlatformRetentionMaintenance
     }
 
     private static PlatformRetentionDatabaseException SafeFailure(DbException error) =>
-        new(error.IsTransient || error is MySqlException { Number: 1040 or 1042 or 1205 or 1213 or 2006 or 2013 });
+        new(PlatformDatabaseFailures.IsTransient(error));
 }

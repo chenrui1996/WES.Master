@@ -11,6 +11,7 @@ using Wes.Platform.Features.Messaging;
 using Wes.Platform.Features.Tenancy;
 using Wes.Platform.Infrastructure.Messaging;
 using Wes.Platform.Infrastructure.Persistence;
+using Wes.Platform.Messaging;
 using Xunit;
 
 namespace Wes.Persistence.Tests;

@@ -79,7 +79,7 @@ public sealed class IdentityRefreshResult(bool completed, bool restricted = fals
 }
 
 /// <summary>Public Platform application boundary. Persistence and domain transitions stay inside the module.</summary>
-public sealed class PlatformScope : IAsyncDisposable
+public sealed partial class PlatformScope : IAsyncDisposable
 {
     private readonly PlatformDbContext _database;
     private readonly string _connection;

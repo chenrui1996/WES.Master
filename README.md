@@ -40,6 +40,8 @@ T04/T05/T06/T08续实施：[批次计划](docs/superpowers/plans/2026-10-26-plat
 
 T07续实施：[隔离文件生命周期与存储/扫描基础](docs/implementation/93-t07-quarantined-file-lifecycle.md)及[测试证据](docs/implementation/94-t07-quarantined-file-lifecycle-tests.md)新增精确字节证据、扫描attempt/截止、删除fence、本地私有存储、loopback ClamAV协议和MySQL文件/引用表。协议测试不是病毒清除，持久化约束不替代实体授权；应用协调、API、页面和真实扫描仍待完成，不能据此关闭T07。
 
+T05续实施：[托管Platform发布调度](docs/implementation/95-t05-hosted-platform-publisher.md)及[测试证据](docs/implementation/96-t05-hosted-platform-publisher-tests.md)接通默认禁用的显式tenant/batch周期和公共owner发布边界；缺少显式transport时拒绝启用，不提供None/成功fallback。调度器、lease和真实MySQL测试不代替真实Broker、Notifications聚合及T05整体合同。
+
 以下是本轮已整理的文档章节。每份功能规格都有测试设计，并在总追踪矩阵中关联需求 ID、设计章节、测试 ID 和验收结果；测试用例尚非自动化测试结果。
 
 | 文档组 | 内容 |

@@ -1503,6 +1503,7 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
     public async Task RealBrowserUsesHttpsOwnerIdentityAndAllNamedPlatformPages()
     {
         await GrantPlatformAsync();
+        await GrantAuditExportAsync();
         Guid settingId;
         var auditCorrelation = Guid.NewGuid();
         await using (var seed = Open())
@@ -1547,6 +1548,7 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
         start.ArgumentList.Add("test"); start.ArgumentList.Add("--config=playwright.config.ts");
         start.Environment["WES_E2E_URL"] = address; start.Environment["WES_E2E_TENANT"] = _tenant.ToString("D");
         start.Environment["WES_E2E_AUDIT_CORRELATION"] = auditCorrelation.ToString("D");
+        start.Environment["WES_E2E_NOW"] = _clock.GetUtcNow().ToString("O");
         using var process = Process.Start(start)!;
         var output = process.StandardOutput.ReadToEndAsync(); var errors = process.StandardError.ReadToEndAsync();
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(3));
@@ -1566,6 +1568,8 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
         var role = await verify.Roles.SingleAsync(item => item.Code == "fixture-owner");
         Assert.Equal(role.Id, (await verify.Memberships.SingleAsync(item => item.UserId == created.Id)).RoleId);
         Assert.Equal(3, await verify.CommandReceipts.CountAsync());
+        Assert.Equal(1, await verify.AuditExportReceipts.CountAsync());
+        Assert.Equal(1, await verify.Audit.CountAsync(item => item.Action == PlatformAuditAction.AuditExported));
     }
 
     /// <summary>Independent host/provider lifetimes read the same protected key ring and continue a durable refresh family.</summary>
@@ -1645,6 +1649,7 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
         if (File.Exists(_corpus)) File.Delete(_corpus);
         if (!_migrated) return;
         await using var database = Open();
+        await database.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM platform_audit_export_receipts WHERE TenantId = {_tenant.ToString("D")}");
         await database.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM platform_audit WHERE TenantId = {_tenant.ToString("D")}");
         await database.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM platform_login_events WHERE TenantId = {_tenant.ToString("D")}");
         await database.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM platform_file_references WHERE TenantId = {_tenant.ToString("D")}");

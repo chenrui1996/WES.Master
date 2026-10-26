@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 
 function relativeLuminance(color: string): number {
   const match = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color);
@@ -17,6 +18,8 @@ function contrastRatio(foreground: string, background: string): number {
 }
 
 test("real HTTPS identity, authorized named pages and responsive frame", async ({ page }) => {
+  if (!process.env.WES_E2E_NOW) throw new Error("The isolated HTTPS fixture must provide its server clock.");
+  await page.clock.setFixedTime(new Date(process.env.WES_E2E_NOW));
   const failures: string[] = [];
   page.on("pageerror", error => failures.push(error.message));
   await page.route("**/api/config/features", route => route.fulfill({
@@ -162,6 +165,22 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
       await expect(evidenceRows).toHaveCount(10);
       const snapshotThirdIds = await evidenceRows.locator("td:first-child").allTextContents();
       expect(new Set([...snapshotFirstIds, ...snapshotSecondIds, ...snapshotThirdIds]).size).toBe(60);
+      const exportForm = page.getByRole("form", { name: "导出固定审计快照", exact: true });
+      await exportForm.getByRole("checkbox", { name: "动作码", exact: true }).check();
+      const exported = page.waitForEvent("download");
+      await exportForm.getByRole("button", { name: "导出所选列 CSV", exact: true }).click();
+      const downloaded = await exported;
+      expect(downloaded.suggestedFilename()).toMatch(/^audit-[0-9a-f-]{36}\.csv$/);
+      const downloadPath = await downloaded.path();
+      expect(downloadPath).not.toBeNull();
+      const csv = (await readFile(downloadPath!)).toString("utf8").split("\r\n").filter(Boolean);
+      expect(csv[0]).toBe('"Id","OccurredAt","Action"');
+      expect(csv).toHaveLength(61);
+      expect(csv.slice(1).map(line => line.split(",")[0]!.replaceAll('"', "")))
+        .toEqual([...snapshotFirstIds, ...snapshotSecondIds, ...snapshotThirdIds]);
+      expect(csv.slice(1).every(line => line.endsWith(',"RoleChanged"'))).toBe(true);
+      await downloaded.delete();
+      await expect(exportForm.getByRole("status")).toContainText("不代表客户端已收齐");
       await expect(page.getByRole("button", { name: "返回实时查询", exact: true })).toBeVisible();
       for (const width of [375, 768, 1024, 1440]) {
         await page.setViewportSize({ width, height: 900 });

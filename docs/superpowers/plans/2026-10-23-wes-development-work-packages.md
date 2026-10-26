@@ -66,6 +66,7 @@
 - [ ] 做具名RBAC/组织/租户切换、字典/语言回退、强类型业务配置及来源/版本展示；部署Features与租户/数据库业务配置分离，非法P配置拒绝不回退，H缺项保持Unverified；业务审计与所属事务可靠关联。
 - [ ] 三Provider的复合唯一键/幂等清理90天后领域键仍防重；页面关联筛选/撤权/敏感字段列不可恢复，验证PAR-01/02/09及VAL-04/08。审计界面不可修改历史。
 - [x] 目录命令回执90天清理已接入默认禁用、显式tenant白名单的owner事务维护入口与托管周期；与Inbox原子提交，领域身份/审计/Outbox不删，真实MySQL两owner竞争安全退至下周期。见[维护设计](../../implementation/87-platform-retention-maintenance.md)和[测试](../../implementation/88-platform-retention-maintenance-tests.md)。生产启用/容量及T04其余验收仍未关闭。
+- [x] 固定审计快照受权导出：独立当前export/read字段交集、显式列/原600秒成员、永久operation与审计/Outbox原子提交后CSV交付；8项HTTP、14项真实MySQL owner、前端228项/严格构建、真实HTTPS Chromium及最终当前编译源1243项.NET通过。见[设计](../../implementation/111-t04-authorized-audit-export.md)/[证据](../../implementation/112-t04-authorized-audit-export-tests.md)。不授予既有管理员默认export，不关闭T04/T06其余验收；既有健康探测波动已记录。
 
 ### T05：owner事务Outbox/Inbox与可靠投递
 

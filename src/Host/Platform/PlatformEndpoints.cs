@@ -47,6 +47,8 @@ public sealed record ReplayOutboxInput(int ExpectedAttempts, string Reason);
 /// <summary>Bounded audit query used to create a short-lived owner-local verification snapshot.</summary>
 public sealed record AuditSnapshotInput(DateTimeOffset From, DateTimeOffset To, int Limit = 25,
     int? Action = null, Guid? CorrelationId = null);
+/// <summary>Explicit metadata-only columns for a fixed snapshot; no arbitrary expressions or payload selector.</summary>
+public sealed record AuditExportInput(string[] Columns);
 
 /// <summary>Named transport adapters; every use case revalidates current owner authorization and versions.</summary>
 public static class PlatformEndpoints
@@ -123,6 +125,7 @@ public static class PlatformEndpoints
         group.MapGet("/audit", AuditAsync);
         group.MapPost("/audit/snapshots", CreateAuditSnapshotAsync);
         group.MapGet("/audit/snapshots/{snapshotId:guid}", ReadAuditSnapshotAsync);
+        group.MapPost("/audit/snapshots/{snapshotId:guid}/export", ExportAuditSnapshotAsync);
         group.MapGet("/login-events", LoginEventsAsync);
     }
 
@@ -266,6 +269,26 @@ public static class PlatformEndpoints
         AuditSnapshotDecision.TooLarge => Results.StatusCode(StatusCodes.Status413PayloadTooLarge),
         _ => throw new InvalidOperationException("Unknown audit snapshot outcome.")
     };
+    private static async Task<IResult> ExportAuditSnapshotAsync(Guid snapshotId, AuditExportInput input, HttpContext http,
+        IdentityDatabase factory, CancellationToken ct)
+    {
+        if (input.Columns is null) return Results.BadRequest();
+        var subject = IdentityRuntime.Subject(http.User);
+        await using var database = factory.Open(subject.TenantId);
+        var result = await database.ExportAuditSnapshotAsync(subject, snapshotId, Operation(http).OperationId,
+            input.Columns, Guid.Parse(http.TraceIdentifier), ct);
+        if (result.Decision != AuditExportDecision.Success) return result.Decision switch
+        {
+            AuditExportDecision.Forbidden => Results.Forbid(),
+            AuditExportDecision.NotFound => Results.NotFound(),
+            AuditExportDecision.Expired => Results.StatusCode(StatusCodes.Status410Gone),
+            AuditExportDecision.IdempotencyConflict => Results.Conflict(),
+            _ => throw new InvalidOperationException("Unknown audit export outcome.")
+        };
+        http.Response.Headers.CacheControl = "no-store";
+        http.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        return Results.File(result.Content!, "text/csv; charset=utf-8", $"audit-{snapshotId:D}.csv", enableRangeProcessing: false);
+    }
     private static async Task<IResult> OutboxAsync(HttpContext http, IdentityDatabase factory, CancellationToken ct,
         int offset = 0, int limit = 50)
     {

@@ -287,3 +287,10 @@
 - 前端 **22文件、220 passed**，严格vue-tsc/Vite构建通过。真实MySQL/私有存储/HTTPS Chromium验证中文1MiB上传、非零真实进度、scanner拒绝连接保持隔离、375/768/1440、键盘可见焦点/Enter下载、原字节/文件名及恰好一条下载审计。仅下载使用Available领域种子，不能当病毒识别；无API网络替身。
 - 最终完整串行Release Architecture **29**、Modules **471**、Persistence **493**、Route **228**，共 **1221 passed、0 failed、0 skipped**，包含原平台及新文件真实浏览器回归。见[设计](109-t07-staging-file-client.md)/[测试](110-t07-staging-file-client-tests.md)。无新增依赖/迁移。
 - **T07仍partial**：业务实体绑定/附件授权、完整文件目录、真实ClamAV病毒库/识别/健康及部署ACL验收未关闭。T04/T05/T06/T08各自剩余范围保持真实状态；不以软件片段或测试种子代签整包、生产或现场安全。
+
+### T04 当前授权固定审计快照导出
+
+- 仅业务审计未过期固定快照及显式安全列可导出，当前read与独立export字段/Own/All逐成员复验，Departments不放大。600秒TTL/原actor/session、永久tenant/operation、相同原selection明确重试，换列/快照拒绝；准备后/提交后再次授权，不从回执缓存二进制或授权。
+- 新metadata回执/一条AuditExported/既有Outbox原子提交后才交付CSV；真实SQL失败回滚，无旧审计复用伪造新回执。新迁移仅建回执表及复合键/外键/索引，EF无pending；生产未执行DDL。
+- 新增 **8项HTTP、14项真实MySQL owner及8项客户端**通过；全前端 **228 passed**及严格构建、真实HTTPS Chromium逐序核对60个固定成员/选列/文件名并断言数据库仅1条导出审计。最终当前已编译源的完整串行Release Architecture **29**、Modules **479**、Persistence **507**、Route **228**，共 **1243 passed、0 failed、0 skipped**。既有1秒依赖健康探测此前两次波动已据实记录，未改合同/掩盖失败。见[设计](111-t04-authorized-audit-export.md)/[证据](112-t04-authorized-audit-export-tests.md)。
+- **整包状态不变**：T04其余DTC适用矩阵与生产/运维/人工证据、完整T06及T05/T07/T08剩余工作尚未全部验收；不得以此关闭五个整包或调用完成工具代签。

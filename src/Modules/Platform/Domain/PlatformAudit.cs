@@ -30,7 +30,9 @@ public enum PlatformAuditAction
     /// <summary>A permanent quarantined upload identity was committed before external storage.</summary>
     FileUploadCreated,
     /// <summary>Exact uploaded bytes were confirmed in private storage; this is not scan clearance.</summary>
-    FileUploadStored
+    FileUploadStored,
+    /// <summary>An explicit fixed-snapshot export was authorized and committed before binary delivery.</summary>
+    AuditExported
 }
 
 /// <summary>Append-only audit fact staged with the owner mutation; no general request/payload string is accepted.</summary>

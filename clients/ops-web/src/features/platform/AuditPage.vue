@@ -5,6 +5,7 @@ import QueryState from "../../components/QueryState.vue";
 import RealtimePager from "../../components/RealtimePager.vue";
 import { useColumns } from "../../components/useColumns";
 import { ApiError, api, isRecord, sessionState } from "../identity/identity-api";
+import AuditExportPanel from "./AuditExportPanel.vue";
 interface AuditRow { id: string; occurredAt: string; actorId: string | null; targetId: string | null; correlationId: string | null; action: number | null; beforeVersion: string | null; afterVersion: string | null }
 interface EventRow { id: string; occurredAt: string; kind: number | null; correlationId: string | null; accountDigest: string | null; sourceDigest: string | null; sessionId: string | null }
 const mode = ref("audit"); const from = ref(new Date(Date.now() - 86400000).toISOString().slice(0, 16));
@@ -12,7 +13,7 @@ const to = ref(new Date().toISOString().slice(0, 16)); const offset = ref(0);
 const pageSize = ref(25);
 const kind = ref(""); const action = ref(""); const correlation = ref(""); const rows = ref<(AuditRow | EventRow)[]>([]);
 const error = ref(""); const busy = ref(false); let controller = new AbortController(); let sequence = 0;
-let lastSuccessfulQuery: string | null = null;
+const lastSuccessfulQuery = ref<string | null>(null);
 const lastSuccessfulAt = ref<string | null>(null);
 const snapshotId = ref<string | null>(null); const snapshotExpiresAt = ref<string | null>(null);
 const snapshotCount = ref<number | null>(null);
@@ -59,10 +60,13 @@ const {
 ].filter(column => fields.value.has(column.field)), { pageId: "platform-audit", tableId: () => mode.value });
 function invalidate(preserveRows = false) {
   sequence++; controller.abort(); controller = new AbortController(); busy.value = false;
-  if (!preserveRows) { rows.value = []; lastSuccessfulQuery = null; lastSuccessfulAt.value = null; }
+  if (!preserveRows) { rows.value = []; lastSuccessfulQuery.value = null; lastSuccessfulAt.value = null; }
 }
 function clearSnapshot() {
   snapshotId.value = null; snapshotExpiresAt.value = null; snapshotCount.value = null;
+}
+function rejectExport(message: string) {
+  invalidate(); clearSnapshot(); error.value = message;
 }
 function queryParameters() {
   const start = Date.parse(`${from.value}Z`); const end = Date.parse(`${to.value}Z`);
@@ -102,13 +106,13 @@ function applySnapshotPage(value: unknown, requestedMode: string, expectedId: st
 }
 async function read() {
   const fingerprint = currentQuery.value;
-  invalidate(lastSuccessfulQuery === fingerprint);
+  invalidate(lastSuccessfulQuery.value === fingerprint);
   const request = sequence; const signal = controller.signal; const requestedMode = mode.value;
   error.value = "";
   let params: URLSearchParams;
   try { params = queryParameters(); }
   catch (failure) {
-    rows.value = []; lastSuccessfulQuery = null;
+    rows.value = []; lastSuccessfulQuery.value = null;
     error.value = failure instanceof Error ? failure.message : "审计查询参数无效。"; return;
   }
   params.set("offset", String(offset.value)); params.set("limit", String(pageSize.value));
@@ -124,14 +128,14 @@ async function read() {
     if (!requestedSnapshot && (!isRecord(data) || data.authorized !== true))
       throw new Error("审计响应无效，请重新读取。");
     applySnapshotPage(data, requestedMode, requestedSnapshot);
-    lastSuccessfulQuery = fingerprint;
+    lastSuccessfulQuery.value = fingerprint;
     lastSuccessfulAt.value = new Date().toISOString();
   } catch (failure) {
     if (!signal.aborted && request === sequence) {
       if (failure instanceof ApiError && [401, 403].includes(failure.status)) {
-        rows.value = []; lastSuccessfulQuery = null; lastSuccessfulAt.value = null; clearSnapshot();
+        rows.value = []; lastSuccessfulQuery.value = null; lastSuccessfulAt.value = null; clearSnapshot();
       } else if (failure instanceof ApiError && failure.status === 410 && requestedSnapshot) {
-        rows.value = []; lastSuccessfulQuery = null; lastSuccessfulAt.value = null; clearSnapshot();
+        rows.value = []; lastSuccessfulQuery.value = null; lastSuccessfulAt.value = null; clearSnapshot();
         error.value = "核对快照已过期，请重新创建快照或返回实时查询。";
         return;
       }
@@ -162,11 +166,11 @@ async function createSnapshot() {
       throw new Error("固定核对快照响应无效，已丢弃本页。");
     snapshotId.value = data.snapshotId;
     applySnapshotPage(data, requestedMode, data.snapshotId);
-    lastSuccessfulQuery = currentQuery.value;
+    lastSuccessfulQuery.value = currentQuery.value;
     lastSuccessfulAt.value = new Date().toISOString();
   } catch (failure) {
     if (!signal.aborted && request === sequence) {
-      clearSnapshot(); rows.value = []; lastSuccessfulQuery = null; lastSuccessfulAt.value = null;
+      clearSnapshot(); rows.value = []; lastSuccessfulQuery.value = null; lastSuccessfulAt.value = null;
       error.value = failure instanceof ApiError && failure.status === 413
         ? "核对快照范围超过10,000条，请缩小时间范围或筛选条件。"
         : failure instanceof Error ? failure.message : "创建核对快照失败。";
@@ -207,7 +211,7 @@ watch([() => sessionState.subject, () => sessionState.token], () => {
 onMounted(read); onUnmounted(() => { controller.abort(); sequence++; });
 </script>
 <template>
-  <section class="wes-page"><header><p class="eyebrow">只读证据</p><h1>审计与登录事件</h1><p>历史记录不可编辑、删除或批量改写。实时分页不保证跨请求无丢重；业务审计可建立10分钟固定核对快照，不提供导出。</p></header>
+  <section class="wes-page"><header><p class="eyebrow">只读证据</p><h1>审计与登录事件</h1><p>历史记录不可编辑、删除或批量改写。实时分页不保证跨请求无丢重；业务审计可建立10分钟固定核对快照，另有当前导出授权时可显式选择列下载。</p></header>
     <form class="toolbar" @submit.prevent="submitLiveQuery">
       <label for="audit-mode">证据类型<select id="audit-mode" v-model="mode"><option value="audit">业务审计</option><option value="login-events">登录安全事件（需 All 范围）</option></select></label>
       <label for="audit-from">开始时间（UTC，含）<input id="audit-from" v-model="from" type="datetime-local" required></label>
@@ -222,6 +226,9 @@ onMounted(read); onUnmounted(() => { controller.abort(); sequence++; });
     </form><ColumnSettings :columns="available" v-model="selected" v-model:widths="widths"
       v-model:fixed-first-column="fixedFirstColumn" v-model:fixed-positions="fixedPositions"
       :preference-warning="preferenceWarning" :column-views="columnViews" />
+    <AuditExportPanel v-if="mode === 'audit' && snapshotId && snapshotExpiresAt" :snapshot-id="snapshotId"
+      :expires-at="snapshotExpiresAt" :ready="!busy && !error && lastSuccessfulQuery === currentQuery"
+      @invalidated="rejectExport" />
     <QueryState label="当前权限下的证据" :state="queryState" :busy="busy" :error-message="error"
       :stale-message="staleMessage" @retry="read">
       <template #loading>

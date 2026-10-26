@@ -16,7 +16,7 @@ namespace Wes.Persistence.Tests;
 /// <summary>Real-engine access, optimistic writes and audit integrity using only generated tenant fixtures.</summary>
 [Collection("PlatformPersistence")]
 [Trait("Provider", "MySQL")]
-public sealed class PlatformAccessPersistenceTests : IAsyncLifetime
+public sealed partial class PlatformAccessPersistenceTests : IAsyncLifetime
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 23, 16, 0, 0, TimeSpan.Zero);
     private readonly Guid _tenant = Guid.NewGuid();
@@ -770,6 +770,7 @@ public sealed class PlatformAccessPersistenceTests : IAsyncLifetime
         foreach (var tenant in new[] { _tenant, _other })
         {
             await using var database = Open(tenant);
+            await database.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM platform_audit_export_receipts WHERE TenantId = {tenant.ToString("D")}");
             await database.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM platform_audit WHERE TenantId = {tenant.ToString("D")}");
             database.Memberships.RemoveRange(await database.Memberships.ToListAsync());
             await database.SaveChangesAsync();

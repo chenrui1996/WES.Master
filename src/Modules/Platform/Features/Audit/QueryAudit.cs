@@ -1,5 +1,5 @@
-using System.Data;
 using System.Collections.Immutable;
+using System.Data;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -41,8 +41,8 @@ public enum AuditSnapshotDecision
 /// <summary>Snapshot decision and optional authorized page.</summary>
 public sealed record AuditSnapshotResult(AuditSnapshotDecision Decision, AuditSnapshotPage? Page);
 
-/// <summary>Owner-local current-authorization query; this is not an export or cross-owner audit API.</summary>
-public sealed class QueryAudit(PlatformDbContext database, TimeProvider clock, ILogger<QueryAudit> logger)
+/// <summary>Owner-local current-authorized audit queries and explicitly audited fixed-snapshot export; never cross-owner access.</summary>
+public sealed partial class QueryAudit(PlatformDbContext database, TimeProvider clock, ILogger<QueryAudit> logger)
 {
     private const string StableSort = "OccurredAt ASC, Id ASC";
 
@@ -224,10 +224,11 @@ public sealed class QueryAudit(PlatformDbContext database, TimeProvider clock, I
     }
 
     private static QueryScope CreateScope(TenantContext context, ImmutableArray<PermissionGrant> grants,
-        DateTimeOffset from, DateTimeOffset to, PlatformAuditAction? filterAction, Guid? correlationId)
+        DateTimeOffset from, DateTimeOffset to, PlatformAuditAction? filterAction, Guid? correlationId,
+        string permission = "platform.audit.read")
     {
         var authorization = Fingerprint(string.Join("\n", grants
-            .Where(grant => grant.Permission == "platform.audit.read")
+            .Where(grant => grant.Permission == permission)
             .Select(grant => string.Join("|", grant.Permission, grant.Scope,
                 string.Join(",", grant.Departments.Select(id => id.ToString("D")).Order(StringComparer.Ordinal)),
                 string.Join(",", grant.Fields.Order(StringComparer.Ordinal))))

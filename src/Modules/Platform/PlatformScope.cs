@@ -224,6 +224,11 @@ public sealed partial class PlatformScope : IAsyncDisposable
     public Task<AuditSnapshotResult> ReadAuditSnapshotAsync(TenantContext subject, Guid snapshotId, int offset, int limit,
         CancellationToken ct) =>
         new QueryAudit(_database, _clock, _logs.CreateLogger<QueryAudit>()).ReadSnapshotAsync(subject, snapshotId, offset, limit, ct);
+    /// <summary>Prepares only explicit currently authorized snapshot columns after an idempotent durable delivery audit.</summary>
+    public Task<AuditExportResult> ExportAuditSnapshotAsync(TenantContext subject, Guid snapshotId, Guid operation,
+        IReadOnlyList<string> columns, Guid correlation, CancellationToken ct) =>
+        new QueryAudit(_database, _clock, _logs.CreateLogger<QueryAudit>())
+            .ExportSnapshotAsync(subject, snapshotId, operation, columns, correlation, ct);
     /// <summary>Reads login security metadata without inventing Own ownership from mutable account mappings.</summary>
     public Task<LoginEventPage> LoginEventsAsync(TenantContext subject, DateTimeOffset from, DateTimeOffset to, int offset, int limit,
         LoginEventKind? kind, Guid? correlation, CancellationToken ct) =>

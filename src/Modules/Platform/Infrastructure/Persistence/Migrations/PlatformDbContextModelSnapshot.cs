@@ -477,6 +477,51 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                     b.ToTable("platform_audit", (string)null);
                 });
 
+            modelBuilder.Entity("Wes.Platform.Domain.PlatformAuditExportReceipt", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("OperationId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("ActorId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("AuditId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Columns")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("SnapshotId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "OperationId");
+
+                    b.HasIndex("TenantId", "AuditId");
+
+                    b.ToTable("platform_audit_export_receipts", (string)null);
+                });
+
             modelBuilder.Entity("Wes.Platform.Domain.PlatformAuditQuerySnapshot", b =>
                 {
                     b.Property<string>("TenantId")
@@ -1076,6 +1121,15 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                     b.HasOne("Wes.Platform.Domain.QuarantinedFile", null)
                         .WithMany()
                         .HasForeignKey("TenantId", "FileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Wes.Platform.Domain.PlatformAuditExportReceipt", b =>
+                {
+                    b.HasOne("Wes.Platform.Domain.PlatformAudit", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "AuditId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

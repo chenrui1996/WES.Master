@@ -78,6 +78,7 @@ public sealed partial class PlatformDbContext : DbContext
     {
         ConfigureDirectory(modelBuilder);
         ConfigureFiles(modelBuilder);
+        ConfigureAuditExports(modelBuilder);
         var utc = new ValueConverter<DateTimeOffset, DateTime>(
             value => value.UtcDateTime,
             value => new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)));
@@ -326,6 +327,7 @@ public sealed partial class PlatformDbContext : DbContext
 
     private void ValidateWriteScope()
     {
+        ValidateAuditExportWrites();
         foreach (var entry in ChangeTracker.Entries()
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
         {
@@ -346,7 +348,7 @@ public sealed partial class PlatformDbContext : DbContext
                 throw new InvalidOperationException("Platform message receipts are append-only outside bounded Inbox retention.");
             }
 
-            if (entry.Entity is PlatformOutboxReplayReceipt
+            if (entry.Entity is PlatformOutboxReplayReceipt or PlatformAuditExportReceipt
                 && entry.State != EntityState.Added)
             {
                 throw new InvalidOperationException("Platform message receipts are append-only.");

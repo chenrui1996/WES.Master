@@ -242,7 +242,7 @@ it("preserves existing associations until explicitly removed and never silently 
   const wrapper = mount(UsersPage);
   await flushPromises();
   await wrapper.get('[data-test="roles-user"]').trigger("click");
-  expect(wrapper.text()).toContain("当前关联不可选角色");
+  expect(wrapper.text()).toContain("当前关联不在已加载的新增候选中");
   await wrapper.get('[data-test="user-form"]').trigger("submit");
   await flushPromises();
   expect(writes).toEqual([]);
@@ -250,6 +250,128 @@ it("preserves existing associations until explicitly removed and never silently 
   await wrapper.get('[data-test="user-form"]').trigger("submit");
   await flushPromises();
   expect(writes).toEqual([{ expectedVersion: "user-v1", roleIds: [] }]);
+  wrapper.unmount();
+});
+it("resolves saved roles independently and hides unresolved role IDs", async () => {
+  const selectedRole = "12345678-1234-1234-1234-123456789001";
+  const disabledRole = "12345678-1234-1234-1234-123456789002";
+  const hiddenRole = "12345678-1234-1234-1234-123456789003";
+  const reads: string[] = [];
+  const writes: unknown[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (url: string, options: RequestInit) => {
+    reads.push(url);
+    if (options.method && options.method !== "GET") {
+      writes.push(JSON.parse(String(options.body)));
+      return new Response('{"decision":0}');
+    }
+    if (url.includes("/roles/references?")) return new Response(JSON.stringify({ authorized: true, rows: [
+      { id: selectedRole, code: "PICKER", enabled: true },
+      { id: disabledRole, code: "RETIRED", enabled: false },
+    ] }));
+    if (url.includes("/api/platform/roles?")) return new Response(JSON.stringify({ authorized: true, rows: [
+      { id: "r1", code: "FIRST-PAGE", enabled: true },
+    ] }));
+    if (url.includes("/api/platform/users?")) return new Response(JSON.stringify({ authorized: true, rows: [
+      { ...user, roleIds: [selectedRole, disabledRole, hiddenRole] },
+    ] }));
+    return new Response(JSON.stringify({ authorized: true, rows: departments }));
+  }));
+  const wrapper = mount(UsersPage); await flushPromises();
+  await wrapper.get('[data-test="roles-user"]').trigger("click");
+  await flushPromises();
+
+  expect(reads).toContain(`/api/platform/roles/references?ids=${selectedRole}&ids=${disabledRole}&ids=${hiddenRole}`);
+  expect(wrapper.get('[data-test="user-form"]').text()).toContain("PICKER");
+  expect(wrapper.get('[data-test="user-form"]').text()).toContain("RETIRED（已停用）");
+  expect(wrapper.get('[data-test="user-form"]').text()).toContain("关联不可用或当前无权查看");
+  expect(wrapper.get('[data-test="user-form"]').text()).not.toContain(hiddenRole);
+  expect(wrapper.find(`input[value="${selectedRole}"]`).exists()).toBe(false);
+  await wrapper.get('[data-test="user-form"]').trigger("submit");
+  await flushPromises();
+  expect(writes).toEqual([]);
+  await wrapper.get(`[data-test="remove-unavailable-role"][data-role-id="${disabledRole}"]`).trigger("click");
+  await wrapper.get(`[data-test="remove-unavailable-role"][data-role-id="${hiddenRole}"]`).trigger("click");
+  await wrapper.get('[data-test="user-form"]').trigger("submit");
+  await flushPromises();
+  expect(writes).toEqual([{ expectedVersion: "user-v1", roleIds: [selectedRole] }]);
+  wrapper.unmount();
+});
+it("does not apply a late role reference response after closing the selected user's editor", async () => {
+  const oldRole = "12345678-1234-1234-1234-123456789011";
+  const newRole = "12345678-1234-1234-1234-123456789012";
+  let resolveOld!: (response: Response) => void;
+  const oldResponse = new Promise<Response>(resolve => { resolveOld = resolve; });
+  vi.stubGlobal("fetch", vi.fn((url: string) => {
+    if (url.includes("/roles/references?") && url.includes(oldRole)) return oldResponse;
+    if (url.includes("/roles/references?")) return Promise.resolve(new Response(JSON.stringify({ authorized: true, rows: [
+      { id: newRole, code: "NEW-ROLE", enabled: true },
+    ] })));
+    if (url.includes("/api/platform/roles?")) return Promise.resolve(new Response(JSON.stringify({ authorized: true, rows: [] })));
+    if (url.includes("/api/platform/users?")) return Promise.resolve(new Response(JSON.stringify({ authorized: true, rows: [
+      { ...user, id: "u-old", account: "OLD", roleIds: [oldRole] },
+      { ...user, id: "u-new", account: "NEW", roleIds: [newRole] },
+    ] })));
+    return Promise.resolve(new Response(JSON.stringify({ authorized: true, rows: departments })));
+  }));
+  const wrapper = mount(UsersPage); await flushPromises();
+  await wrapper.findAll('[data-test="roles-user"]')[0]!.trigger("click");
+  await wrapper.findAll('[data-test="user-form"] button').find(button => button.text() === "取消")!.trigger("click");
+  await wrapper.findAll('[data-test="roles-user"]')[1]!.trigger("click");
+  await flushPromises();
+  resolveOld(new Response(JSON.stringify({ authorized: true, rows: [
+    { id: oldRole, code: "OLD-ROLE", enabled: true },
+  ] })));
+  await flushPromises();
+
+  expect(wrapper.get('[data-test="user-form"]').text()).toContain("NEW-ROLE");
+  expect(wrapper.get('[data-test="user-form"]').text()).not.toContain("OLD-ROLE");
+  wrapper.unmount();
+});
+it("reports a role reference authorization failure without revealing the saved role ID", async () => {
+  const restrictedRole = "12345678-1234-1234-1234-123456789021";
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (url.includes("/roles/references?"))
+      return new Response('{"code":"Forbidden","detail":"restricted"}', { status: 403 });
+    if (url.includes("/api/platform/roles?")) return new Response(JSON.stringify({ authorized: true, rows: [] }));
+    if (url.includes("/api/platform/users?")) return new Response(JSON.stringify({ authorized: true, rows: [
+      { ...user, roleIds: [restrictedRole] },
+    ] }));
+    return new Response(JSON.stringify({ authorized: true, rows: departments }));
+  }));
+  const wrapper = mount(UsersPage); await flushPromises();
+  await wrapper.get('[data-test="roles-user"]').trigger("click");
+  await flushPromises();
+
+  expect(wrapper.get('[data-test="role-reference-error"]').text()).toContain("当前无权查看");
+  expect(wrapper.get('[data-test="user-form"]').text()).toContain("关联不可用或当前无权查看");
+  expect(wrapper.get('[data-test="user-form"]').text()).not.toContain(restrictedRole);
+  wrapper.unmount();
+});
+it("resolves more than 100 saved role references in bounded batches", async () => {
+  const roleIds = Array.from({ length: 101 }, (_, index) =>
+    `00000000-0000-0000-0000-${String(index + 1).padStart(12, "0")}`);
+  const batches: string[][] = [];
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (url.includes("/roles/references?")) {
+      const requested = new URL(url, "https://test.local").searchParams.getAll("ids");
+      batches.push(requested);
+      return new Response(JSON.stringify({ authorized: true, rows: requested.map((id, index) => ({
+        id, code: `ROLE-${batches.length}-${index}`, enabled: true,
+      })) }));
+    }
+    if (url.includes("/api/platform/roles?")) return new Response(JSON.stringify({ authorized: true, rows: [] }));
+    if (url.includes("/api/platform/users?")) return new Response(JSON.stringify({ authorized: true, rows: [
+      { ...user, roleIds },
+    ] }));
+    return new Response(JSON.stringify({ authorized: true, rows: departments }));
+  }));
+  const wrapper = mount(UsersPage); await flushPromises();
+  await wrapper.get('[data-test="roles-user"]').trigger("click");
+  await flushPromises();
+
+  expect(batches.map(batch => batch.length)).toEqual([100, 1]);
+  expect(wrapper.get('[data-test="user-form"]').text()).toContain("ROLE-1-0");
+  expect(wrapper.get('[data-test="user-form"]').text()).toContain("ROLE-2-0");
   wrapper.unmount();
 });
 it("clears a revoked field and its column control on a new projection", async () => {

@@ -18,6 +18,11 @@ const departmentCatalog = useDirectoryCandidates<DepartmentRow>("/api/platform/d
 const roleCatalog = useDirectoryCandidates<RoleRow>("/api/platform/roles");
 const { rows: departments, more: moreDepartments } = departmentCatalog;
 const { rows: roles, more: moreRoles } = roleCatalog;
+const resolvedRoleReferences = ref(new Map<string, RoleRow>());
+const resolvingRoleReferences = ref(false);
+const roleReferenceError = ref("");
+let roleReferenceGeneration = 0;
+let roleReferenceController: AbortController | undefined;
 const rolesReady = ref(false);
 const loading = ref(false);
 const busy = ref(false);
@@ -65,7 +70,7 @@ const staleMessage = computed(() => loading.value
   ? "正在刷新；页面保留的是最近一次已加载的用户目录。"
   : `刷新失败，仍保留最近一次已加载的用户目录：${queryError.value}`);
 const departmentCandidates = computed(() => departments.value.filter(row => row.enabled === true));
-const roleCandidates = computed(() => roles.value.filter(row => row.enabled === true));
+const roleCandidates = computed(() => roles.value.filter(row => row.enabled === true && row.code !== null));
 const departmentMap = computed(() => new Map(departments.value.map(row => [row.id, row])));
 const departmentOutline = computed(() => departments.value.map(row => {
   const path = [row]; const seen = new Set([row.id]); let parent = row.parentId;
@@ -103,6 +108,12 @@ const {
   ...rows.value.some(row => row.roleIds !== null) ? [{ key: "roleIds", label: "角色", widthClass: "description" as const }] : [],
 ] : [], { pageId: "platform-users", tableId: "directory", fixedActionWidth: 160 });
 function closeEditor() {
+  roleReferenceGeneration++;
+  roleReferenceController?.abort();
+  roleReferenceController = undefined;
+  resolvedRoleReferences.value = new Map();
+  resolvingRoleReferences.value = false;
+  roleReferenceError.value = "";
   mode.value = null; selectedUser.value = null;
   Object.assign(form, { account: "", name: "", departmentId: "", enabled: true, password: "", roleIds: [] });
 }
@@ -120,6 +131,59 @@ function fail(reason: unknown) {
   if (reason instanceof ApiError && [403, 412, 428].includes(reason.status)) clear();
   error.value = reason instanceof Error ? reason.message : "用户操作失败。请重新读取后检查权限。";
   if (reason instanceof ApiError && [412, 428].includes(reason.status)) error.value = `版本已失效，请重新读取后显式提交。${error.value}`;
+}
+function isAbortError(reason: unknown) { return reason instanceof Error && reason.name === "AbortError"; }
+function roleReferenceLabel(id: string) {
+  const row = resolvedRoleReferences.value.get(id) ?? roles.value.find(role => role.id === id);
+  if (!row?.code) return "关联不可用或当前无权查看";
+  return row.enabled === false ? `${row.code}（已停用）` : row.code;
+}
+function canRetainExistingRole(id: string) {
+  const row = resolvedRoleReferences.value.get(id);
+  return selectedUser.value?.roleIds?.includes(id) === true && row?.enabled === true && row.code !== null;
+}
+async function resolveExistingRoleReferences(row: UserRow) {
+  const ids = [...new Set(row.roleIds ?? [])];
+  if (!ids.length) return;
+  const current = ++roleReferenceGeneration;
+  const requestController = new AbortController();
+  roleReferenceController = requestController;
+  resolvingRoleReferences.value = true;
+  roleReferenceError.value = "";
+  const resolved = new Map<string, RoleRow>();
+  try {
+    for (let start = 0; start < ids.length; start += 100) {
+      const batch = ids.slice(start, start + 100);
+      const query = new URLSearchParams();
+      for (const id of batch) query.append("ids", id);
+      const response = await api<Page<RoleRow>>(`/api/platform/roles/references?${query}`, {
+        signal: requestController.signal,
+      });
+      if (current !== roleReferenceGeneration) return;
+      const allowedIds = new Set(batch);
+      const returnedIds = Array.isArray(response.rows) ? response.rows.map(role => role?.id) : [];
+      if (response.authorized !== true || !Array.isArray(response.rows) || response.rows.length > batch.length
+        || response.rows.some(role => !role || typeof role.id !== "string" || !allowedIds.has(role.id)
+          || !(role.code === null || typeof role.code === "string")
+          || !(role.enabled === null || typeof role.enabled === "boolean")
+          || resolved.has(role.id))
+        || new Set(returnedIds).size !== returnedIds.length)
+        throw new ApiError(403, "RoleReferencesDenied", "未提供");
+      for (const role of response.rows) resolved.set(role.id, role);
+      resolvedRoleReferences.value = new Map(resolved);
+    }
+  } catch (reason) {
+    if (current === roleReferenceGeneration && !isAbortError(reason)) {
+      roleReferenceError.value = reason instanceof ApiError && reason.status === 403
+        ? "部分或全部角色关联不可用，或当前无权查看。"
+        : `角色关联读取失败，请重试。${reason instanceof Error ? reason.message : ""}`;
+    }
+  } finally {
+    if (current === roleReferenceGeneration) {
+      resolvingRoleReferences.value = false;
+      if (roleReferenceController === requestController) roleReferenceController = undefined;
+    }
+  }
 }
 async function load() {
   if (!hasIdentity.value || !canRead("platform.users.read")) return;
@@ -200,6 +264,7 @@ function open(next: NonNullable<typeof mode.value>, row?: UserRow) {
   if (row) Object.assign(form, { account: row.account ?? "", name: row.name ?? "",
     departmentId: profileDepartments.value.some(item => item.id === row.departmentId) ? row.departmentId : "",
     enabled: row.enabled === true, roleIds: row.roleIds ? [...row.roleIds] : [] });
+  if (next === "roles" && row) void resolveExistingRoleReferences(row);
   error.value = ""; message.value = "";
 }
 async function write(path: string, method: string, body: object,
@@ -236,8 +301,11 @@ function submitUser() {
     return;
   }
   if (mode.value === "roles") {
+    if (resolvingRoleReferences.value) { error.value = "正在读取当前角色关联，请稍后再提交。"; return; }
     if (!rolesReady.value || !row?.version || row.roleIds === null || !writable(["Roles"], row)
-      || form.roleIds.some(id => !roleCandidates.value.some(role => role.id === id))) { error.value = "角色或版本不可用，请重新读取。"; return; }
+      || form.roleIds.some(id => !roleCandidates.value.some(role => role.id === id) && !canRetainExistingRole(id))) {
+      error.value = "角色或版本不可用，请重新读取并核对当前角色关联。"; return;
+    }
     void write(`/api/platform/users/${encodeURIComponent(row.id)}/roles`, "PUT", { expectedVersion: row.version, roleIds: form.roleIds });
     return;
   }
@@ -362,7 +430,7 @@ onBeforeUnmount(() => {
                   <template v-else-if="column.key === 'name'">{{ row.name ?? '未授权' }}</template>
                   <template v-else-if="column.key === 'departmentId'">{{ departmentName(row.departmentId) }}</template>
                   <template v-else-if="column.key === 'enabled'">{{ row.enabled === null ? '未授权' : row.enabled ? '启用' : '停用' }}</template>
-                  <template v-else-if="column.key === 'roleIds'">{{ row.roleIds === null ? '未授权' : row.roleIds.map(id => roles.find(role => role.id === id)?.code ?? id).join('、') || '未关联' }}</template>
+                  <template v-else-if="column.key === 'roleIds'">{{ row.roleIds === null ? '未授权' : row.roleIds.map(roleReferenceLabel).join('、') || '未关联' }}</template>
                 </td>
                 <td :style="actionColumnStyle"><div class="row-actions">
                   <button v-if="row.version && row.name !== null && row.departmentId !== null && row.enabled !== null && writable(['Name', 'DepartmentId', 'Enabled'], row)" data-test="edit-user" :disabled="busy || queryStale" @click="open('edit', row)">编辑</button>
@@ -400,14 +468,17 @@ onBeforeUnmount(() => {
           </template>
           <template v-else>
             <p>替换 {{ selectedUser?.account ?? selectedUser?.id }} 的角色关联。提交前请核对，移除角色立即影响权限。</p>
-            <p class="hint">角色候选每次读取 25 项，可继续加载；不可选或尚未加载的已有角色不会自动移除。</p>
-            <label v-for="role in roleCandidates" :key="role.id" class="check"><input v-model="form.roleIds" type="checkbox" :value="role.id" />{{ role.code ?? role.id }}</label>
-            <p v-for="id in unavailableRoles" :key="id">当前关联不可选角色：{{ roles.find(role => role.id === id)?.code ?? id }}。
-              保留会阻止提交；如需移除，请显式确认。
-              <button type="button" data-test="remove-unavailable-role" @click="form.roleIds = form.roleIds.filter(roleId => roleId !== id)">移除关联</button>
+            <p class="hint">新增候选每次读取 25 项，可继续加载；已保存角色独立回填，不会变成新增候选。保留或移除已有角色仍由服务端检查当前授权。</p>
+            <p v-if="resolvingRoleReferences" role="status">正在读取已保存角色关联…</p>
+            <p v-if="roleReferenceError" data-test="role-reference-error" role="alert">{{ roleReferenceError }}</p>
+            <label v-for="role in roleCandidates" :key="role.id" class="check"><input v-model="form.roleIds" type="checkbox" :value="role.id" />{{ role.code }}</label>
+            <p v-for="id in unavailableRoles" :key="id">当前关联不在已加载的新增候选中：{{ roleReferenceLabel(id) }}。
+              {{ canRetainExistingRole(id) ? '仅作为现有关联保留，提交仍由服务端复验。' : '此关联不能直接保留；如需移除，请显式确认。' }}
+              <button type="button" data-test="remove-unavailable-role" :data-role-id="id"
+                @click="form.roleIds = form.roleIds.filter(roleId => roleId !== id)">移除关联</button>
             </p>
             <p v-if="!rolesReady" class="notice">角色候选未获授权或读取失败，不能提交关联。请重新读取。</p>
-            <p v-if="!roleCandidates.length" class="hint">没有已加载的启用角色。空列表提交会移除关联。</p>
+            <p v-if="!roleCandidates.length" class="hint">当前没有可新增的已加载启用角色；提交空集合会移除所有现有关联。</p>
           </template>
           <div class="actions"><button type="button" @click="closeEditor">取消</button><button type="submit" class="primary">{{ busy ? '正在提交' : mode === 'credential' ? '确认创建凭据' : mode === 'disable-credential' ? '确认停用凭据' : mode === 'roles' ? '确认替换角色' : '保存用户' }}</button></div>
         </fieldset>

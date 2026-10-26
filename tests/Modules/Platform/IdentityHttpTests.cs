@@ -1199,6 +1199,112 @@ public sealed class IdentityHttpTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest, tooMany.StatusCode);
     }
 
+    /// <summary>Role reference resolution returns only requested roles with currently authorized fields.</summary>
+    [Fact]
+    [Trait("CaseId", "DTC-UI-022")]
+    public async Task RoleReferenceResolutionReturnsAuthorizedFieldProjections()
+    {
+        await SignInAsync();
+        Guid codeOnlyId, enabledOnlyId, missingId;
+        await using (var seed = Open())
+        {
+            var codeOnly = new AccessRole(_tenant, "REFERENCE-CODE", []);
+            var enabledOnly = new AccessRole(_tenant, "REFERENCE-STATUS", []);
+            enabledOnly.Change(enabledOnly.Version, false, []);
+            seed.Roles.AddRange(codeOnly, enabledOnly);
+            codeOnlyId = codeOnly.Id; enabledOnlyId = enabledOnly.Id; missingId = Guid.NewGuid();
+            var reader = new AccessRole(_tenant, "role-reference-reader",
+            [
+                new PermissionGrant("platform.roles.read", DataScope.All, ImmutableHashSet<Guid>.Empty,
+                    ImmutableHashSet.Create("Id")),
+                new PermissionGrant("platform.roles.read", DataScope.All, ImmutableHashSet<Guid>.Empty,
+                    ImmutableHashSet.Create("Code")),
+                new PermissionGrant("platform.roles.read", DataScope.All, ImmutableHashSet<Guid>.Empty,
+                    ImmutableHashSet.Create("Enabled"))
+            ]);
+            seed.Roles.Add(reader);
+            seed.Memberships.Add(new RoleMembership(_tenant, _user, reader.Id));
+            await seed.SaveChangesAsync();
+        }
+
+        using var response = await _client.GetAsync(
+            $"/api/platform/roles/references?ids={codeOnlyId:D}&ids={codeOnlyId:D}&ids={enabledOnlyId:D}&ids={missingId:D}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(page.GetProperty("authorized").GetBoolean());
+        var rows = page.GetProperty("rows").EnumerateArray().ToArray();
+        Assert.Equal(2, rows.Length);
+        var codeRow = Assert.Single(rows, row => row.GetProperty("id").GetGuid() == codeOnlyId);
+        Assert.Equal("REFERENCE-CODE", codeRow.GetProperty("code").GetString());
+        Assert.True(codeRow.GetProperty("enabled").GetBoolean());
+        var statusRow = Assert.Single(rows, row => row.GetProperty("id").GetGuid() == enabledOnlyId);
+        Assert.Equal("REFERENCE-STATUS", statusRow.GetProperty("code").GetString());
+        Assert.False(statusRow.GetProperty("enabled").GetBoolean());
+        Assert.DoesNotContain(rows, row => row.GetProperty("id").GetGuid() == missingId);
+    }
+
+    /// <summary>Role reference resolution omits fields that the current subject cannot read.</summary>
+    [Fact]
+    [Trait("CaseId", "DTC-UI-022")]
+    public async Task RoleReferenceResolutionOmitsUnapprovedFields()
+    {
+        await SignInAsync();
+        Guid roleId;
+        await using (var seed = Open())
+        {
+            var target = new AccessRole(_tenant, "HIDDEN-ROLE-CODE", []);
+            var reader = new AccessRole(_tenant, "role-reference-id-only",
+            [
+                new PermissionGrant("platform.roles.read", DataScope.All, ImmutableHashSet<Guid>.Empty,
+                    ImmutableHashSet.Create("Id"))
+            ]);
+            seed.Roles.AddRange(target, reader);
+            roleId = target.Id;
+            seed.Memberships.Add(new RoleMembership(_tenant, _user, reader.Id));
+            await seed.SaveChangesAsync();
+        }
+
+        using var response = await _client.GetAsync($"/api/platform/roles/references?ids={roleId:D}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var row = Assert.Single(page.GetProperty("rows").EnumerateArray());
+        Assert.Equal(roleId, row.GetProperty("id").GetGuid());
+        Assert.Equal(JsonValueKind.Null, row.GetProperty("code").ValueKind);
+        Assert.Equal(JsonValueKind.Null, row.GetProperty("enabled").ValueKind);
+        Assert.Equal(JsonValueKind.Null, row.GetProperty("version").ValueKind);
+        Assert.Equal(JsonValueKind.Null, row.GetProperty("rules").ValueKind);
+        Assert.Equal(JsonValueKind.Null, row.GetProperty("affectedSubjects").ValueKind);
+    }
+
+    /// <summary>Role reference resolution requires ID authorization and rejects empty or unbounded batches.</summary>
+    [Fact]
+    [Trait("CaseId", "DTC-UI-022")]
+    public async Task RoleReferenceResolutionEnforcesAuthorizationAndBatchBounds()
+    {
+        await SignInAsync();
+        await using (var seed = Open())
+        {
+            var reader = new AccessRole(_tenant, "role-reference-code-only",
+            [
+                new PermissionGrant("platform.roles.read", DataScope.All, ImmutableHashSet<Guid>.Empty,
+                    ImmutableHashSet.Create("Code"))
+            ]);
+            seed.Roles.Add(reader);
+            seed.Memberships.Add(new RoleMembership(_tenant, _user, reader.Id));
+            await seed.SaveChangesAsync();
+        }
+
+        using var denied = await _client.GetAsync($"/api/platform/roles/references?ids={Guid.NewGuid():D}");
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+        using var empty = await _client.GetAsync("/api/platform/roles/references");
+        Assert.Equal(HttpStatusCode.BadRequest, empty.StatusCode);
+        using var emptyId = await _client.GetAsync($"/api/platform/roles/references?ids={Guid.Empty:D}");
+        Assert.Equal(HttpStatusCode.BadRequest, emptyId.StatusCode);
+        var tooManyIds = string.Join("&ids=", Enumerable.Range(0, 101).Select(_ => Guid.NewGuid().ToString("D")));
+        using var tooMany = await _client.GetAsync($"/api/platform/roles/references?ids={tooManyIds}");
+        Assert.Equal(HttpStatusCode.BadRequest, tooMany.StatusCode);
+    }
+
     /// <summary>A forged role reference is rejected by the owner without changing membership, version, or audit.</summary>
     [Fact]
     [Trait("CaseId", "DTC-UI-022")]

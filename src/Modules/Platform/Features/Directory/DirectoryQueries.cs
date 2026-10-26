@@ -181,6 +181,27 @@ public sealed partial class DirectoryService
             fields.Contains("AffectedSubjects") ? impact.GetValueOrDefault(role.Id) : null)).ToImmutableArray());
     }
 
+    /// <summary>Resolves a bounded set of saved role references using the current tenant-wide role projection.</summary>
+    public async Task<DirectoryPage<RoleDirectoryRow>> ReadRoleReferencesAsync(TenantContext context,
+        IReadOnlyCollection<Guid> requestedIds, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(requestedIds);
+        GuardRead();
+        var ids = requestedIds.Distinct().ToArray();
+        if (ids.Length is 0 or > 100 || ids.Contains(Guid.Empty))
+            throw new ArgumentException("Role reference batches require 1 to 100 nonempty unique IDs.", nameof(requestedIds));
+
+        var fields = Fields(context, "platform.roles.read", Guid.Empty, Guid.Empty,
+            await Authorization.ReadGrantsAsync(context, cancellationToken));
+        if (!fields.Contains("Id")) return new(false, []);
+
+        var roles = await database.Roles.AsNoTracking().Where(AnyId<AccessRole>(role => role.Id, ids))
+            .OrderBy(role => role.Code).ThenBy(role => role.Id).ToListAsync(cancellationToken);
+        return new(true, roles.Select(role => new RoleDirectoryRow(role.Id, Pick(fields, "Code", role.Code),
+            fields.Contains("Enabled") ? role.Enabled : null, null, null, null))
+            .ToImmutableArray());
+    }
+
     /// <summary>Lists only the current tenant and explicitly provisioned same-subject eligible tenant memberships; never all tenants.</summary>
     public async Task<DirectoryPage<TenantDirectoryRow>> ReadTenantsAsync(TenantContext context, int offset = 0, int limit = 50,
         CancellationToken cancellationToken = default, Guid? tenantId = null, bool? enabled = null)

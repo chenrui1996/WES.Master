@@ -98,6 +98,7 @@
 - [x] DTC-UI-022 以真实MySQL/HTTP验证不存在角色ID的用户角色替换命令被拒绝且用户版本、成员关联、审计无变化；worktree环境下授权配置源解析和完整Identity HTTP类回归也通过；见[实施](../../implementation/75-t06-reject-unresolved-role-candidate.md)及[测试](../../implementation/76-t06-reject-unresolved-role-candidate-tests.md)。
 - [x] DTC-UI-022 Platform Roles指定部门候选精确Code查询首片已通过真实MySQL/HTTP授权交集验证及受控页面A/AB竞态、250ms去抖、25条分页和已选草稿保留；见[实施](../../implementation/77-t06-role-department-code-candidates.md)及[测试](../../implementation/78-t06-role-department-code-candidates-tests.md)。隔离HTTPS Chromium与完整DTC/T06验收仍待。
 - [x] DTC-UI-022 Platform Roles编辑既有规则时按已保存部门ID独立批量回填授权可见摘要，不依赖候选页；每批最多100个，按当前owner的Id资源范围和字段权限投影，未解析项不泄漏名称/存在性。Identity HTTP/MySQL连接门禁70项、owner测试2项、Roles页面16项、Ops Web全套176项及生产构建通过；见[实施](../../implementation/79-t06-role-department-reference-resolution.md)及[测试](../../implementation/80-t06-role-department-reference-resolution-tests.md)。隔离HTTPS Chromium与完整DTC/T06仍待验收。
+- [x] DTC-UI-022 Platform Users编辑用户角色关联时按已保存角色ID独立批量解析当前授权摘要；每批最多100个，缺失/无权项不回显原始ID，停用角色不可成为新增候选，现有owner仍重验写入。角色引用owner3项、Identity HTTP类73项、Users页面21项、Ops Web全套180项及生产构建通过；见[实施](../../implementation/81-t06-user-role-reference-resolution.md)及[测试](../../implementation/82-t06-user-role-reference-resolution-tests.md)。隔离HTTPS Chromium与完整DTC/T06仍待验收。
 - [ ] 实现语义HTML/Composition API/strict TS与Element Plus已有组件复用；白名单偏好不存业务数据/secret/待写。核对/已有导出固定有序ID及读值、水位TTL600秒，权限撤销直接失效；实时offset变化不承诺无丢重。
 - [ ] 60条动态更新/增删、599/600秒快照、单位混合不求和、200%字体/+40%翻译/768/1024/1440与局部滚动验收；RVT-06/07。组件绿不代表64页绿，T32逐PAGE适用性再验，PDA/地图不机械套Grid。
 

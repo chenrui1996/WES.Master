@@ -19,7 +19,7 @@
 | TDD初始红灯 | `dotnet test tests\Modules\Wes.Modules.Tests.csproj --configuration Release --filter FullyQualifiedName~InventoryQuantityTests` | 预期失败，退出码1；空WMS项目编译成功后，测试报 `InventoryQuantityTests.cs(1,11): error CS0234`，`Wes`中不存在`Wms`命名空间。此时仅有测试和项目引用，生产领域类型尚未实现。 |
 | WMS数量领域测试 | `dotnet test tests\Modules\Wes.Modules.Tests.csproj --configuration Release --filter FullyQualifiedName~InventoryQuantityTests` | 通过16项，失败0，跳过0。 |
 | WMS项目Release构建 | `dotnet build src\Modules\Wms\Wes.Wms.csproj --configuration Release --no-restore` | 成功；0警告、0错误。 |
-| 完整solution串行Release测试 | `dotnet test WES.slnx --configuration Release --no-build --no-restore -m:1` | 通过900项，失败0，跳过0：Architecture 29、Modules 287、Persistence 356、Route 228。 |
+| 完整solution串行Release测试 | `dotnet test WES.slnx --configuration Release --no-restore -m:1` | 通过900项，失败0，跳过0：Architecture 29、Modules 287、Persistence 356、Route 228。 |
 | C#格式检查 | `dotnet format WES.slnx --no-restore --verify-no-changes --include src\Modules\Wms\Domain\InventoryQuantity.cs tests\Modules\Wms\InventoryQuantityTests.cs` | 通过，无格式差异。 |
 | diff空白检查 | `git diff --check` | 通过，无空白错误。 |
 

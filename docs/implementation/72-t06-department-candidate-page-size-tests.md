@@ -1,6 +1,6 @@
 # T06 Platform角色与用户候选分页测试记录
 
-- 状态：Roles/Users候选分页定向测试已通过；全量回归、构建和变更检查待执行，不代表完整 DTC-UI-022。
+- 状态：Roles/Users候选分页定向测试、Ops Web全量回归、生产构建和变更检查均已通过；不代表完整 DTC-UI-022。
 - 关联：[实施记录](71-t06-department-candidate-page-size.md)。
 - 用例：DTC-UI-022 首片；部门候选查询页长与增量追加。
 

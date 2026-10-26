@@ -23,7 +23,13 @@ it("supports visibility and keyboard ordering without offering revoked fields", 
   const wrapper = mount(host);
   expect(wrapper.get("output").text()).toBe("id,name");
   await wrapper.get('[data-test="column-name"]').trigger("keydown", { key: "ArrowUp" });
+  expect(wrapper.findAll('li[data-test^="column-"]').map(item => item.attributes("data-test")))
+    .toEqual(["column-name", "column-id"]);
   expect(wrapper.get("output").text()).toBe("id,name");
+  await wrapper.get('[data-test="column-name"]').trigger("keydown", { key: "ArrowDown" });
+  expect(wrapper.findAll('li[data-test^="column-"]').map(item => item.attributes("data-test")))
+    .toEqual(["column-id", "column-name"]);
+  await wrapper.get('[data-test="column-name"]').trigger("keydown", { key: "ArrowUp" });
   await wrapper.get("form").trigger("submit");
   expect(wrapper.get("output").text()).toBe("name,id");
   await wrapper.get('input[value="name"]').setValue(false);
@@ -40,6 +46,53 @@ it("supports visibility and keyboard ordering without offering revoked fields", 
   await wrapper.get('[data-test="revoke-fields"]').trigger("click");
   expect(wrapper.find('input[value="name"]').exists()).toBe(false);
   expect(wrapper.get("output").text()).toBe("id");
+  wrapper.unmount();
+});
+
+it("rejects widths above the category maximum and persists the exact upper bound", async () => {
+  sessionState.subject = {
+    tenantId: "tenant-a", userId: "user-a", sessionId: "session-a",
+    requiresPasswordChange: false, credentialVersion: null, grants: [],
+  };
+  const host = defineComponent({
+    components: { ColumnSettings },
+    setup() {
+      const columns = useColumns(() => [
+        { key: "id", label: "标识", required: true },
+        { key: "name", label: "姓名", widthClass: "identity" },
+      ], { environment: "test", pageId: "users", tableId: "directory" });
+      return { ...columns };
+    },
+    template: `<ColumnSettings :columns="available" v-model="selected" v-model:widths="widths" />
+      <output data-test="name-width">{{ widthStyle('name')?.width ?? 'auto' }}</output>`,
+  });
+  const wrapper = mount(host);
+  const width = wrapper.get('[data-test="width-name"]');
+  await width.setValue("601");
+  await width.trigger("change");
+  expect((width.element as HTMLInputElement).validationMessage).toContain("160 至 600");
+  await wrapper.get('[data-test="apply-columns"]').trigger("submit");
+  expect(wrapper.get('[data-test="name-width"]').text()).toBe("200px");
+  expect(localStorage.getItem("wes-ops-web:columns:v1:test:tenant-a:user-a:users:directory")).not.toContain('"name":601');
+
+  await width.setValue("159");
+  await width.trigger("change");
+  expect((width.element as HTMLInputElement).validationMessage).toContain("160 至 600");
+  await wrapper.get('[data-test="apply-columns"]').trigger("submit");
+  expect(wrapper.get('[data-test="name-width"]').text()).toBe("200px");
+
+  await width.setValue("160");
+  await width.trigger("change");
+  expect((width.element as HTMLInputElement).validationMessage).toBe("");
+  await wrapper.get('[data-test="apply-columns"]').trigger("submit");
+  expect(wrapper.get('[data-test="name-width"]').text()).toBe("160px");
+
+  await width.setValue("600");
+  await width.trigger("change");
+  expect((width.element as HTMLInputElement).validationMessage).toBe("");
+  await wrapper.get('[data-test="apply-columns"]').trigger("submit");
+  expect(wrapper.get('[data-test="name-width"]').text()).toBe("600px");
+  expect(localStorage.getItem("wes-ops-web:columns:v1:test:tenant-a:user-a:users:directory")).toContain('"name":600');
   wrapper.unmount();
 });
 

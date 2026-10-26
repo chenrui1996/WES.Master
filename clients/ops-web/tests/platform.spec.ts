@@ -106,14 +106,14 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
       await page.getByLabel("关联 UUID").fill(process.env.WES_E2E_AUDIT_CORRELATION!);
       const firstPage = page.waitForResponse(value =>
         value.url().includes("/api/platform/audit?") && new URL(value.url()).searchParams.get("limit") === "25");
-      await page.getByRole("button", { name: "查询证据", exact: true }).click();
+      await page.getByRole("button", { name: "查询实时证据", exact: true }).click();
       expect((await firstPage).status()).toBe(200);
       const evidenceRows = page.locator(".query-state tbody tr");
       await expect(evidenceRows).toHaveCount(25);
       const firstIds = await evidenceRows.locator("td:first-child").allTextContents();
       const pagination = page.getByRole("navigation", { name: "证据分页", exact: true });
       await expect(pagination).toContainText("实时");
-      await expect(page.getByText(/不保证跨请求无丢重/)).toBeVisible();
+      await expect(pagination).toContainText("实时数据变化时不保证跨请求无丢重");
       const secondPage = page.waitForResponse(value =>
         value.url().includes("/api/platform/audit?") && new URL(value.url()).searchParams.get("offset") === "25");
       await pagination.getByRole("button", { name: "下一页", exact: true }).click();
@@ -136,6 +136,33 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
         expect((await resized).status()).toBe(200);
         await expect(evidenceRows).toHaveCount(size === "50" ? 50 : 60);
       }
+      const liveTwentyFive = page.waitForResponse(value => value.url().includes("/api/platform/audit?")
+        && new URL(value.url()).searchParams.get("limit") === "25"
+        && new URL(value.url()).searchParams.get("offset") === "0");
+      await pagination.getByRole("combobox", { name: "每页条数", exact: true }).selectOption("25");
+      expect((await liveTwentyFive).status()).toBe(200);
+      const createSnapshot = page.waitForResponse(value =>
+        value.url().endsWith("/api/platform/audit/snapshots") && value.request().method() === "POST");
+      await page.getByRole("button", { name: "创建固定核对快照", exact: true }).click();
+      expect((await createSnapshot).status()).toBe(200);
+      await expect(pagination).toContainText("固定快照");
+      await expect(page.getByRole("status").filter({ hasText: "固定核对快照：60 条" })).toBeVisible();
+      await expect(evidenceRows).toHaveCount(25);
+      const snapshotFirstIds = await evidenceRows.locator("td:first-child").allTextContents();
+      const snapshotSecondPage = page.waitForResponse(value =>
+        value.url().includes("/api/platform/audit/snapshots/") && value.url().includes("offset=25"));
+      await pagination.getByRole("button", { name: "下一页", exact: true }).click();
+      expect((await snapshotSecondPage).status()).toBe(200);
+      await expect(evidenceRows).toHaveCount(25);
+      const snapshotSecondIds = await evidenceRows.locator("td:first-child").allTextContents();
+      const snapshotThirdPage = page.waitForResponse(value =>
+        value.url().includes("/api/platform/audit/snapshots/") && value.url().includes("offset=50"));
+      await pagination.getByRole("button", { name: "下一页", exact: true }).click();
+      expect((await snapshotThirdPage).status()).toBe(200);
+      await expect(evidenceRows).toHaveCount(10);
+      const snapshotThirdIds = await evidenceRows.locator("td:first-child").allTextContents();
+      expect(new Set([...snapshotFirstIds, ...snapshotSecondIds, ...snapshotThirdIds]).size).toBe(60);
+      await expect(page.getByRole("button", { name: "返回实时查询", exact: true })).toBeVisible();
       for (const width of [375, 768, 1024, 1440]) {
         await page.setViewportSize({ width, height: 900 });
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -239,7 +266,7 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
   await page.getByLabel("结束时间（UTC，不含）").fill("2026-10-25T00:00");
   await page.getByLabel("关联 UUID").fill("");
   const loginEvents = page.waitForResponse(value => value.url().includes("/api/platform/login-events") && value.request().method() === "GET");
-  const queryButton = page.getByRole("button", { name: "查询证据", exact: true });
+  const queryButton = page.getByRole("button", { name: "查询实时证据", exact: true });
   let queryButtonReached = false;
   for (let index = 0; index < 20 && !queryButtonReached; index++) {
     await page.keyboard.press("Tab");

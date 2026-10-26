@@ -9,7 +9,8 @@ const props = withDefaults(defineProps<{
   busy?: boolean;
   failed?: boolean;
   selectId?: string;
-}>(), { busy: false, failed: false });
+  consistency?: "realtime" | "snapshot";
+}>(), { busy: false, failed: false, consistency: "realtime" });
 const emit = defineEmits<{ change: [offset: number, limit: number] }>();
 const generatedId = useId();
 const sizes = [25, 50, 100];
@@ -29,9 +30,9 @@ function resize(event: Event) {
     </label>
     <button type="button" data-test="previous-page" :disabled="busy || offset === 0"
       @click="emit('change', Math.max(0, offset - limit), limit)">上一页</button>
-    <span aria-live="polite">实时 · 第 {{ Math.floor(offset / limit) + 1 }} 页 · 本页 {{ count }} 条（最多 {{ limit }} 条）</span>
+    <span aria-live="polite">{{ props.consistency === "snapshot" ? "固定快照" : "实时" }} · 第 {{ Math.floor(offset / limit) + 1 }} 页 · 本页 {{ count }} 条（最多 {{ limit }} 条）</span>
     <button type="button" data-test="next-page" :disabled="busy || failed || count !== limit"
       @click="emit('change', offset + limit, limit)">下一页</button>
-    <span class="hint">实时数据变化时不保证跨请求无丢重。</span>
+    <span class="hint">{{ props.consistency === "snapshot" ? "成员固定至快照过期；每页仍重新校验授权。" : "实时数据变化时不保证跨请求无丢重。" }}</span>
   </nav>
 </template>

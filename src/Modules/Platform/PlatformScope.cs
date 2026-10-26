@@ -212,6 +212,15 @@ public sealed class PlatformScope : IAsyncDisposable
         int? action = null, Guid? correlation = null) =>
         new QueryAudit(_database, _clock, _logs.CreateLogger<QueryAudit>()).ReadAsync(subject, from, to, offset, limit, ct,
             action is null ? null : (PlatformAuditAction)action.Value, correlation);
+    /// <summary>Creates a bounded Platform-local fixed-membership audit verification snapshot.</summary>
+    public Task<AuditSnapshotResult> CreateAuditSnapshotAsync(TenantContext subject, DateTimeOffset from, DateTimeOffset to,
+        int limit, CancellationToken ct, int? action = null, Guid? correlation = null) =>
+        new QueryAudit(_database, _clock, _logs.CreateLogger<QueryAudit>()).CreateSnapshotAsync(subject, from, to, limit, ct,
+            action is null ? null : (PlatformAuditAction)action.Value, correlation);
+    /// <summary>Continues an audit snapshot only for its original actor/session with current matching authorization.</summary>
+    public Task<AuditSnapshotResult> ReadAuditSnapshotAsync(TenantContext subject, Guid snapshotId, int offset, int limit,
+        CancellationToken ct) =>
+        new QueryAudit(_database, _clock, _logs.CreateLogger<QueryAudit>()).ReadSnapshotAsync(subject, snapshotId, offset, limit, ct);
     /// <summary>Reads login security metadata without inventing Own ownership from mutable account mappings.</summary>
     public Task<LoginEventPage> LoginEventsAsync(TenantContext subject, DateTimeOffset from, DateTimeOffset to, int offset, int limit,
         LoginEventKind? kind, Guid? correlation, CancellationToken ct) =>

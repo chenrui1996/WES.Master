@@ -1,5 +1,6 @@
 using Wes.Host.Identity;
 using Wes.Platform;
+using Wes.Platform.Features.Audit;
 using Wes.Platform.Features.Directory;
 using Wes.Platform.Features.Identity;
 using Wes.Platform.Features.Messaging;
@@ -43,6 +44,9 @@ public sealed record TranslationInput(string? ExpectedVersion, string Language, 
 public sealed record SettingInput(string? ExpectedVersion, string Value);
 /// <summary>Replay precondition and operator reason; envelope content is never accepted from the caller.</summary>
 public sealed record ReplayOutboxInput(int ExpectedAttempts, string Reason);
+/// <summary>Bounded audit query used to create a short-lived owner-local verification snapshot.</summary>
+public sealed record AuditSnapshotInput(DateTimeOffset From, DateTimeOffset To, int Limit = 25,
+    int? Action = null, Guid? CorrelationId = null);
 
 /// <summary>Named transport adapters; every use case revalidates current owner authorization and versions.</summary>
 public static class PlatformEndpoints
@@ -114,6 +118,8 @@ public static class PlatformEndpoints
         group.MapGet("/messages", OutboxAsync);
         group.MapPost("/messages/{eventId:guid}/replay", ReplayOutboxAsync);
         group.MapGet("/audit", AuditAsync);
+        group.MapPost("/audit/snapshots", CreateAuditSnapshotAsync);
+        group.MapGet("/audit/snapshots/{snapshotId:guid}", ReadAuditSnapshotAsync);
         group.MapGet("/login-events", LoginEventsAsync);
     }
 
@@ -216,6 +222,30 @@ public static class PlatformEndpoints
         var result = await database.AuditAsync(subject, from, to, offset, limit, ct, action, correlationId);
         return result.Authorized ? Results.Ok(result) : Results.Forbid();
     }
+    private static async Task<IResult> CreateAuditSnapshotAsync(AuditSnapshotInput input, HttpContext http,
+        IdentityDatabase factory, CancellationToken ct)
+    {
+        var subject = IdentityRuntime.Subject(http.User);
+        await using var database = factory.Open(subject.TenantId);
+        return AuditSnapshotResponse(await database.CreateAuditSnapshotAsync(subject, input.From, input.To,
+            input.Limit, ct, input.Action, input.CorrelationId));
+    }
+    private static async Task<IResult> ReadAuditSnapshotAsync(Guid snapshotId, HttpContext http,
+        IdentityDatabase factory, CancellationToken ct, int offset = 0, int limit = 25)
+    {
+        var subject = IdentityRuntime.Subject(http.User);
+        await using var database = factory.Open(subject.TenantId);
+        return AuditSnapshotResponse(await database.ReadAuditSnapshotAsync(subject, snapshotId, offset, limit, ct));
+    }
+    private static IResult AuditSnapshotResponse(AuditSnapshotResult result) => result.Decision switch
+    {
+        AuditSnapshotDecision.Success => Results.Ok(result.Page),
+        AuditSnapshotDecision.Forbidden => Results.Forbid(),
+        AuditSnapshotDecision.NotFound => Results.NotFound(),
+        AuditSnapshotDecision.Expired => Results.StatusCode(StatusCodes.Status410Gone),
+        AuditSnapshotDecision.TooLarge => Results.StatusCode(StatusCodes.Status413PayloadTooLarge),
+        _ => throw new InvalidOperationException("Unknown audit snapshot outcome.")
+    };
     private static async Task<IResult> OutboxAsync(HttpContext http, IdentityDatabase factory, CancellationToken ct,
         int offset = 0, int limit = 50)
     {

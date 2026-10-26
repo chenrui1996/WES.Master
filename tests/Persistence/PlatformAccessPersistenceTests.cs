@@ -634,6 +634,85 @@ public sealed class PlatformAccessPersistenceTests : IAsyncLifetime
         Assert.Empty(denied.Rows);
     }
 
+    /// <summary>A fixed audit snapshot continues the original ordered membership after new earlier facts commit.</summary>
+    [Fact]
+    [Trait("CaseId", "AUDIT-SNAPSHOT-001")]
+    public async Task AuditSnapshot_ReadsCapturedIdsAfterAConcurrentEarlierFact()
+    {
+        var (context, roleId, _) = await SeedAsync();
+        await using (var seed = Open(_tenant))
+        {
+            var role = await seed.Roles.SingleAsync(item => item.Id == roleId);
+            role.Change(role.Version, true, [new PermissionGrant("platform.audit.read", DataScope.All,
+                ImmutableHashSet<Guid>.Empty, ImmutableHashSet.Create("Id", "OccurredAt"))]);
+            seed.Audit.AddRange(Enumerable.Range(0, 60).Select(index =>
+                new PlatformAudit(_tenant, _actor, Guid.NewGuid(), Guid.NewGuid(),
+                    PlatformAuditAction.RoleChanged, null, Guid.NewGuid().ToString("D"), Now.AddSeconds(index))));
+            await seed.SaveChangesAsync();
+        }
+
+        Guid snapshotId;
+        await using (var create = Open(_tenant))
+        {
+            var result = await AuditQuery(create).CreateSnapshotAsync(context, Now.AddSeconds(-1), Now.AddMinutes(2), 25);
+            Assert.Equal(AuditSnapshotDecision.Success, result.Decision);
+            Assert.NotNull(result.Page);
+            Assert.Equal(60, result.Page.Count);
+            Assert.Equal(25, result.Page.Rows.Length);
+            snapshotId = result.Page.SnapshotId;
+        }
+
+        await using (var writer = Open(_tenant))
+        {
+            writer.Audit.Add(new PlatformAudit(_tenant, _actor, Guid.NewGuid(), Guid.NewGuid(),
+                PlatformAuditAction.RoleChanged, null, Guid.NewGuid().ToString("D"), Now.AddSeconds(-1)));
+            await writer.SaveChangesAsync();
+        }
+
+        await using var read = Open(_tenant);
+        var second = await AuditQuery(read).ReadSnapshotAsync(context, snapshotId, 25, 25);
+        Assert.Equal(AuditSnapshotDecision.Success, second.Decision);
+        Assert.NotNull(second.Page);
+        Assert.Equal(60, second.Page.Count);
+        Assert.Equal(25, second.Page.Rows.Length);
+    }
+
+    /// <summary>Revoking audit-read access invalidates a still-live snapshot before its TTL expires.</summary>
+    [Fact]
+    [Trait("CaseId", "AUDIT-SNAPSHOT-002")]
+    public async Task AuditSnapshot_RejectsContinuationAfterCurrentRoleIsRevoked()
+    {
+        var (context, roleId, _) = await SeedAsync();
+        await using (var seed = Open(_tenant))
+        {
+            var role = await seed.Roles.SingleAsync(item => item.Id == roleId);
+            role.Change(role.Version, true, [new PermissionGrant("platform.audit.read", DataScope.All,
+                ImmutableHashSet<Guid>.Empty, ImmutableHashSet.Create("Id", "OccurredAt"))]);
+            seed.Audit.Add(NewAudit());
+            await seed.SaveChangesAsync();
+        }
+
+        Guid snapshotId;
+        await using (var create = Open(_tenant))
+        {
+            var result = await AuditQuery(create).CreateSnapshotAsync(context, Now.AddMinutes(-1), Now.AddMinutes(1));
+            Assert.Equal(AuditSnapshotDecision.Success, result.Decision);
+            snapshotId = result.Page!.SnapshotId;
+        }
+
+        await using (var revoke = Open(_tenant))
+        {
+            var role = await revoke.Roles.SingleAsync(item => item.Id == roleId);
+            role.Change(role.Version, false, role.Rules);
+            await revoke.SaveChangesAsync();
+        }
+
+        await using var read = Open(_tenant);
+        var denied = await AuditQuery(read).ReadSnapshotAsync(context, snapshotId, 0, 25);
+        Assert.Equal(AuditSnapshotDecision.Forbidden, denied.Decision);
+        Assert.Null(denied.Page);
+    }
+
     /// <summary>Permission denial is explicit; invalid pagination/time input cannot silently become a broad query.</summary>
     [Fact]
     [Trait("CaseId", "AUDIT-QUERY-001")]

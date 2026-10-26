@@ -34,6 +34,8 @@ public sealed partial class PlatformDbContext : DbContext
     public DbSet<VersionedSetting> Settings => Set<VersionedSetting>();
     /// <summary>Append-only owner audit facts, never raw request data.</summary>
     public DbSet<PlatformAudit> Audit => Set<PlatformAudit>();
+    /// <summary>Short-lived owner-local ordered membership for audit verification queries.</summary>
+    public DbSet<PlatformAuditQuerySnapshot> AuditQuerySnapshots => Set<PlatformAuditQuerySnapshot>();
     /// <summary>Platform-owned durable events staged in the same transaction as their source facts.</summary>
     public DbSet<PlatformOutboxMessage> OutboxMessages => Set<PlatformOutboxMessage>();
     /// <summary>Platform-owned idempotency receipts committed atomically with consumer effects.</summary>
@@ -208,6 +210,26 @@ public sealed partial class PlatformDbContext : DbContext
         audit.Property(item => item.OccurredAt).HasConversion(utc).HasColumnType("datetime(6)");
         audit.HasIndex(item => new { item.TenantId, item.OccurredAt, item.Id });
         audit.HasQueryFilter(item => item.TenantId == TenantId);
+
+        var auditSnapshot = modelBuilder.Entity<PlatformAuditQuerySnapshot>();
+        auditSnapshot.ToTable("platform_audit_query_snapshots");
+        auditSnapshot.HasKey(item => new { item.TenantId, item.Id });
+        auditSnapshot.Property(item => item.TenantId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        auditSnapshot.Property(item => item.Id).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        auditSnapshot.Property(item => item.ActorId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        auditSnapshot.Property(item => item.SessionId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        auditSnapshot.Property(item => item.AuthorizationFingerprint).HasColumnType("char(64)").HasMaxLength(64);
+        auditSnapshot.Property(item => item.FilterFingerprint).HasColumnType("char(64)").HasMaxLength(64);
+        auditSnapshot.Property(item => item.SortFingerprint).HasColumnType("char(64)").HasMaxLength(64);
+        auditSnapshot.Property(item => item.From).HasConversion(utc).HasColumnType("datetime(6)");
+        auditSnapshot.Property(item => item.To).HasConversion(utc).HasColumnType("datetime(6)");
+        auditSnapshot.Property(item => item.FilterAction).HasConversion<string>().HasColumnType("varchar(32)").HasMaxLength(32);
+        auditSnapshot.Property(item => item.CorrelationId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        auditSnapshot.Property(item => item.OrderedAuditIds).HasColumnType("longtext").IsRequired();
+        auditSnapshot.Property(item => item.CreatedAt).HasConversion(utc).HasColumnType("datetime(6)");
+        auditSnapshot.Property(item => item.ExpiresAt).HasConversion(utc).HasColumnType("datetime(6)");
+        auditSnapshot.HasIndex(item => new { item.TenantId, item.ActorId, item.SessionId, item.ExpiresAt });
+        auditSnapshot.HasQueryFilter(item => item.TenantId == TenantId);
 
         var outbox = modelBuilder.Entity<PlatformOutboxMessage>();
         outbox.ToTable("platform_outbox_messages");

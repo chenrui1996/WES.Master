@@ -762,6 +762,67 @@ public sealed class IdentityHttpTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.MethodNotAllowed, edit.StatusCode);
     }
 
+    /// <summary>Audit verification freezes ordered membership across new facts and enforces its exact 600-second lifetime.</summary>
+    [Fact]
+    [Trait("CaseId", "DTC-UI-011-SNAPSHOT")]
+    public async Task AuditSnapshot_KeepsOriginalRowsAndExpiresAtThe600SecondBoundary()
+    {
+        await SignInAsync(); await GrantPlatformAsync();
+        var from = _clock.GetUtcNow().AddMinutes(-1);
+        var to = _clock.GetUtcNow().AddMinutes(1);
+        await using (var seed = Open())
+        {
+            seed.Audit.AddRange(Enumerable.Range(0, 60).Select(index =>
+                new PlatformAudit(_tenant, _user, Guid.NewGuid(), Guid.NewGuid(),
+                    PlatformAuditAction.RoleChanged, null, Guid.NewGuid().ToString("D"), from.AddSeconds(index))));
+            await seed.SaveChangesAsync();
+        }
+
+        using var create = await _client.PostAsJsonAsync("/api/platform/audit/snapshots",
+            new { from, to, limit = 25 });
+        Assert.Equal(HttpStatusCode.OK, create.StatusCode);
+        var firstPage = await create.Content.ReadFromJsonAsync<JsonElement>();
+        var snapshotId = firstPage.GetProperty("snapshotId").GetGuid();
+        Assert.Equal(60, firstPage.GetProperty("count").GetInt32());
+        Assert.Equal(25, firstPage.GetProperty("rows").GetArrayLength());
+        Assert.Equal(_clock.GetUtcNow().AddSeconds(600),
+            firstPage.GetProperty("expiresAt").GetDateTimeOffset());
+
+        await using (var insert = Open())
+        {
+            insert.Audit.Add(new PlatformAudit(_tenant, _user, Guid.NewGuid(), Guid.NewGuid(),
+                PlatformAuditAction.RoleChanged, null, Guid.NewGuid().ToString("D"), from.AddSeconds(-1)));
+            await insert.SaveChangesAsync();
+        }
+
+        async Task<JsonElement> ReadPageAsync(int offset)
+        {
+            using var response = await _client.GetAsync(
+                $"/api/platform/audit/snapshots/{snapshotId:D}?offset={offset}&limit=25");
+            Assert.True(response.StatusCode == HttpStatusCode.OK,
+                $"Expected a readable snapshot page, got {(int)response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
+            return await response.Content.ReadFromJsonAsync<JsonElement>();
+        }
+
+        var secondPage = await ReadPageAsync(25);
+        var thirdPage = await ReadPageAsync(50);
+        var ids = firstPage.GetProperty("rows").EnumerateArray()
+            .Concat(secondPage.GetProperty("rows").EnumerateArray())
+            .Concat(thirdPage.GetProperty("rows").EnumerateArray())
+            .Select(row => row.GetProperty("id").GetGuid()).ToArray();
+        Assert.Equal(60, ids.Distinct().Count());
+        Assert.Equal(60, ids.Length);
+
+        _clock.Advance(TimeSpan.FromSeconds(599));
+        using (var beforeExpiry = await _client.GetAsync(
+            $"/api/platform/audit/snapshots/{snapshotId:D}?offset=0&limit=25"))
+            Assert.Equal(HttpStatusCode.OK, beforeExpiry.StatusCode);
+        _clock.Advance(TimeSpan.FromSeconds(1));
+        using var expired = await _client.GetAsync(
+            $"/api/platform/audit/snapshots/{snapshotId:D}?offset=0&limit=25");
+        Assert.Equal(HttpStatusCode.Gone, expired.StatusCode);
+    }
+
     /// <summary>Outbox metadata is hidden by default and requires the dedicated current-session read grant.</summary>
     [Fact]
     public async Task OutboxHttpRequiresDedicatedReadPermissionAndNeverExposesPayload()

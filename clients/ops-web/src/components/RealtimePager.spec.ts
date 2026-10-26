@@ -22,6 +22,16 @@ it("never infers a total and permits going back from an empty later page", async
   wrapper.unmount();
 });
 
+it("labels fixed-membership paging differently from live offsets", () => {
+  const wrapper = mount(RealtimePager, {
+    props: { label: "固定核对分页", offset: 25, limit: 25, count: 25, consistency: "snapshot" },
+  });
+  expect(wrapper.text()).toContain("固定快照");
+  expect(wrapper.text()).toContain("成员固定至快照过期");
+  expect(wrapper.text()).not.toContain("实时数据变化");
+  wrapper.unmount();
+});
+
 it("disables paging and size changes while busy, and blocks forward navigation on failure", async () => {
   const wrapper = mount(RealtimePager, { props: { label: "测试分页", offset: 25, limit: 25, count: 25, busy: true } });
   expect(wrapper.findAll("button, select").every(control => control.attributes("disabled") !== undefined)).toBe(true);

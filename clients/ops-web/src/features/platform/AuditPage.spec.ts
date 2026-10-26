@@ -243,3 +243,51 @@ it("rejects an oversized response rather than presenting it as a bounded page", 
   expect(wrapper.get('[role="alert"]').text()).toContain("审计响应无效");
   wrapper.unmount();
 });
+
+it("pages a fixed audit snapshot and clears its evidence when the server expires it", async () => {
+  authorizeAudit();
+  const calls: { url: string; method: string; body?: string }[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (url: string, options: RequestInit = {}) => {
+    const method = options.method ?? "GET";
+    calls.push({ url, method, body: typeof options.body === "string" ? options.body : undefined });
+    if (url.includes("/api/platform/audit/snapshots/")) return new Response("{}", { status: 410 });
+    if (url.endsWith("/api/platform/audit/snapshots")) return new Response(JSON.stringify({
+      snapshotId: "8b708c1d-f484-43e2-93c2-5f03096e5974", expiresAt: "2026-10-24T04:10:00Z", count: 60, rows: auditRows(25),
+    }));
+    return evidenceResponse(auditRows(25));
+  }));
+  const wrapper = mount(AuditPage); await flushPromises();
+  await wrapper.get('[data-test="create-audit-snapshot"]').trigger("click"); await flushPromises();
+  expect(calls.at(-1)!.method).toBe("POST");
+  expect(calls.at(-1)!.url).toContain("/api/platform/audit/snapshots");
+  expect(wrapper.text()).toContain("固定核对快照");
+  expect(wrapper.text()).toContain("60 条");
+  await wrapper.get('[data-test="next-page"]').trigger("click"); await flushPromises();
+  const continuation = new URL(calls.at(-1)!.url, "https://localhost");
+  expect(continuation.pathname).toContain("/api/platform/audit/snapshots/8b708c1d-f484-43e2-93c2-5f03096e5974");
+  expect(continuation.searchParams.get("offset")).toBe("25");
+  expect(wrapper.findAll("tbody tr")).toHaveLength(0);
+  expect(wrapper.get('[role="alert"]').text()).toContain("快照已过期");
+  wrapper.unmount();
+});
+
+it("invalidates an audit snapshot when its query filters change", async () => {
+  authorizeAudit();
+  const paths: string[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    paths.push(url);
+    return url.endsWith("/api/platform/audit/snapshots")
+      ? new Response(JSON.stringify({ snapshotId: "8b708c1d-f484-43e2-93c2-5f03096e5974",
+        expiresAt: "2026-10-24T04:10:00Z", count: 1, rows: auditRows(1) }))
+      : evidenceResponse([{ ...auditRows(1)[0]!, id: "live-after-filter-change" }]);
+  }));
+  const wrapper = mount(AuditPage); await flushPromises();
+  await wrapper.get('[data-test="create-audit-snapshot"]').trigger("click"); await flushPromises();
+  expect(wrapper.text()).toContain("固定核对快照：1 条");
+  await wrapper.get("#audit-action").setValue("0");
+  expect(wrapper.text()).not.toContain("固定核对快照：1 条");
+  await wrapper.get("form").trigger("submit"); await flushPromises();
+  expect(new URL(paths.at(-1)!, "https://localhost").pathname).toBe("/api/platform/audit");
+  expect(wrapper.text()).toContain("live-after-filter-change");
+  wrapper.unmount();
+});

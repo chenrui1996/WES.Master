@@ -26,7 +26,11 @@ public enum PlatformAuditAction
     /// <summary>A stable dictionary entry, translation or reference changed.</summary>
     DictionaryChanged,
     /// <summary>Verified unbound file bytes were authorized for delivery after a current scope check.</summary>
-    FileDownloaded
+    FileDownloaded,
+    /// <summary>A permanent quarantined upload identity was committed before external storage.</summary>
+    FileUploadCreated,
+    /// <summary>Exact uploaded bytes were confirmed in private storage; this is not scan clearance.</summary>
+    FileUploadStored
 }
 
 /// <summary>Append-only audit fact staged with the owner mutation; no general request/payload string is accepted.</summary>

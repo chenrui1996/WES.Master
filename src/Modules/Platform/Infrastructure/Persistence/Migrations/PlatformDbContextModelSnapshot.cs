@@ -782,6 +782,10 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("UploadOperationId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
                     b.Property<string>("Version")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -789,6 +793,9 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                         .HasColumnType("varchar(36)");
 
                     b.HasKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "UploadOperationId")
+                        .IsUnique();
 
                     b.HasIndex("TenantId", "State", "CreatedAt");
 

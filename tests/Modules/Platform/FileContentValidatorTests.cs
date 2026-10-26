@@ -137,6 +137,22 @@ public sealed class FileContentValidatorTests
         Assert.DoesNotContain("%PDF-1.7", resultText, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("stream:notes.txt")]
+    [InlineData("notes.txt ")]
+    [InlineData("notes.txt.")]
+    public void RejectsNamesThatCannotBePersistedAsSafeFileMetadata(string name)
+    {
+        Assert.Equal(FileContentRejection.InvalidFileName,
+            FileContentValidator.Validate(name, "text/plain", "safe"u8.ToArray()).Rejection);
+    }
+
+    [Fact]
+    public void RejectsNamesBeyondTheDurableDisplayNameLimit()
+    {
+        Assert.Equal(FileContentRejection.InvalidFileName,
+            FileContentValidator.Validate(new string('a', 252) + ".txt", "text/plain", "safe"u8.ToArray()).Rejection);
+    }
     private static byte[] ValidContent(string fileName) => Path.GetExtension(fileName).ToLowerInvariant() switch
     {
         ".pdf" => Encoding.ASCII.GetBytes("%PDF-1.7"),

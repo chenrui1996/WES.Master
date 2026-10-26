@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Text;
+using Wes.Platform.Domain;
 
 namespace Wes.Platform.Features.Files;
 
@@ -90,8 +91,7 @@ public static class FileContentValidator
     {
         if (content.Length > MaximumBytes) return Reject(FileContentRejection.TooLarge);
         if (content.IsEmpty) return Reject(FileContentRejection.Empty);
-        if (string.IsNullOrWhiteSpace(fileName) || fileName.IndexOfAny(['/', '\\']) >= 0
-            || fileName.Any(char.IsControl))
+        if (!QuarantinedFile.IsValidDisplayName(fileName))
             return Reject(FileContentRejection.InvalidFileName);
 
         var extension = Path.GetExtension(fileName);

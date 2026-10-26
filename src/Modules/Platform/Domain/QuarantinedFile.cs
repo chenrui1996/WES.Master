@@ -44,18 +44,19 @@ public sealed class QuarantinedFile
 
     /// <summary>Creates a quarantined identity after bounded content validation, before external storage.</summary>
     public QuarantinedFile(Guid tenantId, Guid creatorId, Guid correlationId, string fileName,
-        string contentType, long byteCount, string sha256, DateTimeOffset createdAt)
+        string contentType, long byteCount, string sha256, DateTimeOffset createdAt, Guid? uploadOperationId = null)
     {
         if (tenantId == Guid.Empty || creatorId == Guid.Empty || correlationId == Guid.Empty)
             throw new ArgumentException("Explicit tenant, creator and correlation identities are required.");
-        if (string.IsNullOrWhiteSpace(fileName) || fileName.Length > 255 || fileName.Any(char.IsControl)
-            || fileName.IndexOfAny(['/', '\\', ':']) >= 0 || fileName.EndsWith('.') || fileName.EndsWith(' '))
+        if (!IsValidDisplayName(fileName))
             throw new ArgumentException("A bounded file display name without path syntax is required.", nameof(fileName));
         if (contentType is not ("application/pdf" or "image/png" or "image/jpeg" or "text/plain"))
             throw new ArgumentException("A canonical validated content type is required.", nameof(contentType));
         if (byteCount is < 1 or > MaximumBytes)
             throw new ArgumentOutOfRangeException(nameof(byteCount));
         ValidateDigest(sha256);
+        if (uploadOperationId == Guid.Empty)
+            throw new ArgumentException("A supplied upload operation identity cannot be empty.", nameof(uploadOperationId));
         TenantId = tenantId;
         CreatorId = creatorId;
         CorrelationId = correlationId;
@@ -64,6 +65,7 @@ public sealed class QuarantinedFile
         ByteCount = byteCount;
         Sha256 = sha256;
         CreatedAt = UpdatedAt = createdAt.ToUniversalTime();
+        UploadOperationId = uploadOperationId;
     }
 
     /// <summary>Server-created object and record identity, never a user supplied path.</summary>
@@ -74,6 +76,8 @@ public sealed class QuarantinedFile
     public Guid CreatorId { get; private set; }
     /// <summary>Upload correlation, without the original request body.</summary>
     public Guid CorrelationId { get; private set; }
+    /// <summary>Permanent upload command identity; null only for records created before the upload application boundary.</summary>
+    public Guid? UploadOperationId { get; private set; }
     /// <summary>Display-only name; never used as an object storage key.</summary>
     public string FileName { get; private set; } = "";
     /// <summary>Canonical validated media type.</summary>
@@ -209,6 +213,10 @@ public sealed class QuarantinedFile
         if (digest is null || digest.Length != 64 || digest.Any(character => !char.IsAsciiHexDigit(character) || char.IsAsciiLetterLower(character)))
             throw new ArgumentException("An uppercase SHA256 digest is required.", nameof(digest));
     }
+
+    internal static bool IsValidDisplayName(string? fileName) =>
+        !string.IsNullOrWhiteSpace(fileName) && fileName.Length <= 255 && !fileName.Any(char.IsControl)
+        && fileName.IndexOfAny(['/', '\\', ':']) < 0 && !fileName.EndsWith('.') && !fileName.EndsWith(' ');
 
     private void EnsureTime(DateTimeOffset now)
     {

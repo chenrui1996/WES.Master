@@ -24,6 +24,8 @@ public sealed partial class PlatformDbContext
         file.Property(item => item.Id).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
         file.Property(item => item.CreatorId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
         file.Property(item => item.CorrelationId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        file.Property(item => item.UploadOperationId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
+        file.HasIndex(item => new { item.TenantId, item.UploadOperationId }).IsUnique();
         file.Property(item => item.ScanAttemptId).HasConversion<string>().HasColumnType("varchar(36)").HasMaxLength(36);
         file.Property(item => item.FileName).HasColumnType("varchar(255)").HasMaxLength(255).IsRequired();
         file.Property(item => item.ContentType).HasColumnType("varchar(32)").HasMaxLength(32).IsRequired();

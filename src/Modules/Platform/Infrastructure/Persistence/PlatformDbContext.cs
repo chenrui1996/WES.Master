@@ -331,6 +331,12 @@ public sealed partial class PlatformDbContext : DbContext
         {
             if (entry.Entity is QuarantinedFile && entry.State == EntityState.Deleted)
                 throw new InvalidOperationException("File identities must be retained as deletion tombstones.");
+            if (entry.Entity is QuarantinedFile && entry.State == EntityState.Modified && entry.Properties.Any(property =>
+                property.IsModified && property.Metadata.Name is nameof(QuarantinedFile.UploadOperationId)
+                    or nameof(QuarantinedFile.CreatorId) or nameof(QuarantinedFile.CorrelationId)
+                    or nameof(QuarantinedFile.FileName) or nameof(QuarantinedFile.ContentType)
+                    or nameof(QuarantinedFile.ByteCount) or nameof(QuarantinedFile.Sha256) or nameof(QuarantinedFile.CreatedAt)))
+                throw new InvalidOperationException("Original file content metadata and upload identities are immutable.");
             if (entry.Entity is PlatformInboxReceipt inboxReceipt
                 && entry.State != EntityState.Added
                 && (entry.State != EntityState.Deleted

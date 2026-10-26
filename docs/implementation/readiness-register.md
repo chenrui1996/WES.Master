@@ -266,3 +266,10 @@
 - 元数据、Scan/Delete与Content分别要求明确字段，读取中撤权/绑定/版本变化不交付字节；只有Available/Stored且真实SHA256/长度一致才可交付。下载审计显式提交后交付，审计错误/保存后取消清零缓冲并回滚；结果不默认JSON输出内容，Dispose清零。
 - 新增21项真实MySQL授权测试，文件相关49项定向通过；完整串行Release为Architecture **29**、Modules **420**、Persistence **470**、Route **228**，共 **1147 passed、0 failed、0 skipped**。格式与diff检查通过，见[设计](103-t07-authorized-staging-file-access.md)/[证据](104-t07-authorized-staging-file-access-tests.md)。审计FileDownloaded追加int11，既有数值不改；无新表/迁移或依赖。
 - **T07仍partial**：尚无上传、业务绑定/实体附件下载、HTTP/页面接线与真实扫描/部署ACL验收。现有应用边界仅授权暂存范围，不开放未知owner引用。T04/T05/T06/T07/T08整体保持真实状态，不调用完成工具代签。
+
+### T07 持久受权上传
+
+- 上传接入当前Upload字段/Own及当前部门授权，先原子持久隔离记录和创建审计，再执行私有存储CreateNew，重新授权后原子确认Stored和审计；成功仍隔离，不自动调用scanner。新tenant/operation永久身份按actor/精确名字/canonical type/长度/hash核验，换payload拒绝，跨tenant独立，终态不复活。
+- 确认保存失败或取消后，同operation可核验已存在的精确字节恢复；缺失/部分/不同摘要仍明确失败、不覆盖、不伪造Stored。原始身份/内容元数据保存门禁不可修改，新增nullable UUID和tenant/operation唯一索引兼容旧NULL记录。
+- 真实授权wes_test上传新增23项，原21项访问及28项协调/持久化合计定向72项通过；内容名字校验新增4反例。最终完整串行Release Architecture **29**、Modules **424**、Persistence **493**、Route **228**，共 **1174 passed、0 failed、0 skipped**。EF无pending模型变化，迁移SQL仅增加列/唯一索引，格式及diff验证通过。见[设计](105-t07-durable-authorized-uploads.md)/[证据](106-t07-durable-authorized-uploads-tests.md)。
+- **整包状态不变**：T07业务实体绑定/附件授权、HTTP流限额/API/页面、真实ClamAV病毒库/部署ACL仍未验收。T04/T05/T06/T07/T08保持partial；本片无生产连接、服务安装或设备安全放行。

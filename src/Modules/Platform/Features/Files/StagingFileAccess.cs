@@ -30,7 +30,9 @@ public enum FileAccessDecision
     /// <summary>The file has not reached the minimum orphan age.</summary>
     TooYoung,
     /// <summary>The requested identity or correlation is invalid.</summary>
-    Invalid
+    Invalid,
+    /// <summary>A permanent upload operation was reused with different content or metadata.</summary>
+    IdempotencyConflict
 }
 
 /// <summary>Authorized staging metadata without object paths, content digests or business references.</summary>
@@ -86,7 +88,7 @@ public sealed class FileAccessException(bool transient = false) : Exception("Pla
 /// Current-authorized access to unbound staging files only. Business attachments require their entity owner's
 /// additional authority and are deliberately rejected here, even for an All file grant.
 /// </summary>
-public sealed class StagingFileAccess
+public sealed partial class StagingFileAccess
 {
     private static readonly string[] ReadFields =
         ["Id", "FileName", "ContentType", "ByteCount", "State", "Stored", "Version", "CreatedAt", "ProcessingProblem"];

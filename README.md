@@ -44,6 +44,8 @@ T07协调续实施：[持久扫描与孤儿删除协调](docs/implementation/101
 
 T07权限续实施：[当前授权的暂存文件入口](docs/implementation/103-t07-authorized-staging-file-access.md)及[测试证据](docs/implementation/104-t07-authorized-staging-file-access-tests.md)接通元数据、扫描/删除授权与审计后下载；真实creator/当前部门/会话/字段范围复验，读取中撤权或绑定不交付内容，未交付缓冲清零。仅限未绑定暂存文件，业务附件明确拒绝；上传、业务实体授权、HTTP/页面与真实扫描仍待完成。
 
+T07上传续实施：[持久受权上传](docs/implementation/105-t07-durable-authorized-uploads.md)及[测试证据](docs/implementation/106-t07-durable-authorized-uploads-tests.md)新增永久tenant/operation身份、创建审计后不可覆盖写、精确字节确认与恢复；同operation换actor/名字/内容拒绝，真实20MiB边界成功仍隔离。完整串行回归1174项通过；业务实体绑定、HTTP流限额/API/页面和真实病毒清除仍待验收，不关闭整包。
+
 T05续实施：[托管Platform发布调度](docs/implementation/95-t05-hosted-platform-publisher.md)及[测试证据](docs/implementation/96-t05-hosted-platform-publisher-tests.md)接通默认禁用的显式tenant/batch周期和公共owner发布边界；缺少显式transport时拒绝启用，不提供None/成功fallback。调度器、lease和真实MySQL测试不代替真实Broker、Notifications聚合及T05整体合同。
 
 T08续实施：[WMS owner账本核心](docs/implementation/97-t08-owner-ledger-core.md)及[测试证据](docs/implementation/98-t08-owner-ledger-core-tests.md)新增独立余额/永久记账身份/不可变流水、精确收发和成对移账事务、版本与业务身份防重。内部记账原语没有Host/API接线，不代替实体授权、主数据、保护量持久化与完整业务用例；T08仍未整体关闭。

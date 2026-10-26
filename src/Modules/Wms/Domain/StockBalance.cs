@@ -60,6 +60,7 @@ public sealed class StockBalance
 
     internal (decimal Before, decimal After) Credit(StockMovementQuantity quantity) => Change(quantity, incoming: true);
     internal (decimal Before, decimal After) Debit(StockMovementQuantity quantity) => Change(quantity, incoming: false);
+    internal void TouchReservationFence() => Version = Guid.NewGuid().ToString("D");
 
     private (decimal Before, decimal After) Change(StockMovementQuantity quantity, bool incoming)
     {

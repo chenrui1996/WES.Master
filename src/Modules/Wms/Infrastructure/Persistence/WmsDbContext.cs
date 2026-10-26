@@ -5,7 +5,7 @@ using Wes.Wms.Domain;
 namespace Wes.Wms.Infrastructure.Persistence;
 
 /// <summary>WMS-owned unit of work; no Platform or execution-module tables are referenced.</summary>
-public sealed class WmsDbContext : DbContext
+public sealed partial class WmsDbContext : DbContext
 {
     /// <summary>Requires one explicit nonempty trusted tenant for every runtime and design-time scope.</summary>
     public WmsDbContext(DbContextOptions<WmsDbContext> options, Guid tenant) : base(options)
@@ -16,7 +16,7 @@ public sealed class WmsDbContext : DbContext
 
     /// <summary>Owner scope, never inferred from a request's stock identifier.</summary>
     public Guid TenantId { get; }
-    /// <summary>Book balances, writable only together with immutable owner ledger entries.</summary>
+    /// <summary>Book balances; quantity changes require immutable ledger entries, while reservation changes claim the same version fence.</summary>
     public DbSet<StockBalance> Balances => Set<StockBalance>();
     /// <summary>Permanent business posting identities.</summary>
     public DbSet<StockPosting> Postings => Set<StockPosting>();
@@ -26,6 +26,7 @@ public sealed class WmsDbContext : DbContext
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        ConfigureReservations(modelBuilder);
         var balance = modelBuilder.Entity<StockBalance>();
         balance.ToTable("wms_stock_balances");
         balance.HasKey(item => new { item.TenantId, item.Id });
@@ -114,6 +115,7 @@ public sealed class WmsDbContext : DbContext
     private void ValidateWrites()
     {
         ValidateLedgerEffects();
+        ValidateReservationEffects();
         foreach (var entry in ChangeTracker.Entries().Where(item =>
             item.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
         {
@@ -121,8 +123,8 @@ public sealed class WmsDbContext : DbContext
                 || (entry.State != EntityState.Added
                     && !Equals(entry.Property(nameof(StockBalance.TenantId)).OriginalValue, TenantId)))
                 throw new InvalidOperationException("WMS writes require a matching trusted tenant.");
-            if (entry.Entity is StockPosting or StockEntry && entry.State != EntityState.Added)
-                throw new InvalidOperationException("WMS posting identities and ledger entries are immutable.");
+            if (entry.Entity is StockPosting or StockEntry or ReservationChange && entry.State != EntityState.Added)
+                throw new InvalidOperationException("WMS posting identities, ledger entries and reservation changes are immutable.");
             if (entry.Entity is not StockBalance balance) continue;
             if (entry.State == EntityState.Deleted)
                 throw new InvalidOperationException("WMS balance identities must be retained with their ledger.");
@@ -137,6 +139,11 @@ public sealed class WmsDbContext : DbContext
                 throw new InvalidOperationException("Stock dimensions and unit precision are immutable.");
             var facts = ChangeTracker.Entries<StockEntry>().Where(item => item.State == EntityState.Added
                 && item.Entity.TenantId == TenantId && item.Entity.BalanceId == balance.Id).ToArray();
+            if (Equals(entry.Property(nameof(StockBalance.Quantity)).OriginalValue, balance.Quantity)
+                && ChangeTracker.Entries<ReservationChange>().Any(item => item.State == EntityState.Added
+                    && item.Entity.TenantId == TenantId && item.Entity.BalanceId == balance.Id)
+                && !Equals(entry.Property(nameof(StockBalance.Version)).OriginalValue, balance.Version))
+                continue;
             if (facts.Length != 1 || facts[0].Entity.Before != (decimal)entry.Property(nameof(StockBalance.Quantity)).OriginalValue!
                 || facts[0].Entity.After != balance.Quantity
                 || Equals(entry.Property(nameof(StockBalance.Version)).OriginalValue, balance.Version))

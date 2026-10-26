@@ -242,3 +242,12 @@
 - 实测修复MySQL默认排序合并大小写/重音批次的缺口，Batch列显式二进制排序；无批次使用非空空串保证唯一键有效。精确6位小数/UTC微秒、跨tenant读写及不可改历史均通过真实Provider测试。授权仍只能由后续业务owner实时核验，本数据库隔离不代替授权。
 - 新增11项余额领域和25项真实MySQL测试，原39项数量/保护回归通过。完整串行Release现为Architecture **29**、Modules **420**、Persistence **406**、Route **228**，合计 **1083 passed、0 failed、0 skipped**；格式、diff、model/snapshot和迁移SQL检查通过。见[设计](97-t08-owner-ledger-core.md)/[证据](98-t08-owner-ledger-core-tests.md)。
 - **T08仍partial**：主数据、业务授权、保护量/预留/在途/Unknown持久化、WMS Outbox与API/页面尚未完成；未将内部账本基础接入真实库存或生产Host，不以1083项回归关闭T04–T08。
+
+### T08 持久预留与账本保护
+
+- WMS新增永久执行份额及不可变reservation change，Reserved/InTransit/Unknown同份额按并集保护；部分释放使用永久operation防重，在途/Unknown不能ReleaseUnstarted，零余量身份不按TTL删除或复活。
+- 预留与账本共同竞争balance Version；Shipment/Transfer只能使用Available或本执行单元的精确匹配非Unknown份额。确认消费、余额及成对entry/posting同事务，保存后故障/取消不留半笔效果。没有跨模块私表依赖或新包依赖。
+- 新增跨余额execution冒用反例，先观察错误Posted后修复为ProtectedStock；新增ReadCommitted确定性交错反例，先观察新保护与旧余额混合计算异常，再增加保护读取后的版本复验，转为VersionConflict而非误报数据损坏。不自动重算/重复物理意图。
+- 真实MySQL定向 **48 passed**（原25项账本、本片新增23项）。最终完整串行Release：Architecture **29**、Modules **420**、Persistence **429**、Route **228**，合计 **1106 passed、0 failed、0 skipped**。迁移仅新增WMS两表和tenant复合约束，model/snapshot一致；格式及diff检查通过，见[设计](99-t08-durable-stock-reservations.md)/[证据](100-t08-durable-stock-reservations-tests.md)。
+- GitHub push仍遇TLS握手失败（默认OpenSSL及启用证书验证的schannel均失败），既有账本本地提交未确认远端；不关闭证书验证、不force-push、不把本地commit写作推送成功。
+- **T08仍partial**：具名业务授权、完整主数据/单据状态/运输证据、WMS Outbox与API/页面未完成。内部ReleaseUnstarted仍只允许后续受权业务owner在已证明无执行效果时调用，不能直接接受HTTP bool。T04/T05/T06/T07/T08整体不因本片通过而关闭，生产/现场H及其他Provider门禁不变。

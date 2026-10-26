@@ -26,3 +26,5 @@ entry记录tenant/posting/balance、有符号数量（收入正、支出负）�
 复用已验证Oracle MySQL EF 10.0.7/驱动9.7.0，WMS自有WmsDbContext、wms_表及独立迁移历史；不引用Platform项目。设计时工厂无连接、无seed。测试只用授权wes_test及每例随机tenant，清理仅这些tenant的WMS数据。增加依赖后才restore更新锁文件。首期真实MySQL验证精确小数/唯一维度/tenant隔离、不可变历史、CAS、成对移账回滚、重复operation/业务执行身份与故障注入，不使用SQLite/InMemory代签。
 
 本片不装配Host、不提供API/页面，不声明收发单据、主数据、预留/在途/Unknown全生命周期或WMS Outbox已完成。剩余硬依赖及整体验收继续按T04/T05/T06/T08工作包，证据见[测试记录](98-t08-owner-ledger-core-tests.md)。
+
+后续[持久预留切片](99-t08-durable-stock-reservations.md)已接入Reserved/InTransit/Unknown及源余额Version保护，替代本片首批验证时的“零保护前提”；完整业务授权、主数据、运输证据与HTTP装配仍未完成，不能据内部消费接线解除整体门禁。

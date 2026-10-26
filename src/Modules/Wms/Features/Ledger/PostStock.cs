@@ -13,7 +13,7 @@ internal sealed record StockPostingCommand(Guid OperationId, Guid ActorId, Guid 
 
 internal enum StockPostingDecision
 {
-    Posted, Replayed, Invalid, NotFound, VersionRequired, VersionConflict, IdempotencyConflict, InsufficientStock, DimensionMismatch
+    Posted, Replayed, Invalid, NotFound, VersionRequired, VersionConflict, IdempotencyConflict, InsufficientStock, DimensionMismatch, ProtectedStock
 }
 
 internal sealed record StockPostingResult(StockPostingDecision Decision, Guid? PostingId = null);
@@ -57,6 +57,29 @@ internal sealed class PostStock(WmsDbContext database, TimeProvider clock)
                     return new(StockPostingDecision.DimensionMismatch);
                 if (source is not null && source.Quantity < command.Quantity)
                     return new(StockPostingDecision.InsufficientStock);
+                StockReservation? consumed = null;
+                if (source is not null)
+                {
+                    var reservations = await database.Reservations.AsNoTracking()
+                        .Where(item => item.BalanceId == source.Id && item.RemainingQuantity > 0m).ToListAsync(cancellationToken);
+                    consumed = await database.Reservations.SingleOrDefaultAsync(
+                        item => item.ExecutionUnitId == command.ExecutionUnitId, cancellationToken);
+                    if (!await database.Balances.AnyAsync(item => item.Id == source.Id && item.Version == source.Version, cancellationToken))
+                        return await FindExistingAsync(command, cancellationToken) ?? new(StockPostingDecision.VersionConflict);
+                    if (consumed is not null)
+                    {
+                        if (consumed.BalanceId != source.Id
+                            || !consumed.CanConsume(command.SourceDocumentId, command.SourceLineId, command.Quantity))
+                            return new(StockPostingDecision.ProtectedStock);
+                    }
+                    else
+                    {
+                        var availability = StockAvailability.Calculate(InventoryQuantity.Create(source.Quantity),
+                            reservations.Where(item => item.RemainingQuantity > 0m).Select(item => new StockProtection(
+                                item.ExecutionUnitId, InventoryQuantity.Create(item.RemainingQuantity), item.Kind)));
+                        if (command.Quantity > availability.Available.Value) return new(StockPostingDecision.InsufficientStock);
+                    }
+                }
                 var precision = QuantityPrecision.Create((source ?? target!).Precision);
                 if (!precision.CanRepresent(command.Quantity)) return new(StockPostingDecision.Invalid);
                 var quantity = StockMovementQuantity.Create(command.Quantity, precision);
@@ -68,6 +91,7 @@ internal sealed class PostStock(WmsDbContext database, TimeProvider clock)
                 database.Postings.Add(posting);
                 if (source is not null)
                 {
+                    consumed?.Consume(command.Quantity);
                     var change = source.Debit(quantity);
                     database.Entries.Add(new StockEntry(posting, source, change.Before, change.After));
                 }
@@ -101,12 +125,12 @@ internal sealed class PostStock(WmsDbContext database, TimeProvider clock)
         catch (DbUpdateException error) when (error.InnerException is DbException)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            throw Safe((DbException)error.InnerException);
+            throw WmsDatabaseFailures.Safe((DbException)error.InnerException);
         }
         catch (DbException error)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            throw Safe(error);
+            throw WmsDatabaseFailures.Safe(error);
         }
     }
 
@@ -140,6 +164,4 @@ internal sealed class PostStock(WmsDbContext database, TimeProvider clock)
         });
 
     private static bool IsVersion(string? version) => Guid.TryParseExact(version, "D", out var id) && id != Guid.Empty;
-    private static WmsDatabaseException Safe(DbException error) =>
-        new(error.IsTransient || error is MySqlException { Number: 1040 or 1042 or 1205 or 1213 or 2006 or 2013 });
 }

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Wes.Wms.Domain;
 using Wes.Wms.Features.Ledger;
+using Wes.Wms.Features.Reservations;
 using Wes.Wms.Infrastructure.Persistence;
 using Xunit;
 
@@ -317,6 +318,335 @@ public sealed class WmsLedgerTests : IAsyncLifetime
         Assert.Single(await verify.Entries.ToListAsync());
     }
 
+    [Fact]
+    public async Task DurableProtectionUnionLeavesThreeAvailableAndBlocksUnrelatedShipment()
+    {
+        await ReceiveAsync(10m);
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        Assert.Equal(ReservationDecision.Changed, (await ReserveAsync(first, 5m)).Decision);
+        Assert.Equal(ReservationDecision.Changed, (await ReserveAsync(second, 2m)).Decision);
+        Assert.Equal(ReservationDecision.Changed,
+            (await ChangeReservationAsync(first, ReservationAction.MarkInTransit, 0m)).Decision);
+        await using (var verify = Open(_tenant))
+        {
+            var balance = await verify.Balances.SingleAsync(item => item.Id == _source);
+            var protections = await verify.Reservations.ToListAsync();
+            var projection = StockAvailability.Calculate(InventoryQuantity.Create(balance.Quantity),
+                protections.Where(item => item.RemainingQuantity > 0m).Select(item =>
+                    new StockProtection(item.ExecutionUnitId, InventoryQuantity.Create(item.RemainingQuantity), item.Kind)));
+            Assert.Equal(7m, projection.Reserved.Value);
+            Assert.Equal(5m, projection.InTransit.Value);
+            Assert.Equal(3m, projection.Available.Value);
+        }
+        Assert.Equal(StockPostingDecision.InsufficientStock,
+            (await ExecuteAsync(await CommandAsync(StockPostingKind.Shipment, _source, null, 4m))).Decision);
+        Assert.Equal(StockPostingDecision.Posted,
+            (await ExecuteAsync(await CommandAsync(StockPostingKind.Shipment, _source, null, 3m))).Decision);
+    }
+
+    [Fact]
+    public async Task PartialReleaseIsPermanentOperationIdempotentAndInTransitCannotRelease()
+    {
+        await ReceiveAsync(10m);
+        var execution = Guid.NewGuid();
+        await ReserveAsync(execution, 7m);
+        var release = await ReservationCommandAsync(execution, ReservationAction.ReleaseUnstarted, 2m);
+        Assert.Equal(ReservationDecision.Changed, (await ExecuteReservationAsync(release)).Decision);
+        Assert.Equal(ReservationDecision.Replayed, (await ExecuteReservationAsync(release)).Decision);
+        await ChangeReservationAsync(execution, ReservationAction.MarkInTransit, 0m);
+        Assert.Equal(ReservationDecision.StateConflict,
+            (await ChangeReservationAsync(execution, ReservationAction.ReleaseUnstarted, 1m)).Decision);
+        await using var verify = Open(_tenant);
+        Assert.Equal(5m, (await verify.Reservations.SingleAsync()).RemainingQuantity);
+        Assert.Equal(10m, (await verify.Balances.SingleAsync(item => item.Id == _source)).Quantity);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MatchingReservationIsConsumedExactlyOnceWithLedgerButUnknownIsBlocked(bool unknown)
+    {
+        await ReceiveAsync(10m);
+        var execution = Guid.NewGuid();
+        await ReserveAsync(execution, 7m);
+        await ChangeReservationAsync(execution, unknown ? ReservationAction.MarkUnknown : ReservationAction.MarkInTransit, 0m);
+        var command = (await CommandAsync(StockPostingKind.Shipment, _source, null, 5m)) with { ExecutionUnitId = execution };
+        var result = await ExecuteAsync(command);
+        Assert.Equal(unknown ? StockPostingDecision.ProtectedStock : StockPostingDecision.Posted, result.Decision);
+        await using var verify = Open(_tenant);
+        Assert.Equal(unknown ? 10m : 5m, (await verify.Balances.SingleAsync(item => item.Id == _source)).Quantity);
+        Assert.Equal(unknown ? 7m : 2m, (await verify.Reservations.SingleAsync()).RemainingQuantity);
+        if (!unknown)
+            Assert.Equal(StockPostingDecision.Replayed, (await ExecuteAsync(command)).Decision);
+        else
+            Assert.Equal(ReservationDecision.StateConflict,
+                (await ChangeReservationAsync(execution, ReservationAction.ReleaseUnstarted, 7m)).Decision);
+    }
+
+    [Fact]
+    public async Task ReservationConsumptionRollsBackWithFailedLedgerCommit()
+    {
+        await ReceiveAsync(10m);
+        var execution = Guid.NewGuid();
+        await ReserveAsync(execution, 7m);
+        var command = (await CommandAsync(StockPostingKind.Transfer, _source, _target, 5m)) with { ExecutionUnitId = execution };
+        using var cancellation = new CancellationTokenSource();
+        await using (var broken = Open(_tenant, new AfterSaveFault(false, cancellation)))
+            await Assert.ThrowsAsync<InvalidOperationException>(() => new PostStock(broken, _clock).ExecuteAsync(command));
+        await using var verify = Open(_tenant);
+        Assert.Equal(7m, (await verify.Reservations.SingleAsync()).RemainingQuantity);
+        Assert.Equal(10m, (await verify.Balances.SingleAsync(item => item.Id == _source)).Quantity);
+        Assert.Equal(0m, (await verify.Balances.SingleAsync(item => item.Id == _target)).Quantity);
+    }
+
+    [Fact]
+    public async Task ConcurrentReservationsCannotBothAllocateSevenFromTen()
+    {
+        await ReceiveAsync(10m);
+        var first = await ReservationCommandAsync(Guid.NewGuid(), ReservationAction.Reserve, 7m);
+        var second = await ReservationCommandAsync(Guid.NewGuid(), ReservationAction.Reserve, 7m);
+        var results = await Task.WhenAll(ExecuteReservationAsync(first), ExecuteReservationAsync(second));
+        Assert.Single(results, item => item.Decision == ReservationDecision.Changed);
+        Assert.Single(results, item => item.Decision == ReservationDecision.VersionConflict);
+        await using var verify = Open(_tenant);
+        Assert.Equal(7m, await verify.Reservations.SumAsync(item => item.RemainingQuantity));
+    }
+
+    [Fact]
+    public async Task ExecutionReservedOnAnotherBalanceCannotMasqueradeAsUnreservedShipment()
+    {
+        await ReceiveAsync(10m);
+        await ExecuteAsync(await CommandAsync(StockPostingKind.Receipt, null, _target, 5m));
+        var execution = Guid.NewGuid();
+        await ReserveAsync(execution, 7m);
+        var command = (await CommandAsync(StockPostingKind.Shipment, _target, null, 5m)) with { ExecutionUnitId = execution };
+        Assert.Equal(StockPostingDecision.ProtectedStock, (await ExecuteAsync(command)).Decision);
+        await using var verify = Open(_tenant);
+        Assert.Equal(5m, (await verify.Balances.SingleAsync(item => item.Id == _target)).Quantity);
+        Assert.Equal(7m, (await verify.Reservations.SingleAsync()).RemainingQuantity);
+    }
+
+    [Fact]
+    public async Task ConsumedReservationIdentityCannotBeRecreatedByAnotherReserveOperation()
+    {
+        await ReceiveAsync(10m);
+        var execution = Guid.NewGuid();
+        var reserve = await ReservationCommandAsync(execution, ReservationAction.Reserve, 7m);
+        await ExecuteReservationAsync(reserve);
+        var shipment = (await CommandAsync(StockPostingKind.Shipment, _source, null, 7m)) with { ExecutionUnitId = execution };
+        Assert.Equal(StockPostingDecision.Posted, (await ExecuteAsync(shipment)).Decision);
+        Assert.Equal(ReservationDecision.Replayed,
+            (await ExecuteReservationAsync(reserve with { OperationId = Guid.NewGuid() })).Decision);
+        Assert.Equal(ReservationDecision.IdempotencyConflict,
+            (await ExecuteReservationAsync(reserve with { OperationId = Guid.NewGuid(), Quantity = 1m })).Decision);
+        await using var verify = Open(_tenant);
+        Assert.Equal(0m, (await verify.Reservations.SingleAsync()).RemainingQuantity);
+        Assert.Single(await verify.ReservationChanges.ToListAsync());
+    }
+
+    [Fact]
+    public async Task ReusedReleaseOperationWithChangedQuantityCannotReleaseAgain()
+    {
+        await ReceiveAsync(10m);
+        var execution = Guid.NewGuid();
+        await ReserveAsync(execution, 7m);
+        var release = await ReservationCommandAsync(execution, ReservationAction.ReleaseUnstarted, 2m);
+        await ExecuteReservationAsync(release);
+        Assert.Equal(ReservationDecision.IdempotencyConflict,
+            (await ExecuteReservationAsync(release with { Quantity = 3m })).Decision);
+        Assert.Equal(ReservationDecision.InsufficientStock, (await ReserveAsync(Guid.NewGuid(), 6m)).Decision);
+        await using var verify = Open(_tenant);
+        Assert.Equal(5m, (await verify.Reservations.SingleAsync()).RemainingQuantity);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReservationFailureOrCancellationAfterSaveLeavesNoProtectionOrIdentity(bool cancel)
+    {
+        await ReceiveAsync(10m);
+        var command = await ReservationCommandAsync(Guid.NewGuid(), ReservationAction.Reserve, 7m);
+        using var cancellation = new CancellationTokenSource();
+        await using (var broken = Open(_tenant, new AfterSaveFault(cancel, cancellation)))
+        {
+            if (cancel)
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                    new ChangeStockReservation(broken, _clock).ExecuteAsync(command, cancellation.Token));
+            else
+                await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                    new ChangeStockReservation(broken, _clock).ExecuteAsync(command));
+        }
+        await using var verify = Open(_tenant);
+        Assert.Empty(await verify.Reservations.ToListAsync());
+        Assert.Empty(await verify.ReservationChanges.ToListAsync());
+        Assert.Equal(command.ExpectedVersion, (await verify.Balances.SingleAsync(item => item.Id == _source)).Version);
+        Assert.Equal(ReservationDecision.Changed, (await ExecuteReservationAsync(command)).Decision);
+    }
+
+    [Fact]
+    public async Task ReservationFactsAndBusinessIdentityAreImmutableAcrossTenantBoundaries()
+    {
+        await ReceiveAsync(10m);
+        var execution = Guid.NewGuid();
+        var command = await ReservationCommandAsync(execution, ReservationAction.Reserve, 7m);
+        await ExecuteReservationAsync(command);
+        await using (var other = Open(_other))
+        {
+            Assert.Empty(await other.Reservations.ToListAsync());
+            Assert.Empty(await other.ReservationChanges.ToListAsync());
+            Assert.Equal(ReservationDecision.NotFound,
+                (await new ChangeStockReservation(other, _clock).ExecuteAsync(command)).Decision);
+        }
+        await using (var database = Open(_tenant))
+        {
+            await using var transaction = await database.Database.BeginTransactionAsync();
+            database.Reservations.Remove(await database.Reservations.SingleAsync());
+            await Assert.ThrowsAsync<InvalidOperationException>(() => database.SaveChangesAsync());
+        }
+        await using (var database = Open(_tenant))
+        {
+            database.ReservationChanges.Remove(await database.ReservationChanges.SingleAsync());
+            await Assert.ThrowsAsync<InvalidOperationException>(() => database.SaveChangesAsync());
+        }
+        await using (var database = Open(_tenant))
+        {
+            await using var transaction = await database.Database.BeginTransactionAsync();
+            var reservation = await database.Reservations.SingleAsync();
+            database.Entry(reservation).Property(item => item.SourceLineId).CurrentValue = Guid.NewGuid();
+            await Assert.ThrowsAsync<InvalidOperationException>(() => database.SaveChangesAsync());
+        }
+    }
+
+    [Fact]
+    public async Task ReservationAndUnrelatedShipmentCompeteOnTheSameVersionFence()
+    {
+        await ReceiveAsync(10m);
+        var reserve = await ReservationCommandAsync(Guid.NewGuid(), ReservationAction.Reserve, 7m);
+        var shipment = await CommandAsync(StockPostingKind.Shipment, _source, null, 7m);
+        var reserving = ExecuteReservationAsync(reserve);
+        var shipping = ExecuteAsync(shipment);
+        await Task.WhenAll(reserving, shipping);
+        var reservationResult = await reserving;
+        var shipmentResult = await shipping;
+        Assert.True((reservationResult.Decision == ReservationDecision.Changed
+                && shipmentResult.Decision is StockPostingDecision.VersionConflict or StockPostingDecision.InsufficientStock)
+            || (reservationResult.Decision == ReservationDecision.VersionConflict && shipmentResult.Decision == StockPostingDecision.Posted));
+        await using var verify = Open(_tenant);
+        var balance = await verify.Balances.SingleAsync(item => item.Id == _source);
+        var protectedQuantity = await verify.Reservations.SumAsync(item => item.RemainingQuantity);
+        Assert.True(balance.Quantity >= protectedQuantity);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(1000000000)]
+    [InlineData(0.0000001)]
+    public async Task InvalidReservationQuantityDoesNotAcquireAnOperationOrBalanceFence(decimal quantity)
+    {
+        await ReceiveAsync(10m);
+        var command = await ReservationCommandAsync(Guid.NewGuid(), ReservationAction.Reserve, quantity);
+        Assert.Equal(ReservationDecision.Invalid, (await ExecuteReservationAsync(command)).Decision);
+        await using var verify = Open(_tenant);
+        Assert.Empty(await verify.Reservations.ToListAsync());
+        Assert.Empty(await verify.ReservationChanges.ToListAsync());
+        Assert.Equal(command.ExpectedVersion, (await verify.Balances.SingleAsync(item => item.Id == _source)).Version);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReservationDatabaseFaultIsSanitizedAndNeverBecomesAReplay(bool transient)
+    {
+        var command = await ReservationCommandAsync(Guid.NewGuid(), ReservationAction.Reserve, 1m);
+        var fault = new QueryFault(transient, "wms_reservation_changes");
+        await using var broken = Open(_tenant, fault);
+        var error = await Assert.ThrowsAsync<WmsDatabaseException>(() => new ChangeStockReservation(broken, _clock).ExecuteAsync(command));
+        Assert.True(fault.Reached);
+        Assert.Equal(transient, error.IsTransient);
+        Assert.DoesNotContain("sensitive-sentinel", error.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task UnknownProtectionAndMismatchedDocumentCannotBeReleasedOrConsumed()
+    {
+        await ReceiveAsync(10m);
+        var execution = Guid.NewGuid();
+        await ReserveAsync(execution, 7m);
+        var shipment = (await CommandAsync(StockPostingKind.Shipment, _source, null, 1m))
+            with
+        { ExecutionUnitId = execution, SourceLineId = Guid.NewGuid() };
+        Assert.Equal(StockPostingDecision.ProtectedStock, (await ExecuteAsync(shipment)).Decision);
+        await ChangeReservationAsync(execution, ReservationAction.MarkUnknown, 0m);
+        Assert.Equal(ReservationDecision.StateConflict,
+            (await ChangeReservationAsync(execution, ReservationAction.ReleaseUnstarted, 7m)).Decision);
+        await using var verify = Open(_tenant);
+        Assert.Equal(7m, (await verify.Reservations.SingleAsync()).RemainingQuantity);
+        Assert.Equal(10m, (await verify.Balances.SingleAsync(item => item.Id == _source)).Quantity);
+    }
+
+    [Fact]
+    public async Task PartialConfirmedTransferConsumesOnlyItsPortionWithBothLedgerLegs()
+    {
+        await ReceiveAsync(10m);
+        var execution = Guid.NewGuid();
+        await ReserveAsync(execution, 7m);
+        await ChangeReservationAsync(execution, ReservationAction.MarkInTransit, 0m);
+        var transfer = (await CommandAsync(StockPostingKind.Transfer, _source, _target, 3m)) with { ExecutionUnitId = execution };
+        var posted = await ExecuteAsync(transfer);
+        Assert.Equal(StockPostingDecision.Posted, posted.Decision);
+        Assert.Equal(StockPostingDecision.Replayed, (await ExecuteAsync(transfer)).Decision);
+        await using var verify = Open(_tenant);
+        Assert.Equal(4m, (await verify.Reservations.SingleAsync()).RemainingQuantity);
+        Assert.Equal(7m, (await verify.Balances.SingleAsync(item => item.Id == _source)).Quantity);
+        Assert.Equal(3m, (await verify.Balances.SingleAsync(item => item.Id == _target)).Quantity);
+        Assert.Equal(2, await verify.Entries.CountAsync(item => item.PostingId == posted.PostingId));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NewProtectionAgainstNewIncomeCannotBeCalculatedAgainstAnOldBalance(bool posting)
+    {
+        await ReceiveAsync(5m);
+        var reserve = await ReservationCommandAsync(Guid.NewGuid(), ReservationAction.Reserve, 1m);
+        var shipment = await CommandAsync(StockPostingKind.Shipment, _source, null, 1m);
+        var interleaving = new BeforeProtectionRead(async () =>
+        {
+            await ReceiveAsync(5m);
+            Assert.Equal(ReservationDecision.Changed, (await ReserveAsync(Guid.NewGuid(), 7m)).Decision);
+        });
+        await using var stale = Open(_tenant, interleaving);
+        if (posting)
+            Assert.Equal(StockPostingDecision.VersionConflict, (await new PostStock(stale, _clock).ExecuteAsync(shipment)).Decision);
+        else
+            Assert.Equal(ReservationDecision.VersionConflict, (await new ChangeStockReservation(stale, _clock).ExecuteAsync(reserve)).Decision);
+        Assert.True(interleaving.Reached);
+        await using var verify = Open(_tenant);
+        Assert.Equal(10m, (await verify.Balances.SingleAsync(item => item.Id == _source)).Quantity);
+        Assert.Equal(7m, await verify.Reservations.SumAsync(item => item.RemainingQuantity));
+    }
+
+    private async Task<ReservationCommand> ReservationCommandAsync(Guid execution, ReservationAction action, decimal quantity)
+    {
+        await using var database = Open(_tenant);
+        var balance = await database.Balances.SingleAsync(item => item.Id == _source);
+        return new(Guid.NewGuid(), _actor, Guid.NewGuid(), action, execution, _source, _document, _line, quantity, balance.Version);
+    }
+
+    private async Task<ReservationResult> ReserveAsync(Guid execution, decimal quantity) =>
+        await ExecuteReservationAsync(await ReservationCommandAsync(execution, ReservationAction.Reserve, quantity));
+
+    private async Task<ReservationResult> ChangeReservationAsync(Guid execution, ReservationAction action, decimal quantity) =>
+        await ExecuteReservationAsync(await ReservationCommandAsync(execution, action, quantity));
+
+    private async Task<ReservationResult> ExecuteReservationAsync(ReservationCommand command)
+    {
+        await using var database = Open(_tenant);
+        return await new ChangeStockReservation(database, _clock).ExecuteAsync(command);
+    }
+
     private async Task ReceiveAsync(decimal quantity) =>
         Assert.Equal(StockPostingDecision.Posted,
             (await ExecuteAsync(await CommandAsync(StockPostingKind.Receipt, null, _source, quantity))).Decision);
@@ -351,6 +681,8 @@ public sealed class WmsLedgerTests : IAsyncLifetime
         foreach (var tenant in new[] { _tenant, _other })
         {
             await using var database = Open(tenant);
+            await database.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_reservation_changes WHERE TenantId = {tenant.ToString("D")}");
+            await database.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_stock_reservations WHERE TenantId = {tenant.ToString("D")}");
             await database.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_stock_entries WHERE TenantId = {tenant.ToString("D")}");
             await database.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_stock_postings WHERE TenantId = {tenant.ToString("D")}");
             await database.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_stock_balances WHERE TenantId = {tenant.ToString("D")}");
@@ -373,14 +705,14 @@ public sealed class WmsLedgerTests : IAsyncLifetime
         }
     }
 
-    private sealed class QueryFault(bool transient) : DbCommandInterceptor
+    private sealed class QueryFault(bool transient, string table = "wms_stock_postings") : DbCommandInterceptor
     {
         public bool Reached { get; private set; }
         public override ValueTask<InterceptionResult<System.Data.Common.DbDataReader>> ReaderExecutingAsync(
             System.Data.Common.DbCommand command, CommandEventData eventData,
             InterceptionResult<System.Data.Common.DbDataReader> result, CancellationToken cancellationToken = default)
         {
-            if (command.CommandText.Contains("wms_stock_postings", StringComparison.Ordinal))
+            if (command.CommandText.Contains(table, StringComparison.Ordinal))
             {
                 Reached = true;
                 throw new DatabaseFault(transient);
@@ -392,5 +724,24 @@ public sealed class WmsLedgerTests : IAsyncLifetime
     private sealed class DatabaseFault(bool transient) : System.Data.Common.DbException("sensitive-sentinel")
     {
         public override bool IsTransient => transient;
+    }
+
+    private sealed class BeforeProtectionRead(Func<Task> change) : DbCommandInterceptor
+    {
+        private bool _readBalance;
+        public bool Reached { get; private set; }
+        public override async ValueTask<InterceptionResult<System.Data.Common.DbDataReader>> ReaderExecutingAsync(
+            System.Data.Common.DbCommand command, CommandEventData eventData,
+            InterceptionResult<System.Data.Common.DbDataReader> result, CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains("wms_stock_balances", StringComparison.Ordinal))
+                _readBalance = true;
+            if (_readBalance && !Reached && command.CommandText.Contains("wms_stock_reservations", StringComparison.Ordinal))
+            {
+                Reached = true;
+                await change();
+            }
+            return result;
+        }
     }
 }

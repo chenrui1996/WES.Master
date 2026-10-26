@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 import ColumnSettings from "../../components/ColumnSettings.vue";
 import QueryState from "../../components/QueryState.vue";
+import RealtimePager from "../../components/RealtimePager.vue";
 import { useColumns } from "../../components/useColumns";
 import { api, ApiError, canRead, sessionState, type Grant } from "../identity/identity-api";
 import { useDirectoryCandidates } from "./useDirectoryCandidates";
@@ -20,6 +21,7 @@ const queryError = ref("");
 const candidateError = ref("");
 const message = ref("");
 const offset = ref(0);
+const pageSize = ref(25);
 const filters = reactive({ code: "", permission: "" });
 const readFields = computed(() => new Set(sessionState.subject?.grants.filter(grant =>
   grant.permission === "platform.roles.read" && grant.scope === 2).flatMap(grant => grant.fields)));
@@ -36,6 +38,7 @@ function queryFingerprint() {
     userId: sessionState.subject?.userId,
     grants: sessionState.subject?.grants,
     offset: offset.value,
+    limit: pageSize.value,
     filters,
   });
 }
@@ -118,7 +121,7 @@ async function load() {
     }
   })();
   try {
-    const query = new URLSearchParams({ offset: String(offset.value), limit: "50" });
+    const query = new URLSearchParams({ offset: String(offset.value), limit: String(pageSize.value) });
     if (filters.code && readFields.value.has("Code")) query.set("code", filters.code.trim());
     if (filters.permission && readFields.value.has("Rules")) query.set("permission", filters.permission.trim());
     const response = await api<Page<RoleRow>>(`/api/platform/roles?${query}`, { signal });
@@ -194,7 +197,10 @@ async function submit() {
   } catch (reason) { if (current === generation) fail(reason); }
   finally { if (current === generation) busy.value = false; }
 }
-function page(delta: number) { if (busy.value || loading.value) return; offset.value = Math.max(0, offset.value + delta); void load(); }
+function page(nextOffset: number, limit: number) {
+  if (busy.value || loading.value) return;
+  offset.value = nextOffset; pageSize.value = limit; void load();
+}
 function connectivity() {
   online.value = navigator.onLine;
   if (!online.value) {
@@ -205,6 +211,8 @@ function connectivity() {
 }
 window.addEventListener("online", connectivity); window.addEventListener("offline", connectivity);
 watch(filters, () => {
+  if (loading.value) { generation++; controller?.abort(); loading.value = false; }
+  offset.value = 0;
   if (lastSuccessfulQuery.value !== currentQuery.value) {
     rows.value = [];
     lastSuccessfulQuery.value = null;
@@ -268,7 +276,8 @@ onBeforeUnmount(() => { clear(); window.removeEventListener("online", connectivi
         </div>
         </template>
       </QueryState>
-      <nav class="actions" aria-label="角色分页"><button v-if="offset > 0" @click="page(-50)">上一页</button><span>第 {{ offset / 50 + 1 }} 页，每页最多 50 条</span><button v-if="rows.length === 50" @click="page(50)">下一页</button></nav>
+      <RealtimePager label="角色分页" :offset="offset" :limit="pageSize" :count="rows.length"
+        :busy="busy || loading" :failed="!!queryError" @change="page" />
       <form v-if="editor" data-test="role-form" class="editor" @submit.prevent="submit">
         <fieldset :disabled="busy"><legend>{{ editor === 'new' ? '新建角色' : '角色权限' }}</legend>
           <label v-if="editor === 'new'">角色编码<input v-model="form.code" name="roleCode" required maxlength="64" /></label>

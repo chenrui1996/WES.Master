@@ -23,7 +23,7 @@ it("filters only the eligible catalog by tenant UUID and enabled state", async (
   await wrapper.get('[name="filterTenantId"]').setValue("bde6df13-f184-4b0e-abf4-33140fbba522");
   await wrapper.get('[name="filterTenantEnabled"]').setValue("true");
   await wrapper.get('[data-test="tenant-filters"]').trigger("submit"); await flushPromises();
-  expect(reads).toContain("/api/platform/tenants?offset=0&limit=50&tenantId=bde6df13-f184-4b0e-abf4-33140fbba522&enabled=true");
+  expect(reads).toContain("/api/platform/tenants?offset=0&limit=25&tenantId=bde6df13-f184-4b0e-abf4-33140fbba522&enabled=true");
   wrapper.unmount();
 });
 it("abandons the old identity and emits a fresh-authentication request only after a successful check", async () => {

@@ -83,7 +83,8 @@
 **Interfaces:** 消费当前scope/字段权限；产出loading/空态/error/Stale状态、列偏好/关联候选/父子指纹、实时与固定水位快照协议。快照数据属于查询owner，不集中备份所有域数据到Platform。
 
 - [ ] DTC-UI-001..028/032先用真实具名最小测试页加受控API验证：列必显/顺序/宽度/键盘替代、损坏storage显式提示、本机主体租户环境隔离、父切换旧回包/主从行ID竞态、无导出页不增导出。
-- [ ] 按[功能开关设计](../../detailed-design/feature-switches.md)接入匿名白名单模块UI catalog；加载导航/路由前获取，关闭模块隐藏入口、直接导航有明确不可用态；catalog失败显式报错，不默认全开/空配置。API仍独立授权。
+- [x] 按[功能开关设计](../../detailed-design/feature-switches.md)接入匿名白名单模块UI catalog；加载导航/路由前获取，关闭模块隐藏入口、直接导航有明确不可用态；catalog失败显式报错，不默认全开/空配置。API仍独立授权。已实施，见[客户端记录](../../implementation/41-t06-query-state-and-module-catalog.md)及[测试证据](../../implementation/42-t06-query-state-and-module-catalog-tests.md)。
+- [x] 现有审计、用户、角色、租户、配置、字典与会话接入共享实时分页，25条默认与25/50/100选项、查询指纹/失败/空后续页边界及实时offset限制已验证，见[实施](../../implementation/47-t06-shared-realtime-pager.md)和[测试](../../implementation/48-t06-shared-realtime-pager-tests.md)。这不关闭以下固定快照与完整DTC门禁。
 - [ ] 实现语义HTML/Composition API/strict TS与Element Plus已有组件复用；白名单偏好不存业务数据/secret/待写。核对/已有导出固定有序ID及读值、水位TTL600秒，权限撤销直接失效；实时offset变化不承诺无丢重。
 - [ ] 60条动态更新/增删、599/600秒快照、单位混合不求和、200%字体/+40%翻译/768/1024/1440与局部滚动验收；RVT-06/07。组件绿不代表64页绿，T32逐PAGE适用性再验，PDA/地图不机械套Grid。
 

@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import ColumnSettings from "../../components/ColumnSettings.vue";
 import QueryState from "../../components/QueryState.vue";
+import RealtimePager from "../../components/RealtimePager.vue";
 import { useColumns } from "../../components/useColumns";
 import { ApiError, api, isRecord, sessionState } from "../identity/identity-api";
 interface AuditRow { id: string; occurredAt: string; actorId: string | null; targetId: string | null; correlationId: string | null; action: number | null; beforeVersion: string | null; afterVersion: string | null }
@@ -90,10 +91,9 @@ async function read() {
   }
   finally { if (request === sequence) busy.value = false; }
 }
-function page(delta: -1 | 1) {
-  if (busy.value || delta === -1 && offset.value === 0
-    || delta === 1 && (error.value || rows.value.length !== pageSize.value)) return;
-  offset.value = Math.max(0, offset.value + delta * pageSize.value); void read();
+function page(nextOffset: number, limit: number) {
+  if (busy.value) return;
+  pageSize.value = limit; offset.value = nextOffset; void read();
 }
 function cell(row: AuditRow | EventRow, key: string) {
   if (key === "id") return row.id;
@@ -116,7 +116,7 @@ watch([() => sessionState.subject, () => sessionState.token], () => {
 onMounted(read); onUnmounted(() => { controller.abort(); sequence++; });
 </script>
 <template>
-  <section class="wes-page"><header><p class="eyebrow">只读证据</p><h1>审计与登录事件</h1><p>历史记录不可编辑、删除或批量改写。查询为当前权限下的实时分页，不是固定水位导出；数据变化时不保证跨请求无丢重。</p></header>
+  <section class="wes-page"><header><p class="eyebrow">只读证据</p><h1>审计与登录事件</h1><p>历史记录不可编辑、删除或批量改写。查询为当前权限下的实时分页，不是固定水位导出。</p></header>
     <form class="toolbar" @submit.prevent="offset = 0; read()">
       <label for="audit-mode">证据类型<select id="audit-mode" v-model="mode"><option value="audit">业务审计</option><option value="login-events">登录安全事件（需 All 范围）</option></select></label>
       <label for="audit-from">开始时间（UTC，含）<input id="audit-from" v-model="from" type="datetime-local" required></label>
@@ -141,13 +141,7 @@ onMounted(read); onUnmounted(() => { controller.abort(); sequence++; });
           :class="fixedColumnClass(column.key)" :style="fixedColumnStyle(column.key)">{{ cell(row, column.key) ?? "未授权 / 不适用" }}</td></tr></tbody>
       </table></div>
     </QueryState>
-    <nav class="actions" aria-label="证据分页">
-      <label for="audit-limit">每页条数<select id="audit-limit" v-model.number="pageSize" @change="read">
-        <option :value="25">25</option><option :value="50">50</option><option :value="100">100</option>
-      </select></label>
-      <button type="button" :disabled="busy || offset === 0" @click="page(-1)">上一页</button>
-      <span aria-live="polite">实时 · 第 {{ offset / pageSize + 1 }} 页 · 本页 {{ rows.length }} 条（最多 {{ pageSize }} 条）</span>
-      <button type="button" data-test="next-page" :disabled="busy || !!error || rows.length !== pageSize" @click="page(1)">下一页</button>
-    </nav>
+    <RealtimePager label="证据分页" select-id="audit-limit" :offset="offset" :limit="pageSize" :count="rows.length"
+      :busy="busy" :failed="!!error" @change="page" />
   </section>
 </template>

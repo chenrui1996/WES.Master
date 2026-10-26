@@ -16,10 +16,10 @@ it("sends P/H and fully missing-translation filters to their owners before pagin
   const wrapper = mount(SettingsPage); await flushPromises();
   await wrapper.get('[name="filterSettingKind"]').setValue("H");
   await wrapper.get('[data-test="setting-filters"]').trigger("submit"); await flushPromises();
-  expect(reads).toContain("/api/platform/settings?offset=0&limit=50&kind=H");
+  expect(reads).toContain("/api/platform/settings?offset=0&limit=25&kind=H");
   await wrapper.get('[name="filterMissingTranslation"]').setValue("true");
   await wrapper.get('[data-test="dictionary-filters"]').trigger("submit"); await flushPromises();
-  expect(reads).toContain("/api/platform/dictionary?category=task&language=zh-CN&offset=0&limit=50&missingTranslation=true");
+  expect(reads).toContain("/api/platform/dictionary?category=task&language=zh-CN&offset=0&limit=25&missingTranslation=true");
   wrapper.unmount();
 });
 it("shows explicit H evidence absence and changes a P scalar only with its selected version", async () => {

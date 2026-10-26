@@ -23,7 +23,7 @@ it("queries exact role code and permission before returning to the first page", 
   await wrapper.get('[name="filterRoleCode"]').setValue("OPS");
   await wrapper.get('[name="filterRolePermission"]').setValue("platform.users.read");
   await wrapper.get('[data-test="role-filters"]').trigger("submit"); await flushPromises();
-  expect(reads).toContain("/api/platform/roles?offset=0&limit=50&code=OPS&permission=platform.users.read");
+  expect(reads).toContain("/api/platform/roles?offset=0&limit=25&code=OPS&permission=platform.users.read");
   wrapper.unmount();
 });
 it("previews the selected version and authorized current membership count without assuming a global effect", async () => {

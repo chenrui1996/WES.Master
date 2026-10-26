@@ -86,21 +86,20 @@ it("invalidates old responses and confirmation immediately when filters change",
 });
 
 it("sends explicit state, ISO time range and bounded pagination filters", async () => {
-  const fetcher = vi.fn(async (_url: string) => response([family]));
+  const fetcher = vi.fn(async (_url: string) => response(Array.from({ length: 25 }, (_, index) => ({ ...family, id: `family-${index}` }))));
   vi.stubGlobal("fetch", fetcher);
   const wrapper = render(); await flushPromises();
   await wrapper.get("#session-state").setValue("idle");
   await wrapper.get("#session-from").setValue("2026-10-01T00:00");
   await wrapper.get("#session-to").setValue("2026-11-01T00:00");
-  await wrapper.get("#session-limit").setValue("1");
   await wrapper.get('[data-test="session-filters"]').trigger("submit"); await flushPromises();
   const query = new URL(String(fetcher.mock.calls.at(-1)?.[0]), "https://example.test").searchParams;
   expect(query.get("state")).toBe("idle");
   expect(query.get("from")).toBe(new Date("2026-10-01T00:00").toISOString());
   expect(query.get("to")).toBe(new Date("2026-11-01T00:00").toISOString());
-  expect(query.get("limit")).toBe("1");
+  expect(query.get("limit")).toBe("25");
   await wrapper.get('[data-test="next-page"]').trigger("click"); await flushPromises();
-  expect(String(fetcher.mock.calls.at(-1)?.[0])).toContain("offset=1");
+  expect(String(fetcher.mock.calls.at(-1)?.[0])).toContain("offset=25");
 });
 
 it("rejects invalid ranges without sending requests", async () => {

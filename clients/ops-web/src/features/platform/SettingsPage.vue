@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import ColumnSettings from "../../components/ColumnSettings.vue";
 import QueryState from "../../components/QueryState.vue";
+import RealtimePager from "../../components/RealtimePager.vue";
 import { useColumns } from "../../components/useColumns";
 import { ApiError, api, canRead, isRecord, sessionState } from "../identity/identity-api";
 interface SettingRow { id: string; key: string | null; value: string | null; source: string | null; version: string | null; kind: string | null; state: string | null }
@@ -13,6 +14,7 @@ const dictionaryLoading = ref(false); const dictionaryQueryError = ref("");
 const selected = ref<SettingRow | null>(null); const value = ref("");
 const category = ref("task"); const language = ref("zh-CN"); const offset = ref(0);
 const kind = ref(""); const settingOffset = ref(0); const missingTranslation = ref("");
+const settingPageSize = ref(25); const dictionaryPageSize = ref(25);
 const entry = ref<DictionaryRow | null>(null); const label = ref(""); const deletePending = ref(false);
 const code = ref(""); const languageKey = ref("");
 let controller = new AbortController(); let readSequence = 0; let settingsSequence = 0;
@@ -24,6 +26,7 @@ const settingsFingerprint = computed(() => JSON.stringify({
   grants: sessionState.subject?.grants,
   kind: kind.value,
   offset: settingOffset.value,
+  limit: settingPageSize.value,
 }));
 const settingsQueryState = computed(() => settingsLoading.value
   ? rows.value.length ? "stale" : "loading"
@@ -39,6 +42,7 @@ const dictionaryFingerprint = computed(() => JSON.stringify({
   category: category.value,
   language: language.value,
   offset: offset.value,
+  limit: dictionaryPageSize.value,
   missingTranslation: missingTranslation.value,
 }));
 const dictionaryQueryState = computed(() => dictionaryLoading.value
@@ -101,7 +105,7 @@ async function readSettings() {
   }
   settingsQueryError.value = ""; settingsLoading.value = true; busy.value = true;
   try {
-    const query = new URLSearchParams({ offset: String(settingOffset.value), limit: "50" });
+    const query = new URLSearchParams({ offset: String(settingOffset.value), limit: String(settingPageSize.value) });
     if (kind.value && fields.value.has("Key")) query.set("kind", kind.value);
     const projected = parseRows(await api(`/api/platform/settings?${query}`, { signal }), isSetting);
     if (sequence === settingsSequence && fingerprint === settingsFingerprint.value) {
@@ -131,7 +135,7 @@ async function readDictionary() {
   dictionaryLoading.value = true; busy.value = true;
   try {
     const query = new URLSearchParams({
-      category: category.value, language: language.value, offset: String(offset.value), limit: "50",
+      category: category.value, language: language.value, offset: String(offset.value), limit: String(dictionaryPageSize.value),
     });
     if (missingTranslation.value && dictionaryFields.value.has("Label")) query.set("missingTranslation", missingTranslation.value);
     const data = parseRows(await api(`/api/platform/dictionary?${query}`, { signal: controller.signal }), isEntry);
@@ -189,6 +193,14 @@ async function removeDictionary() {
   } catch (failure) { problem(failure); deletePending.value = false; entry.value = null; entries.value = []; }
   finally { busy.value = false; }
 }
+function settingsPage(nextOffset: number, limit: number) {
+  if (busy.value) return;
+  settingOffset.value = nextOffset; settingPageSize.value = limit; void readSettings();
+}
+function dictionaryPage(nextOffset: number, limit: number) {
+  if (busy.value) return;
+  offset.value = nextOffset; dictionaryPageSize.value = limit; void readDictionary();
+}
 function settingCell(row: SettingRow, key: string) {
   switch (key) { case "id": return row.id; case "key": return row.key; case "value": return row.value ?? (row.state === "Unverified" ? "Unverified（无物理证据）" : "未授权 / 未配置"); case "source": return row.source; case "version": return row.version; default: return "未授权"; }
 }
@@ -198,12 +210,13 @@ function dictionaryCell(row: DictionaryRow, key: string) {
 watch([category, language, missingTranslation], () => {
   readSequence++; offset.value = 0; entries.value = []; successfulDictionaryFingerprint = null;
   entry.value = null; label.value = ""; deletePending.value = false;
+  if (dictionaryLoading.value && !settingsLoading.value) busy.value = false;
   dictionaryLoading.value = false; dictionaryQueryError.value = "";
-});
+}, { flush: "sync" });
 watch(kind, () => {
   settingsSequence++; settingOffset.value = 0; rows.value = []; selected.value = null; value.value = "";
   successfulSettingsFingerprint = null; settingsLoading.value = false; settingsQueryError.value = ""; busy.value = false;
-});
+}, { flush: "sync" });
 watch([() => sessionState.subject, () => sessionState.token], () => {
   controller.abort(); controller = new AbortController(); readSequence++; settingsSequence++;
   rows.value = []; entries.value = []; selected.value = null; entry.value = null; deletePending.value = false;
@@ -243,7 +256,8 @@ onMounted(readSettings); onUnmounted(() => { controller.abort(); readSequence++;
               @click="selected = row; value = row.value">编辑此版本</button><span v-else>只读 / 未核验</span></td></tr></tbody>
         </table></div>
       </QueryState>
-      <nav class="actions" aria-label="配置分页"><button :disabled="busy || settingOffset === 0" @click="settingOffset -= 50; readSettings()">上一页</button><span>第 {{ settingOffset / 50 + 1 }} 页，每页最多 50 条</span><button :disabled="busy || rows.length < 50" @click="settingOffset += 50; readSettings()">下一页</button></nav>
+      <RealtimePager label="配置分页" :offset="settingOffset" :limit="settingPageSize" :count="rows.length"
+        :busy="busy" :failed="!!settingsQueryError" @change="settingsPage" />
       <form v-if="selected" data-test="setting-form" class="editor" @submit.prevent="saveSetting">
         <h2>更改 {{ selected.key }}</h2><p>当前版本：{{ selected.version }}；来源：{{ selected.source }}；原值：{{ selected.value }}</p>
         <label for="setting-value">新的正整数值</label><input id="setting-value" v-model="value" required inputmode="numeric" pattern="[0-9]+" maxlength="10">
@@ -273,9 +287,9 @@ onMounted(readSettings); onUnmounted(() => { controller.abort(); readSequence++;
             <td :style="dictionaryActionColumnStyle"><button v-if="row.version && canRead('platform.dictionary.write')" :disabled="dictionaryLoading || dictionaryQueryState === 'stale'"
               @click="entry = row; label = row.label ?? ''; deletePending = false">选择字典项</button></td></tr></tbody>
         </table></div>
-        <div class="actions"><button :disabled="busy || offset === 0" @click="offset -= 50; readDictionary()">上一页</button><span>从 {{ offset + 1 }} 条起；每页最多 50 条</span>
-          <button :disabled="busy || entries.length < 50" @click="offset += 50; readDictionary()">下一页</button></div>
       </QueryState>
+      <RealtimePager label="字典分页" :offset="offset" :limit="dictionaryPageSize" :count="entries.length"
+        :busy="busy" :failed="!!dictionaryQueryError" @change="dictionaryPage" />
       <form v-if="canRead('platform.dictionary.write')" class="editor" @submit.prevent="createDictionary">
         <fieldset><legend>在当前分类创建稳定码（不创建翻译）</legend><label for="dictionary-code">业务码</label><input id="dictionary-code" v-model="code" required maxlength="64">
           <label for="dictionary-key">语言键</label><input id="dictionary-key" v-model="languageKey" required maxlength="128">

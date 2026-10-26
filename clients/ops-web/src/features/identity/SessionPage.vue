@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import ColumnSettings from "../../components/ColumnSettings.vue";
 import QueryState from "../../components/QueryState.vue";
+import RealtimePager from "../../components/RealtimePager.vue";
 import { useColumns, type ColumnWidthClass } from "../../components/useColumns";
 import { api, ApiError, canRead, forgetIdentity, isRecord, sessionState } from "./identity-api";
 
@@ -24,7 +25,8 @@ const oldPassword = ref("");
 const newPassword = ref("");
 const repeat = ref("");
 const passwordBusy = ref(false);
-const filters = reactive({ state: "", from: "", to: "", userId: "", limit: "50" });
+const filters = reactive({ state: "", from: "", to: "", userId: "" });
+const pageSize = ref(25);
 const offset = ref(0);
 let generation = 0;
 let controller: AbortController | undefined;
@@ -39,6 +41,7 @@ const currentQuery = computed(() => JSON.stringify({
   mode: mode.value,
   filters,
   offset: offset.value,
+  limit: pageSize.value,
 }));
 const queryState = computed(() => loading.value
   ? rows.value.length ? "stale" : "loading"
@@ -119,11 +122,11 @@ async function read() {
   const preserveRows = rows.value.length > 0 && lastSuccessfulQuery === queryKey;
   invalidate(preserveRows); error.value = ""; queryError.value = ""; success.value = "";
   if (!hasIdentity.value || (mode.value === "admin" && !adminAllowed.value)) return;
-  const limit = Number(filters.limit);
+  const limit = pageSize.value;
   const from = filters.from ? new Date(filters.from) : null;
   const to = filters.to ? new Date(filters.to) : null;
-  if (!Number.isInteger(limit) || limit < 1 || limit > 100 || !Number.isInteger(offset.value) || offset.value < 0) {
-    error.value = "每页条数须为 1 至 100 的整数。"; return;
+  if (![25, 50, 100].includes(limit) || !Number.isInteger(offset.value) || offset.value < 0) {
+    error.value = "每页条数须为 25、50 或 100。"; return;
   }
   if ((from && !Number.isFinite(from.getTime())) || (to && !Number.isFinite(to.getTime())) || (from && to && from >= to)) {
     error.value = "创建时间范围无效，结束时间必须晚于开始时间。"; return;
@@ -161,11 +164,12 @@ async function read() {
 function switchMode(value: "self" | "admin") {
   if (busy.value || (value === "admin" && !adminAllowed.value)) return;
   invalidate(); mode.value = value;
-  Object.assign(filters, { state: "", from: "", to: "", userId: "", limit: "50" });
+  Object.assign(filters, { state: "", from: "", to: "", userId: "" }); pageSize.value = 25;
   offset.value = 0; void read();
 }
-function page(delta: number) {
-  offset.value = Math.max(0, offset.value + delta * Number(filters.limit)); void read();
+function page(nextOffset: number, limit: number) {
+  if (loading.value || busy.value) return;
+  offset.value = nextOffset; pageSize.value = limit; void read();
 }
 function canRevoke(row: Family) {
   return row.version !== null && row.state !== 3 && (mode.value === "self" || canRead("platform.sessions.revoke"));
@@ -229,7 +233,7 @@ watch(() => JSON.stringify([sessionState.subject, sessionState.token]), () => {
   invalidate(); error.value = ""; queryError.value = ""; success.value = ""; offset.value = 0;
   oldPassword.value = ""; newPassword.value = ""; repeat.value = "";
   if (!adminAllowed.value) mode.value = "self";
-  Object.assign(filters, { state: "", from: "", to: "", userId: "", limit: "50" });
+  Object.assign(filters, { state: "", from: "", to: "", userId: "" }); pageSize.value = 25;
 }, { flush: "sync" });
 onMounted(read);
 onUnmounted(invalidate);
@@ -252,7 +256,6 @@ onUnmounted(invalidate);
       <label for="session-from">创建起始（本地时间，含）<input id="session-from" v-model="filters.from" type="datetime-local"></label>
       <label for="session-to">创建结束（本地时间，不含）<input id="session-to" v-model="filters.to" type="datetime-local"></label>
       <label v-if="userFilterAllowed" for="session-user">用户 UUID<input id="session-user" v-model.trim="filters.userId" type="text"></label>
-      <label for="session-limit">每页条数（1–100）<input id="session-limit" v-model="filters.limit" type="number" min="1" max="100" step="1" required></label>
       <button type="button" data-test="reload" :disabled="loading || busy" @click="read">重新读取会话</button>
       <span v-if="loading" role="status">正在读取当前会话状态</span>
     </form>
@@ -266,7 +269,7 @@ onUnmounted(invalidate);
       <div :ref="setTableFrame" class="table-scroll" :aria-busy="loading">
         <p class="table-fixed-notice" role="status">可视区域较窄，固定列暂时停用；请横向滚动查看，避免固定列遮挡内容。</p>
         <p v-if="pinningWarning" class="table-pinning-warning" role="status">{{ pinningWarning }}</p>
-        <table class="table-fixed-actions"><caption>{{ mode === 'self' ? '当前账号的会话' : '当前授权范围内的管理会话' }}（第 {{ Math.floor(offset / Number(filters.limit || 50)) + 1 }} 页）</caption>
+        <table class="table-fixed-actions"><caption>{{ mode === 'self' ? '当前账号的会话' : '当前授权范围内的管理会话' }}（第 {{ Math.floor(offset / pageSize) + 1 }} 页）</caption>
           <thead><tr><th v-for="column in visible" :key="column.key" scope="col" :class="fixedColumnClass(column.key)"
             :style="[widthStyle(column.key), fixedColumnStyle(column.key)]">{{ column.label }}</th><th scope="col" :style="actionColumnStyle">操作</th></tr></thead>
           <tbody><tr v-for="row in rows" :key="row.id">
@@ -282,10 +285,8 @@ onUnmounted(invalidate);
         </table>
       </div>
     </QueryState>
-    <nav class="toolbar" aria-label="会话分页">
-      <button type="button" :disabled="loading || busy || offset === 0" @click="page(-1)">上一页</button>
-      <button type="button" data-test="next-page" :disabled="loading || busy || rows.length !== Number(filters.limit)" @click="page(1)">下一页</button>
-    </nav>
+    <RealtimePager label="会话分页" select-id="session-limit" :offset="offset" :limit="pageSize" :count="rows.length"
+      :busy="loading || busy" :failed="!!queryError" @change="page" />
     <fieldset class="editor"><legend>修改密码并撤销全部既有会话</legend>
       <p>新密码不得包含泄漏值或最近 5 个已设置值（含当前值）。成功后所有浏览器 / PDA 会话需要重新登录。</p>
       <form @submit.prevent="changePassword" :aria-busy="passwordBusy">

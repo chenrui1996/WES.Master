@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 import ColumnSettings from "../../components/ColumnSettings.vue";
 import QueryState from "../../components/QueryState.vue";
+import RealtimePager from "../../components/RealtimePager.vue";
 import { useColumns } from "../../components/useColumns";
 import { api, ApiError, canRead, sessionState } from "../identity/identity-api";
 import { useDirectoryCandidates } from "./useDirectoryCandidates";
@@ -26,6 +27,7 @@ const candidateError = ref("");
 const message = ref("");
 const online = ref(navigator.onLine);
 const offset = ref(0);
+const pageSize = ref(25);
 const filters = reactive({ account: "", name: "", departmentId: "", enabled: "" });
 const selectedUser = ref<UserRow | null>(null);
 const mode = ref<"create" | "edit" | "credential" | "disable-credential" | "roles" | null>(null);
@@ -44,6 +46,7 @@ function queryFingerprint() {
     userId: sessionState.subject?.userId,
     grants: sessionState.subject?.grants,
     offset: offset.value,
+    limit: pageSize.value,
     filters,
   });
 }
@@ -128,7 +131,7 @@ async function load() {
   controller = new AbortController();
   const signal = controller.signal;
   loading.value = true;
-  const query = new URLSearchParams({ offset: String(offset.value), limit: "50" });
+  const query = new URLSearchParams({ offset: String(offset.value), limit: String(pageSize.value) });
   for (const key of ["account", "name", "departmentId", "enabled"] as const)
     if (filters[key]) query.set(key, filters[key]);
   async function candidates() {
@@ -150,7 +153,7 @@ async function load() {
   const candidateLoad = candidates();
   try {
     const response = await api<Page<UserRow>>(`/api/platform/users?${query}`, { signal });
-    if (current !== generation) return;
+    if (current !== generation || queryKey !== currentQuery.value) return;
     if (response.authorized !== true || !Array.isArray(response.rows)) throw new ApiError(403, "DirectoryDenied", "未提供");
     rows.value = response.rows;
     lastSuccessfulQuery.value = queryKey;
@@ -282,7 +285,10 @@ function submitParent() {
 function departmentName(id: string | null) {
   return id === null ? "未授权" : departments.value.find(row => row.id === id)?.name ?? id;
 }
-function page(delta: number) { if (busy.value || loading.value) return; offset.value = Math.max(0, offset.value + delta); void load(); }
+function page(nextOffset: number, limit: number) {
+  if (busy.value || loading.value) return;
+  offset.value = nextOffset; pageSize.value = limit; void load();
+}
 function connectivity() {
   online.value = navigator.onLine;
   if (!online.value) {
@@ -293,6 +299,8 @@ function connectivity() {
 }
 window.addEventListener("online", connectivity); window.addEventListener("offline", connectivity);
 watch(filters, () => {
+  if (loading.value) { generation++; controller?.abort(); loading.value = false; }
+  offset.value = 0;
   if (lastSuccessfulQuery.value !== currentQuery.value) {
     rows.value = [];
     lastSuccessfulQuery.value = null;
@@ -367,7 +375,8 @@ onBeforeUnmount(() => {
           </div>
         </template>
       </QueryState>
-      <nav class="actions" aria-label="用户分页"><button v-if="offset > 0" @click="page(-50)">上一页</button><span>第 {{ offset / 50 + 1 }} 页，每页最多 50 条</span><button v-if="rows.length === 50" @click="page(50)">下一页</button></nav>
+      <RealtimePager label="用户分页" :offset="offset" :limit="pageSize" :count="rows.length"
+        :busy="busy || loading" :failed="!!queryError" @change="page" />
       <form v-if="mode" data-test="user-form" class="editor" @submit.prevent="submitUser">
         <fieldset :disabled="busy"><legend>{{ mode === 'create' ? '新建用户' : mode === 'edit' ? '用户档案' : mode === 'credential' ? '初始登录凭据' : mode === 'disable-credential' ? '停用登录凭据' : '用户角色' }}</legend>
           <template v-if="mode === 'create' || mode === 'edit'">

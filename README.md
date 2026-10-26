@@ -62,6 +62,8 @@ T08保护续实施：[持久预留与账本保护](docs/implementation/99-t08-du
 
 以下是本轮已整理的文档章节。每份功能规格都有测试设计，并在总追踪矩阵中关联需求 ID、设计章节、测试 ID 和验收结果；测试用例尚非自动化测试结果。
 
+T08主数据续实施：[禁用仓库/库位创建基础](docs/implementation/115-t08-location-master-data.md)及[证据](docs/implementation/116-t08-location-master-data-tests.md)补齐不可变仓/Pack/schema归属、tenant复合约束、永久operation与创建事实同事务。新增14项领域/34项真实MySQL测试通过，实际列属性反例驱动修正Provider忽略binary注解问题；完整.NET **1313项通过**、Release构建0警告/0错误。未装配业务授权/Host/API/页面或启停/容器绑定/Outbox，T08及其他整包仍未关闭。
+
 | 文档组 | 内容 |
 |---|---|
 | 项目治理 | [业务范围与现状矩阵](docs/01-business-scope-and-status.md)、[系统架构](docs/02-system-architecture.md)、[工程/注释/文档规范](docs/03-engineering-governance.md)、[需求追踪矩阵](docs/04-requirement-design-test-traceability.md)、[ADR](docs/adr/README.md) |

@@ -27,6 +27,7 @@ public sealed partial class WmsDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ConfigureReservations(modelBuilder);
+        ConfigureMasterData(modelBuilder);
         var balance = modelBuilder.Entity<StockBalance>();
         balance.ToTable("wms_stock_balances");
         balance.HasKey(item => new { item.TenantId, item.Id });
@@ -116,6 +117,7 @@ public sealed partial class WmsDbContext : DbContext
     {
         ValidateLedgerEffects();
         ValidateReservationEffects();
+        ValidateMasterDataWrites();
         foreach (var entry in ChangeTracker.Entries().Where(item =>
             item.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
         {

@@ -136,6 +136,7 @@
 - [x] RULE-08保护量并集纯领域投影：同一执行单元Reserved/InTransit/Unknown只扣一次，互不重叠单元相加、重复身份/超量保护拒绝；23项新增测试验证10/7含在途5时Available3及Unknown保护，见[设计](../../implementation/91-t08-stock-protection-union.md)和[测试](../../implementation/92-t08-stock-protection-union-tests.md)。调用owner须证明单元划分；无Host、数据库或预留命令接线，不关闭以下整体门禁。
 - [x] WMS owner账本持久化核心：固定维度余额、永久operation/execution身份、不可变entry、精确收发/同维度成对移账、显式事务/双版本CAS、批次精确比较及不完整事实拒绝。新增11项领域和25项真实MySQL测试通过，见[设计](../../implementation/97-t08-owner-ledger-core.md)/[测试](../../implementation/98-t08-owner-ledger-core-tests.md)。仍无主数据/预留生命周期/授权/Outbox/API/页面，不关闭T08。
 - [x] WMS内部持久预留与账本保护：执行份额永久身份、部分释放不可变operation、Reserved/InTransit/Unknown并集、共享balance Version竞争/混合水位拒绝，以及Shipment/Transfer原子消费。新增23项真实MySQL测试与原25项账本共48项通过，见[设计](../../implementation/99-t08-durable-stock-reservations.md)/[测试](../../implementation/100-t08-durable-stock-reservations-tests.md)。仍无具名业务授权/运输完成证据、完整主数据、Outbox/API/页面，不关闭以下整体门禁或T08。
+- [x] WMS禁用仓库/库位创建基础：默认禁用、不可变仓/Pack/schema、tenant复合FK/code唯一、永久operation/精确创建事实同事务及schema显式拒绝/不可用；14领域+34真实MySQL测试、原账本联合82项和完整1313项通过，见[设计](../../implementation/115-t08-location-master-data.md)/[证据](../../implementation/116-t08-location-master-data-tests.md)。实际列属性反例驱动binary修正；无业务授权/Host/API/页面、编辑启停、容器绑定或Outbox，不关闭以下整体门禁。
 - [ ] DTC-WMS-001/010/011及DTC-WMS-004的并发原语先红：同容器并发绑定、跨仓/Pack、流水重算、十进制超精度/溢出、Qty10/Reserved7内inTransit5时Available3，重复业务键无二效。
 - [ ] 实现decimal(28,6)/API decimal string、计件0小数/可分割默认3（显式0..6）、换算默认关、负库存拒绝；普通FIFO/启用效期FEFO完整必需日期、单序列量1；保护按并集不重扣。
 - [ ] 三Provider量化/约束/事务和固定快照导出测试，元数据/关联列/盲盘字段投影不泄露；账本append-only补偿，WCS只能消费契约；VAL-01/02/08。

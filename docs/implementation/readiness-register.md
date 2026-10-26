@@ -301,3 +301,10 @@
 - Files页面已加入显式目录、共享实时分页及状态筛选。选择只传Id并重新读取当前详情/版本；同查询503保留Stale但禁选，401/403或换scope/过滤即时清行，迟到响应不落入新范围；重复Id、非法metadata/分页形状拒绝，离线不排队，无新增本机缓存。
 - 新增**14项HTTP、8项真实MySQL owner、12项客户端**通过；既有及新增授权文件owner共52项，前端全套**240 passed**及严格构建。真实HTTPS Chromium目录加载后验证375/768/1440、键盘选择后重读、原字节下载及单条审计。完整Release构建**0警告/0错误**，最终全套Architecture **29**、Modules **493**、Persistence **515**、Route **228**，共**1265 passed、0 failed、0 skipped**。首轮架构失败及修正见[证据](114-t07-authorized-staging-catalog-tests.md)，没有放宽边界测试；[设计](113-t07-authorized-staging-catalog.md)。
 - **T07仍partial**：业务绑定/实体附件授权与完整业务文件目录、真实ClamAV/病毒库/识别/健康、部署ACL未验收；T04/T05/T06/T08剩余门禁不变。暂存发现能力完成不等于五个整包已关闭。
+
+### T08 禁用仓库/库位创建基础
+
+- WMS owner新增仓库/库位及永久operation创建事实，默认禁用且仓/Pack/schema归属固定；同次精确事实门禁、tenant复合FK/code唯一、并发同operation/同code仅一效果、保存后故障/取消回滚及安全DB错误已实测。schema未配置/拒绝/不可用不能默认成功，schema成功不是启用/分配许可。
+- 真实information_schema反例发现Oracle10.0.7忽略CreateTable列collation，5/5列错误；追加显式binary修正迁移后列属性及schema大小写查询通过，不修改已执行迁移，不改旧库存表，不自动伪造历史主数据。EF无pending，增量SQL已查，无生产DDL。
+- 新增**14领域+34真实MySQL**测试通过，与原账本/预留联合**82 passed**；最终全solution Release构建**0警告/0错误**，完整Architecture **29**、Modules **507**、Persistence **549**、Route **228**，共**1313 passed、0 failed、0 skipped**。见[设计](115-t08-location-master-data.md)/[证据](116-t08-location-master-data-tests.md)。
+- **T08仍partial**：业务当前授权/Host/API/页面、编辑启停/占用/预约/锁/活动证据、层级/容器绑定、Outbox与运输完成证明未验收。测试schema是受控合同fixture，不代替真实Pack或物理安全签字；其余四包剩余门禁保持不变。

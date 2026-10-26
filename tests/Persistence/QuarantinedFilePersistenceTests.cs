@@ -1,5 +1,10 @@
+using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging.Abstractions;
 using Wes.Platform.Domain;
+using Wes.Platform.Features.Files;
+using Wes.Platform.Infrastructure.Files;
 using Wes.Platform.Infrastructure.Persistence;
 using Xunit;
 
@@ -191,6 +196,459 @@ public sealed class QuarantinedFilePersistenceTests : IAsyncLifetime
         Assert.Equal(deleteFirst ? 0 : 1, await verify.FileReferences.CountAsync());
     }
 
+    [Theory]
+    [InlineData(FileScanVerdict.Clean, QuarantinedFileState.Available)]
+    [InlineData(FileScanVerdict.Infected, QuarantinedFileState.Rejected)]
+    [InlineData(FileScanVerdict.Unavailable, QuarantinedFileState.Quarantined)]
+    [InlineData(FileScanVerdict.TimedOut, QuarantinedFileState.Quarantined)]
+    public async Task CoordinatedScanPersistsClaimBeforeExternalReadAndOnlyThenAppliesEvidence(
+        FileScanVerdict verdict, QuarantinedFileState expected)
+    {
+        var (id, version) = await SeedStoredAsync();
+        await using var db = Open(_tenant);
+        var store = new ProcessingStore(async () =>
+        {
+            Assert.Null(db.Database.CurrentTransaction);
+            await using var verifyClaim = Open(_tenant);
+            var pending = await verifyClaim.Files.SingleAsync(item => item.Id == id);
+            Assert.NotNull(pending.ScanAttemptId);
+            Assert.Equal(QuarantinedFileState.Quarantined, pending.State);
+        });
+        var scanner = new ProcessingScanner(verdict);
+        var result = await Processor(db, store, scanner, new ProcessingClock()).ScanAsync(id, version);
+        Assert.Equal(expected, result.State);
+        await using var verify = Open(_tenant);
+        var file = await verify.Files.SingleAsync(item => item.Id == id);
+        Assert.Equal(expected, file.State);
+        Assert.Equal(verdict, file.LastScanVerdict);
+        Assert.Null(file.ScanAttemptId);
+        Assert.Equal(1, scanner.Calls);
+    }
+
+    [Fact]
+    public async Task CoordinatedScanRejectsMismatchedEvidenceWithoutClearingQuarantine()
+    {
+        var (id, version) = await SeedStoredAsync();
+        await using var db = Open(_tenant);
+        var scanner = new ProcessingScanner(FileScanVerdict.Clean) { EvidenceDigest = Digest };
+        await Assert.ThrowsAsync<FileProcessingException>(() =>
+            Processor(db, new ProcessingStore(), scanner, new ProcessingClock()).ScanAsync(id, version));
+        await using var verify = Open(_tenant);
+        Assert.Equal(QuarantinedFileState.Quarantined, (await verify.Files.SingleAsync()).State);
+    }
+
+    [Fact]
+    public async Task OrphanDeletionFailureRetainsFenceThenRetriesMissingObjectToTombstone()
+    {
+        var id = await SeedAsync(available: true);
+        var clock = new ProcessingClock { Now = Now.AddDays(1) };
+        var store = new ProcessingStore { DeleteFailures = 1 };
+        await using (var db = Open(_tenant))
+        {
+            var version = (await db.Files.AsNoTracking().SingleAsync()).Version;
+            store.OnDelete = async () =>
+            {
+                Assert.Null(db.Database.CurrentTransaction);
+                await using var verifyFence = Open(_tenant);
+                Assert.Equal(QuarantinedFileState.Deleting, (await verifyFence.Files.SingleAsync()).State);
+            };
+            await Assert.ThrowsAsync<QuarantineStorageException>(() =>
+                Processor(db, store, new ProcessingScanner(FileScanVerdict.Clean), clock).DeleteOrphanAsync(id, version));
+        }
+        await using (var db = Open(_tenant))
+        {
+            var current = await db.Files.AsNoTracking().SingleAsync();
+            Assert.Equal(QuarantinedFileState.Deleting, current.State);
+            store.OnDelete = null;
+            var result = await Processor(db, store, new ProcessingScanner(FileScanVerdict.Clean), clock)
+                .DeleteOrphanAsync(id, current.Version);
+            Assert.Equal(QuarantinedFileState.Deleted, result.State);
+        }
+        await using var verify = Open(_tenant);
+        Assert.Equal(QuarantinedFileState.Deleted, (await verify.Files.SingleAsync()).State);
+        Assert.Equal(2, store.Deletes);
+    }
+
+    [Fact]
+    public async Task OrphanCleanupChecksActualReferenceRowsEvenWhenCountIsIncorrectlyZero()
+    {
+        var id = await SeedAsync(available: true);
+        await using (var binding = Open(_tenant))
+        {
+            binding.FileReferences.Add(new(_tenant, id, "Platform", Guid.NewGuid()));
+            await binding.SaveChangesAsync();
+        }
+        await using var db = Open(_tenant);
+        var version = (await db.Files.AsNoTracking().SingleAsync()).Version;
+        var store = new ProcessingStore();
+        var result = await Processor(db, store, new ProcessingScanner(FileScanVerdict.Clean),
+            new ProcessingClock { Now = Now.AddDays(1) }).DeleteOrphanAsync(id, version);
+        Assert.Equal(FileProcessingDecision.Referenced, result.Decision);
+        Assert.Equal(0, store.Deletes);
+        await using var verify = Open(_tenant);
+        Assert.Equal(QuarantinedFileState.Available, (await verify.Files.SingleAsync()).State);
+    }
+
+    [Fact]
+    public async Task ASlowDurableClaimCannotGrantAnotherSixtySecondsOfExternalWork()
+    {
+        var (id, version) = await SeedStoredAsync();
+        var clock = new ProcessingClock();
+        var hook = new ProcessingSaveHook(1, () =>
+        {
+            clock.Now = Now.AddSeconds(60);
+            return Task.CompletedTask;
+        }, after: true);
+        await using var db = Open(_tenant, hook);
+        var store = new ProcessingStore();
+        var scanner = new ProcessingScanner(FileScanVerdict.Clean);
+        var result = await Processor(db, store, scanner, clock).ScanAsync(id, version);
+        Assert.Equal(QuarantinedFileState.Quarantined, result.State);
+        Assert.Equal(0, store.Reads);
+        Assert.Equal(0, scanner.Calls);
+        await using var verify = Open(_tenant);
+        Assert.Equal(FileScanVerdict.TimedOut, (await verify.Files.SingleAsync()).LastScanVerdict);
+    }
+
+    [Fact]
+    public async Task LateCleanAndCallerCancellationNeverClearQuarantine()
+    {
+        var (id, version) = await SeedStoredAsync();
+        var clock = new ProcessingClock();
+        var scanner = new ProcessingScanner(FileScanVerdict.Clean)
+        {
+            OnScan = () => { clock.Now = Now.AddSeconds(60); return Task.CompletedTask; }
+        };
+        await using (var db = Open(_tenant))
+        {
+            var result = await Processor(db, new ProcessingStore(), scanner, clock).ScanAsync(id, version);
+            Assert.Equal(QuarantinedFileState.Quarantined, result.State);
+        }
+        using var cancellation = new CancellationTokenSource();
+        clock.Now = Now.AddSeconds(61);
+        scanner.OnScan = () => { cancellation.Cancel(); return Task.CompletedTask; };
+        await using (var db = Open(_tenant))
+        {
+            var current = await db.Files.AsNoTracking().SingleAsync();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                Processor(db, new ProcessingStore(), scanner, clock).ScanAsync(id, current.Version, cancellation.Token));
+        }
+        await using var verify = Open(_tenant);
+        var quarantined = await verify.Files.SingleAsync();
+        Assert.Equal(QuarantinedFileState.Quarantined, quarantined.State);
+        Assert.NotNull(quarantined.ScanAttemptId);
+        Assert.Equal(FileScanVerdict.TimedOut, quarantined.LastScanVerdict);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OldScanCannotOverrideAReplacementAttemptOrADeletionFence(bool deleting)
+    {
+        var (id, version) = await SeedStoredAsync();
+        var clock = new ProcessingClock();
+        Guid? replacement = null;
+        var scanner = new ProcessingScanner(FileScanVerdict.Clean)
+        {
+            OnScan = async () =>
+            {
+                clock.Now = deleting ? Now.AddDays(1) : Now.AddSeconds(60);
+                await using var otherOwner = Open(_tenant);
+                var current = await otherOwner.Files.SingleAsync();
+                if (deleting) current.BeginDeletion(ownerConfirmedUnreferenced: true, clock.Now);
+                else replacement = current.BeginScan(clock.Now);
+                await otherOwner.SaveChangesAsync();
+            }
+        };
+        await using var db = Open(_tenant);
+        var result = await Processor(db, new ProcessingStore(), scanner, clock).ScanAsync(id, version);
+        Assert.Equal(FileProcessingDecision.ObsoleteAttempt, result.Decision);
+        await using var verify = Open(_tenant);
+        var file = await verify.Files.SingleAsync();
+        Assert.Equal(deleting ? QuarantinedFileState.Deleting : QuarantinedFileState.Quarantined, file.State);
+        Assert.Equal(replacement, file.ScanAttemptId);
+        Assert.Null(file.LastScanVerdict);
+    }
+
+    [Fact]
+    public async Task StorageReadFailureLeavesRecoverableClaimAndDoesNotDisableOtherAvailableFiles()
+    {
+        var (id, version) = await SeedStoredAsync();
+        var available = await SeedAsync(available: true);
+        var clock = new ProcessingClock();
+        var broken = new ProcessingStore(() => throw new QuarantineStorageException(QuarantineStorageFailure.Unavailable));
+        await using (var db = Open(_tenant))
+            await Assert.ThrowsAsync<QuarantineStorageException>(() =>
+                Processor(db, broken, new ProcessingScanner(FileScanVerdict.Clean), clock).ScanAsync(id, version));
+        await using (var db = Open(_tenant))
+        {
+            var clean = await db.Files.AsNoTracking().SingleAsync(item => item.Id == available);
+            Assert.Equal(FileProcessingDecision.Available,
+                (await Processor(db, broken, new ProcessingScanner(FileScanVerdict.Unavailable), clock).ScanAsync(available, clean.Version)).Decision);
+        }
+        clock.Now = Now.AddSeconds(61);
+        await using (var db = Open(_tenant))
+        {
+            var pending = await db.Files.AsNoTracking().SingleAsync(item => item.Id == id);
+            Assert.NotNull(pending.ScanAttemptId);
+            Assert.Equal(FileProcessingDecision.Available,
+                (await Processor(db, new ProcessingStore(), new ProcessingScanner(FileScanVerdict.Clean), clock)
+                    .ScanAsync(id, pending.Version)).Decision);
+        }
+    }
+
+    [Fact]
+    public async Task TamperedStorageCannotReachScannerEvenIfThePortClaimsToHaveVerifiedIt()
+    {
+        var (id, version) = await SeedStoredAsync();
+        await using var db = Open(_tenant);
+        var scanner = new ProcessingScanner(FileScanVerdict.Clean);
+        var store = new ProcessingStore { Content = "evil"u8.ToArray() };
+        var error = await Assert.ThrowsAsync<FileProcessingException>(() =>
+            Processor(db, store, scanner, new ProcessingClock()).ScanAsync(id, version));
+        Assert.Equal(FileProcessingFailure.Evidence, error.Failure);
+        Assert.Equal(0, scanner.Calls);
+    }
+
+    [Fact]
+    public async Task VersionAndTenantAndLiveAttemptRejectionsHaveNoExternalEffects()
+    {
+        var (id, version) = await SeedStoredAsync();
+        var store = new ProcessingStore();
+        var scanner = new ProcessingScanner(FileScanVerdict.Clean);
+        var clock = new ProcessingClock();
+        await using (var db = Open(_other))
+            Assert.Equal(FileProcessingDecision.NotFound, (await Processor(db, store, scanner, clock).ScanAsync(id, version)).Decision);
+        await using (var db = Open(_tenant))
+            Assert.Equal(FileProcessingDecision.VersionConflict,
+                (await Processor(db, store, scanner, clock).ScanAsync(id, Guid.NewGuid().ToString("D"))).Decision);
+        await using (var db = Open(_tenant))
+        {
+            var current = await db.Files.SingleAsync();
+            current.BeginScan(clock.Now);
+            await db.SaveChangesAsync();
+        }
+        await using (var db = Open(_tenant))
+        {
+            var current = await db.Files.AsNoTracking().SingleAsync();
+            Assert.Equal(FileProcessingDecision.StateConflict,
+                (await Processor(db, store, scanner, clock).ScanAsync(id, current.Version)).Decision);
+        }
+        Assert.Equal(0, store.Reads);
+        Assert.Equal(0, scanner.Calls);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task YoungOrCurrentlyScanningObjectsAreNotOrphanDeletionCandidates(bool liveScan)
+    {
+        var (id, version) = await SeedStoredAsync();
+        var clock = new ProcessingClock { Now = liveScan ? Now.AddDays(1) : Now.AddHours(23) };
+        if (liveScan)
+        {
+            await using var claim = Open(_tenant);
+            var current = await claim.Files.SingleAsync();
+            current.BeginScan(clock.Now);
+            await claim.SaveChangesAsync();
+            version = current.Version;
+        }
+        await using var db = Open(_tenant);
+        var store = new ProcessingStore();
+        Assert.Equal(liveScan ? FileProcessingDecision.StateConflict : FileProcessingDecision.TooYoung,
+            (await Processor(db, store, new ProcessingScanner(FileScanVerdict.Clean), clock).DeleteOrphanAsync(id, version)).Decision);
+        Assert.Equal(0, store.Deletes);
+    }
+
+    [Fact]
+    public async Task FailedScanClaimCannotStartStorageOrScannerAndSanitizesDatabaseFault()
+    {
+        var (id, version) = await SeedStoredAsync();
+        var store = new ProcessingStore();
+        var scanner = new ProcessingScanner(FileScanVerdict.Clean);
+        await using (var db = Open(_tenant, new ProcessingSaveHook(1, () => throw new ProcessingDatabaseFault())))
+        {
+            var error = await Assert.ThrowsAsync<FileProcessingException>(() =>
+                Processor(db, store, scanner, new ProcessingClock()).ScanAsync(id, version));
+            Assert.Equal(FileProcessingFailure.Database, error.Failure);
+            Assert.True(error.IsTransient);
+            Assert.DoesNotContain("sensitive-sentinel", error.ToString(), StringComparison.Ordinal);
+        }
+        Assert.Equal(0, store.Reads);
+        Assert.Equal(0, scanner.Calls);
+        await using var verify = Open(_tenant);
+        var unchanged = await verify.Files.SingleAsync();
+        Assert.Null(unchanged.ScanAttemptId);
+        Assert.Equal(version, unchanged.Version);
+    }
+
+    [Fact]
+    public async Task DeletedObjectWithFailedDatabaseConfirmationRemainsRecoverableAndDoesNotDeleteTwiceAfterTombstone()
+    {
+        var id = await SeedAsync(available: true);
+        var clock = new ProcessingClock { Now = Now.AddDays(1) };
+        var store = new ProcessingStore();
+        await using (var db = Open(_tenant, new ProcessingSaveHook(2, () => throw new ProcessingDatabaseFault())))
+        {
+            var current = await db.Files.AsNoTracking().SingleAsync();
+            await Assert.ThrowsAsync<FileProcessingException>(() =>
+                Processor(db, store, new ProcessingScanner(FileScanVerdict.Clean), clock).DeleteOrphanAsync(id, current.Version));
+        }
+        Assert.False(store.Present);
+        await using (var db = Open(_tenant))
+        {
+            var current = await db.Files.AsNoTracking().SingleAsync();
+            Assert.Equal(QuarantinedFileState.Deleting, current.State);
+            Assert.Equal(FileProcessingDecision.Deleted,
+                (await Processor(db, store, new ProcessingScanner(FileScanVerdict.Clean), clock).DeleteOrphanAsync(id, current.Version)).Decision);
+        }
+        await using (var db = Open(_tenant))
+        {
+            var current = await db.Files.AsNoTracking().SingleAsync();
+            Assert.Equal(FileProcessingDecision.Deleted,
+                (await Processor(db, store, new ProcessingScanner(FileScanVerdict.Clean), clock).DeleteOrphanAsync(id, current.Version)).Decision);
+        }
+        Assert.Equal(2, store.Deletes);
+    }
+
+    [Fact]
+    public async Task RealPrivateStorageAndDatabaseCoordinateVerifiedReadThenPhysicalDeletion()
+    {
+        var (id, version) = await SeedStoredAsync();
+        var root = Path.Combine(Path.GetTempPath(), $"wes-file-processing-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            var store = new LocalQuarantineStore(root, NullLogger<LocalQuarantineStore>.Instance);
+            var stored = await store.WriteAsync(_tenant, id, "safe"u8.ToArray(), CancellationToken.None);
+            var scanner = new ProcessingScanner(FileScanVerdict.Clean);
+            var clock = new ProcessingClock();
+            await using var db = Open(_tenant);
+            var processor = new FileProcessing(db, store, scanner, clock, NullLogger<FileProcessing>.Instance);
+            var scanned = await processor.ScanAsync(id, version);
+            Assert.Equal(FileProcessingDecision.Available, scanned.Decision);
+            clock.Now = Now.AddDays(1);
+            var deleted = await processor.DeleteOrphanAsync(id, scanned.Version);
+            Assert.Equal(FileProcessingDecision.Deleted, deleted.Decision);
+            await Assert.ThrowsAsync<QuarantineStorageException>(() =>
+                store.ReadVerifiedAsync(_tenant, id, stored.Sha256, stored.ByteCount, CancellationToken.None));
+            await using var verify = Open(_tenant);
+            Assert.Equal(QuarantinedFileState.Deleted, (await verify.Files.SingleAsync()).State);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ConcurrentScanClaimsCannotBothReachStorageAndScanner()
+    {
+        var (id, version) = await SeedStoredAsync();
+        var store = new ProcessingStore(async () => { await Task.Yield(); });
+        var scanner = new ProcessingScanner(FileScanVerdict.Clean);
+        var clock = new ProcessingClock();
+        await using var first = Open(_tenant);
+        await using var second = Open(_tenant);
+        var results = await Task.WhenAll(
+            Processor(first, store, scanner, clock).ScanAsync(id, version),
+            Processor(second, store, scanner, clock).ScanAsync(id, version));
+        Assert.Contains(results, item => item.Decision == FileProcessingDecision.Available);
+        Assert.All(results, item => Assert.True(item.Decision is FileProcessingDecision.Available
+            or FileProcessingDecision.VersionConflict or FileProcessingDecision.StateConflict));
+        Assert.Equal(1, store.Reads);
+        Assert.Equal(1, scanner.Calls);
+        await using var verify = Open(_tenant);
+        Assert.Equal(QuarantinedFileState.Available, (await verify.Files.SingleAsync()).State);
+    }
+
+    private static FileProcessing Processor(PlatformDbContext db, ProcessingStore store, ProcessingScanner scanner, ProcessingClock clock) =>
+        new(db, store, scanner, clock, NullLogger<FileProcessing>.Instance);
+
+    private async Task<(Guid Id, string Version)> SeedStoredAsync()
+    {
+        var file = new QuarantinedFile(_tenant, Guid.NewGuid(), Guid.NewGuid(), "file.txt", "text/plain", 4,
+            Convert.ToHexString(SHA256.HashData("safe"u8)), Now);
+        file.ConfirmStored(file.Sha256, 4, Now);
+        await using var db = Open(_tenant);
+        db.Files.Add(file);
+        await db.SaveChangesAsync();
+        return (file.Id, file.Version);
+    }
+
+    private sealed class ProcessingClock : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = QuarantinedFilePersistenceTests.Now;
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
+
+    private sealed class ProcessingScanner(FileScanVerdict verdict) : IFileScanner
+    {
+        private int _calls;
+        public int Calls => Volatile.Read(ref _calls);
+        public string? EvidenceDigest { get; set; }
+        public Func<Task>? OnScan { get; set; }
+        public async Task<FileScanEvidence> ScanAsync(ReadOnlyMemory<byte> content, CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _calls);
+            if (OnScan is not null) await OnScan();
+            cancellationToken.ThrowIfCancellationRequested();
+            return new(verdict, EvidenceDigest ?? Convert.ToHexString(SHA256.HashData(content.Span)), content.Length);
+        }
+    }
+
+    private sealed class ProcessingStore(Func<Task>? onRead = null) : IQuarantineStore
+    {
+        private int _reads;
+        private int _deletes;
+        public int Reads => Volatile.Read(ref _reads);
+        public int Deletes => Volatile.Read(ref _deletes);
+        public int DeleteFailures { get; set; }
+        public bool Present { get; private set; } = true;
+        public byte[] Content { get; set; } = "safe"u8.ToArray();
+        public Func<Task>? OnDelete { get; set; }
+        public Task<QuarantineStorageEvidence> WriteAsync(Guid tenant, Guid file, ReadOnlyMemory<byte> content, CancellationToken ct) =>
+            throw new NotSupportedException("Processing must never rewrite quarantined content.");
+        public async Task<byte[]> ReadVerifiedAsync(Guid tenant, Guid file, string sha256, long byteCount, CancellationToken ct)
+        {
+            Interlocked.Increment(ref _reads);
+            if (onRead is not null) await onRead();
+            ct.ThrowIfCancellationRequested();
+            return Content.ToArray();
+        }
+        public async Task DeleteAsync(Guid tenant, Guid file, CancellationToken ct)
+        {
+            Interlocked.Increment(ref _deletes);
+            if (OnDelete is not null) await OnDelete();
+            ct.ThrowIfCancellationRequested();
+            if (DeleteFailures-- > 0) throw new QuarantineStorageException(QuarantineStorageFailure.Unavailable);
+            Present = false;
+        }
+    }
+
+    private sealed class ProcessingSaveHook(int at, Func<Task> action, bool after = false) : SaveChangesInterceptor
+    {
+        private int _calls;
+        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData,
+            InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            if (!after && ++_calls == at) await action();
+            return result;
+        }
+        public override async ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result,
+            CancellationToken cancellationToken = default)
+        {
+            if (after && ++_calls == at) await action();
+            return result;
+        }
+    }
+
+    private sealed class ProcessingDatabaseFault : System.Data.Common.DbException
+    {
+        public ProcessingDatabaseFault() : base("sensitive-sentinel") { }
+        public override bool IsTransient => true;
+    }
+
     private async Task<Guid> SeedAsync(bool available = false)
     {
         var file = Create();
@@ -208,11 +666,13 @@ public sealed class QuarantinedFilePersistenceTests : IAsyncLifetime
 
     private QuarantinedFile Create() => new(_tenant, Guid.NewGuid(), Guid.NewGuid(), "file.txt", "text/plain", 4, Digest, Now);
 
-    private PlatformDbContext Open(Guid tenant)
+    private PlatformDbContext Open(Guid tenant, IInterceptor? interceptor = null)
     {
         MySqlTestConnection.ValidateTarget(_connection);
-        return new(new DbContextOptionsBuilder<PlatformDbContext>()
-            .UseMySQL(_connection, mysql => mysql.MigrationsHistoryTable("__WesPlatformMigrations")).Options, tenant);
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
+            .UseMySQL(_connection, mysql => mysql.MigrationsHistoryTable("__WesPlatformMigrations"));
+        if (interceptor is not null) options.AddInterceptors(interceptor);
+        return new(options.Options, tenant);
     }
 
     public async Task DisposeAsync()

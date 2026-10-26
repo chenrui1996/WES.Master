@@ -40,6 +40,8 @@ T04/T05/T06/T08续实施：[批次计划](docs/superpowers/plans/2026-10-26-plat
 
 T07续实施：[隔离文件生命周期与存储/扫描基础](docs/implementation/93-t07-quarantined-file-lifecycle.md)及[测试证据](docs/implementation/94-t07-quarantined-file-lifecycle-tests.md)新增精确字节证据、扫描attempt/截止、删除fence、本地私有存储、loopback ClamAV协议和MySQL文件/引用表。协议测试不是病毒清除，持久化约束不替代实体授权；应用协调、API、页面和真实扫描仍待完成，不能据此关闭T07。
 
+T07协调续实施：[持久扫描与孤儿删除协调](docs/implementation/101-t07-file-processing-coordination.md)及[测试证据](docs/implementation/102-t07-file-processing-coordination-tests.md)接通内部attempt/删除fence、外部IO及确认CAS；慢claim不延长60秒截止，迟到结果不覆盖新attempt，存储/墓碑保存故障保留可恢复状态。真实私有存储与MySQL联动已测，仍无受权上传/绑定/下载或HTTP/页面，真实病毒清除验收继续阻断。
+
 T05续实施：[托管Platform发布调度](docs/implementation/95-t05-hosted-platform-publisher.md)及[测试证据](docs/implementation/96-t05-hosted-platform-publisher-tests.md)接通默认禁用的显式tenant/batch周期和公共owner发布边界；缺少显式transport时拒绝启用，不提供None/成功fallback。调度器、lease和真实MySQL测试不代替真实Broker、Notifications聚合及T05整体合同。
 
 T08续实施：[WMS owner账本核心](docs/implementation/97-t08-owner-ledger-core.md)及[测试证据](docs/implementation/98-t08-owner-ledger-core-tests.md)新增独立余额/永久记账身份/不可变流水、精确收发和成对移账事务、版本与业务身份防重。内部记账原语没有Host/API接线，不代替实体授权、主数据、保护量持久化与完整业务用例；T08仍未整体关闭。

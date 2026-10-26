@@ -251,3 +251,11 @@
 - 真实MySQL定向 **48 passed**（原25项账本、本片新增23项）。最终完整串行Release：Architecture **29**、Modules **420**、Persistence **429**、Route **228**，合计 **1106 passed、0 failed、0 skipped**。迁移仅新增WMS两表和tenant复合约束，model/snapshot一致；格式及diff检查通过，见[设计](99-t08-durable-stock-reservations.md)/[证据](100-t08-durable-stock-reservations-tests.md)。
 - GitHub push仍遇TLS握手失败（默认OpenSSL及启用证书验证的schannel均失败），既有账本本地提交未确认远端；不关闭证书验证、不force-push、不把本地commit写作推送成功。
 - **T08仍partial**：具名业务授权、完整主数据/单据状态/运输证据、WMS Outbox与API/页面未完成。内部ReleaseUnstarted仍只允许后续受权业务owner在已证明无执行效果时调用，不能直接接受HTTP bool。T04/T05/T06/T07/T08整体不因本片通过而关闭，生产/现场H及其他Provider门禁不变。
+
+### T07 持久扫描与孤儿删除协调
+
+- 新增内部Platform owner协调：先持久扫描attempt或Deleting fence再外部IO，结束后重新读取/CAS确认。预算使用原attempt截止剩余时间，慢保存不额外赠送60秒；迟到Clean、替代attempt或删除fence不能清除隔离或复活记录。
+- 清理同时核验计数与真实引用表；年轻/活跃扫描/被引用文件拒删。存储删除失败保留Deleting，已删除对象而数据库确认失败也保留Deleting供缺失对象幂等重试，Deleted墓碑重放无外部IO。
+- 新增20项真实MySQL协调测试，原8项文件持久化共28项通过；覆盖真正LocalQuarantineStore联动、开始claim失败无IO、证据错配、存储故障恢复、取消/迟到、并发单claim及删除后确认失败。完整串行Release现为Architecture **29**、Modules **420**、Persistence **449**、Route **228**，共 **1126 passed、0 failed、0 skipped**，见[设计](101-t07-file-processing-coordination.md)/[证据](102-t07-file-processing-coordination-tests.md)。
+- GitHub连接恢复，普通push已将本地账本`0fe4984`及持久预留`9b18172`推送到既有origin/main（由`fd23831`前进到`9b18172`）；此前TLS失败是历史阻断，不再将这两笔写为未推送。未关闭证书校验、未force-push。
+- **T07仍partial**：内部协调无Host/API注册；实体当前授权、受权上传/绑定/下载、页面与真实ClamAV健康/病毒库验收仍未完成。受控scanner不是恶意软件清除证明；本片不关闭T04–T08、不更改生产或现场安全许可。

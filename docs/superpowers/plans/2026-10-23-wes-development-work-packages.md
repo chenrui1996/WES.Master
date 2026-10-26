@@ -394,3 +394,7 @@
 ## E. 完成口径
 
 制订计划时全部任务初始为未开始；当前实施切片及阻断以[就绪台账](../../implementation/readiness-register.md)为准。软件、纯仿真、真实Provider、真实Adapter、真机PDA、性能和现场签署分别计状态。计划范围完整不等于软件已实现；模块已实现不等于它的每个环境/变体已通过。执行时只勾完成且有证据的步骤，不批量勾整个模块。
+
+### T08 Task 1数量领域基础局部证据（2026-10-26）
+
+Task 1已完成其隔离的纯领域范围：新增独立WMS项目及`InventoryQuantity`、`QuantityPrecision`、`StockMovementQuantity`，16项定向Release单元测试通过。项目加入solution和Modules测试引用，但不加入Host装配；未创建持久化/迁移、授权、Outbox/Inbox、API或UI。实现与红绿、构建、回归、格式证据见[数量领域实施记录](../../implementation/85-t08-quantity-domain-foundation.md)及[数量领域测试记录](../../implementation/86-t08-quantity-domain-foundation-tests.md)。T08中完整DTC-WMS-004/010/011和数据库/并发范围的复选步骤保持未勾；T08整体以及T04/T05/T06硬依赖均未关闭。

@@ -13,5 +13,6 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <ProjectReference Include="..\..\src\Host\Wes.Host.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Wms\Wes.Wms.csproj" />
   </ItemGroup>
 </Project>

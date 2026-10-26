@@ -25,6 +25,7 @@
 | T03/T04 当前授权用户禁用 | FUNC-PLAT-001/002、DTC-PLAT-003..006/008/010及VAL-04禁用撤全部family部分 | [禁用记录](implementation/16-audited-account-disable.md)：22项禁用真实DB及3项登录侧新增用例；当前Enabled字段/资源范围、原子凭据/全部family/audit、幂等修复、login/refresh两方向CAS、故障/取消与跨租户隔离通过；完整回归638项。不包含用户目录/启用重置/HTTP/页面，不标父DTC整体通过 |
 | T03/T04 受权登录事件查询 | PAGE-PLAT-008、FUNC-PLAT-006、DTC-PLAT-008内部查询部分 | [查询记录](implementation/17-authorized-login-event-query.md)：24项真实MySQL测试，当前All字段权限、隐藏字段筛选拒绝、租户/时间/类型/关联先过滤再稳定分页、真实100条门限、撤权/故障/取消通过；全量662项。无不可变主体/部门时不猜Own归属；导出/保留治理/HTTP/页面仍另验 |
 | T17 Route纯内核软件包 | REQ-ROUTE-001..008、DTC-ROUTE-001..004及性质/差分的静态候选路径部分 | [Route内核记录](implementation/07-route-kernel.md)：Stacker/FourWay私有不可变图、物理映射谱系、能力/方向/负载/设备约束、确定性最短路及完整资源/执行段；228自动化测试、独立oracle/seed/shrinker和SPEC/CODE审查通过。T17软件包完成不将包含预约/实时反馈的父DTC或全部Route/H验收标passed |
+| T08数量领域Task 1局部基础 | WES-RULES-1.0 RULE-01；DTC-WMS-004/010/011中的纯数量合同子集 | [数量领域实施](implementation/85-t08-quantity-domain-foundation.md)及[测试证据](implementation/86-t08-quantity-domain-foundation-tests.md)：16项定向测试覆盖非负`decimal(28,6)`范围/精度、显式加减溢出、精度0..6与正单笔上限；全solution 900项回归通过。仅此纯领域子集由本地自动化验证；父DTC与T08整体仍未验收，数据库、事务、并发、权限及集成行为未覆盖 |
 
 ## 1. ID 规则
 

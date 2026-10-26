@@ -92,6 +92,7 @@
 | T05 Platform Outbox/Inbox 原子首片 | 部分完成，见[Outbox实施](35-t05-platform-outbox.md)、[Outbox测试](36-t05-platform-outbox-tests.md)、[Inbox实施](37-t05-platform-inbox.md)、[Inbox测试](38-t05-platform-inbox-tests.md)及[消息运维](39-t05-platform-message-operations.md) | Platform安全审计允许列表与业务/审计共用owner事务生成Outbox；有限失败类别退避、15分钟预算、单消息并发lease claim、旧lease fencing、单消息publisher、有界到期扫描、tenant/consumer/event唯一Inbox及owner事务消费幂等已实现；`platform.messages.read`安全元数据查询及`platform.messages.replay`受权、同operation幂等、expected-attempt fencing的Platform审计事件重放已实现。Inbox 90天owner-local有界清理原语及保存失败/事务许可生命周期已通过真实隔离MySQL，见[恢复实施](49-t05-inbox-retention-save-recovery.md)及[测试](50-t05-inbox-retention-save-recovery-tests.md)；完整Release串行回归Architecture 29、Modules 223、Persistence 352、Route 228，共832 passed、0 failed、0 skipped。托管publisher/retention周期调度、真实Broker/运行时注册、其他owner Outbox/Inbox及Notifications聚合页仍未实现；生产与三Provider门禁未通过 |
 | 功能开关后续集成 | T06客户端模块catalog已接入导航与直接路由，见[实施记录](41-t06-query-state-and-module-catalog.md)及[测试记录](42-t06-query-state-and-module-catalog-tests.md) | 运行能力owner注册、T30诊断及T32全组合验收仍待依赖计划执行 |
 | T06..T16 | T06共享查询状态/模块目录首片、QueryScope值对象、现有七类目录统一实时分页及Platform审计owner固定成员快照切片已实现；T06整体及T07..T16未完成 | Platform审计快照仅属owner局部首片，见[实施](51-t06-platform-audit-snapshot.md)及[测试](52-t06-platform-audit-snapshot-tests.md)；QueryScope值对象本身仍只表达指纹，不代替快照授权复验；其他owner、可变值冻结和完整DTC仍待后续，遵守原DAG |
+| T08 Task 1数量领域基础 | **局部完成**：独立WMS纯领域项目及数量值对象已实现，不代表T08启动或解除硬依赖 | 16项定向Release测试通过；完整solution串行Release回归900 passed、0 failed、0 skipped。无Host装配、数据库、授权或消息接线。T04/T05/T06仍未整体完成；DTC-WMS-004/010/011、T08整体继续未关闭，证据见[实施](85-t08-quantity-domain-foundation.md)及[测试](86-t08-quantity-domain-foundation-tests.md) |
 | T17 Route纯内核 | 软件工作包验收完成，见[实现、红绿及审查证据](07-route-kernel.md)；不是完整Route/WCS验收 | FourWay/Stacker各自私有topology/physical mapping与确定性候选路径；连接物理语义/设备归属缺陷先红后修复，最终SPEC/CODE审查PASS；228 Route测试与父集成通过；预约/派发/反馈及H分别由后续包验收 |
 | T18..T34 | 未开始 | 等待各自DAG前置；现场H/真实终端/生产DBA等门禁仍独立阻断，不用软件单测替代 |
 
@@ -201,3 +202,9 @@
 - Platform 内纯校验器已完成：20 MiB实际字节边界、允许扩展名与MIME一致性、基础PDF/PNG/JPEG签名、严格UTF-8/NUL检查及常见可执行/容器签名与明显活动标记拒绝；返回稳定拒绝码，不保留输入内容。
 - 定向测试38项通过；Platform/Host/测试项目Release依赖图构建成功，0 warning/0 error；整solution串行Release回归884 passed、0 failed、0 skipped；修改文件格式检查和`git diff --check`通过。实施与具体证据见[T07校验实施](83-t07-file-content-validation.md)和[T07校验测试](84-t07-file-content-validation-tests.md)。
 - 仅完成PAR-04内容校验基础。脚本文本检测为有限启发式，不是安全扫描或深度格式验证；不含上传/隔离存储/扫描/授权下载/清理，不设置Available状态。T04/T06硬依赖、扫描及存储配置仍未关闭，T07整包继续未完成。
+
+### T08 数量领域 Task 1 局部验证
+
+- `Wes.Wms`为不含外部依赖的领域项目，加入solution与Modules测试引用；Host不引用/装配。库存数量、精度及单笔数量只表达RULE-01中可实现的纯数值合同，不含业务实体、授权、消息、存储或API。
+- 初始测试先红：缺失`Wes.Wms`领域命名空间，CS0234；实现后定向Release 16项通过。WMS项目Release构建0警告/错误，完整solution串行Release为Architecture 29、Modules 287、Persistence 356、Route 228，共900 passed、0 failed、0 skipped；格式及diff检查通过。
+- 该证据仅关闭T08 Task 1的纯领域基础。数值类型测试不是DTC-WMS-004/010/011整体验收，也不验证MySQL映射/舍入、持久化溢出、事务或并发；T08及T04/T05/T06硬依赖仍未完成。

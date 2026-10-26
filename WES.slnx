@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Host/Wes.Host.csproj" />
     <Project Path="src/Modules/Platform/Wes.Platform.csproj" />
+    <Project Path="src/Modules/Wms/Wes.Wms.csproj" />
     <Project Path="src/Modules/Wcs/FourWay/Route/Wes.Wcs.FourWay.Route.csproj" />
     <Project Path="src/Modules/Wcs/Stacker/Route/Wes.Wcs.Stacker.Route.csproj" />
   </Folder>

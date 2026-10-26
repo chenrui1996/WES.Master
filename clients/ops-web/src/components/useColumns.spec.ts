@@ -300,6 +300,52 @@ it("keeps preference layouts isolated across tenant, identity, and environment c
   restoredTestEnvironment.unmount();
 });
 
+it("clears the active column layout on logout and restores it only after the same identity returns", async () => {
+  const preferenceKey = "wes-ops-web:columns:v1:test:tenant-a:user-a:users:directory";
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => { values.set(key, value); },
+  };
+  const setUserA = () => {
+    sessionState.subject = {
+      tenantId: "tenant-a", userId: "user-a", sessionId: "session-a",
+      requiresPasswordChange: false, credentialVersion: null, grants: [],
+    };
+  };
+  setUserA();
+  const host = defineComponent({
+    setup() {
+      const columns = useColumns(() => [
+        { key: "id", label: "ID", required: true },
+        { key: "name", label: "Name" },
+      ], { environment: "test", pageId: "users", tableId: "directory", storageProvider: () => storage });
+      return { ...columns, selectIdOnly: () => { columns.selected.value = ["id"]; } };
+    },
+    template: `<output>{{ selected.join(',') }}</output><button @click="selectIdOnly">ID only</button>`,
+  });
+  const wrapper = mount(host);
+  await flushPromises();
+  expect(wrapper.get("output").text()).toBe("id,name");
+
+  await wrapper.get("button").trigger("click");
+  await flushPromises();
+  expect(wrapper.get("output").text()).toBe("id");
+  const savedPreference = values.get(preferenceKey);
+  expect(savedPreference).toContain('"selected":["id"]');
+
+  forgetIdentity();
+  await flushPromises();
+  expect(wrapper.get("output").text()).toBe("");
+  expect(values.get(preferenceKey)).toBe(savedPreference);
+  expect(savedPreference).not.toContain("session-a");
+
+  setUserA();
+  await flushPromises();
+  expect(wrapper.get("output").text()).toBe("id");
+  wrapper.unmount();
+});
+
 it("reports corrupt preferences and excludes fields that are no longer authorized", async () => {
   const values = new Map<string, string>([
     ["wes-ops-web:columns:v1:test:tenant-a:user-a:users:directory", "{broken"],

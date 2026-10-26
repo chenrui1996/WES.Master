@@ -53,12 +53,16 @@ test("real staging files upload quarantine scan failure and authorized download"
   await expect(page.getByTestId("file-delete-confirm")).toContainText("24 小时");
   await page.getByRole("button", { name: "取消删除", exact: true }).click();
   await expect(page.getByTestId("file-delete-confirm")).toHaveCount(0);
+  await page.getByRole("button", { name: "读取暂存目录", exact: true }).click();
+  await expect(page.getByTestId("file-catalog")).toContainText("浏览器 检验.txt");
   for (const width of [375, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   }
-  await page.getByLabel("暂存文件 UUID").fill(process.env.WES_E2E_DOWNLOAD_ID!);
-  await page.getByRole("button", { name: "读取当前状态", exact: true }).click();
+  const chooseAvailable = page.getByRole("button", { name: "读取文件 note.txt", exact: true });
+  await chooseAvailable.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByLabel("暂存文件 UUID")).toHaveValue(process.env.WES_E2E_DOWNLOAD_ID!);
   await expect(page.getByTestId("file-details")).toContainText("可用（未绑定）");
   await page.getByRole("button", { name: "读取当前状态", exact: true }).focus();
   await page.keyboard.press("Tab");

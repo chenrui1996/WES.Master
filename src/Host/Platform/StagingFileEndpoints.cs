@@ -33,6 +33,15 @@ public static class StagingFileEndpoints
             }
         });
         group.MapPost("", UploadAsync);
+        group.MapGet("", async (int? offset, int? limit, int? state, HttpContext http, IdentityDatabase factory,
+            PlatformFileAdapters adapters, CancellationToken ct) =>
+        {
+            var subject = IdentityRuntime.Subject(http.User);
+            await using var owner = factory.Open(subject.TenantId);
+            var result = await owner.StagingFiles(adapters.Storage, adapters.Scanner).QueryAsync(subject,
+                offset ?? 0, limit ?? 25, state, ct);
+            return Outcome(result.Decision, result);
+        });
         group.MapGet("/{id:guid}", async (Guid id, HttpContext http, IdentityDatabase factory, PlatformFileAdapters adapters,
             CancellationToken ct) =>
         {

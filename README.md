@@ -52,6 +52,8 @@ T07客户端续实施：[暂存文件工作区](docs/implementation/109-t07-stag
 
 T04导出续实施：[当前授权固定审计快照导出](docs/implementation/111-t04-authorized-audit-export.md)及[证据](docs/implementation/112-t04-authorized-audit-export-tests.md)补齐独立export字段授权、显式列CSV、固定成员/600秒TTL、永久操作防重和审计/Outbox提交后交付。8项HTTP、14项真实MySQL owner、前端228项及真实HTTPS Chromium下载通过；最终当前编译源的完整.NET 1243项通过。既有1秒依赖健康探测曾波动，未隐藏失败；T04/T06整体及其他工作包仍未关闭。
 
+T07目录续实施：[当前授权暂存目录](docs/implementation/113-t07-authorized-staging-catalog.md)及[证据](docs/implementation/114-t07-authorized-staging-catalog-tests.md)补齐SQL内逐字段Own/部门/All交集、引用隔离后实时分页、状态筛选和目录选择后重读详情。新增14项HTTP/8项真实MySQL/12项客户端，前端240项/严格构建及真实HTTPS Chromium通过；全solution构建0警告/0错误，完整.NET 1265项通过。业务文件绑定/附件授权、真实ClamAV与部署ACL仍未验收，五个工作包不整体关闭。
+
 T05续实施：[托管Platform发布调度](docs/implementation/95-t05-hosted-platform-publisher.md)及[测试证据](docs/implementation/96-t05-hosted-platform-publisher-tests.md)接通默认禁用的显式tenant/batch周期和公共owner发布边界；缺少显式transport时拒绝启用，不提供None/成功fallback。调度器、lease和真实MySQL测试不代替真实Broker、Notifications聚合及T05整体合同。
 
 T08续实施：[WMS owner账本核心](docs/implementation/97-t08-owner-ledger-core.md)及[测试证据](docs/implementation/98-t08-owner-ledger-core-tests.md)新增独立余额/永久记账身份/不可变流水、精确收发和成对移账事务、版本与业务身份防重。内部记账原语没有Host/API接线，不代替实体授权、主数据、保护量持久化与完整业务用例；T08仍未整体关闭。

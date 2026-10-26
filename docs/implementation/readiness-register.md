@@ -294,3 +294,10 @@
 - 新metadata回执/一条AuditExported/既有Outbox原子提交后才交付CSV；真实SQL失败回滚，无旧审计复用伪造新回执。新迁移仅建回执表及复合键/外键/索引，EF无pending；生产未执行DDL。
 - 新增 **8项HTTP、14项真实MySQL owner及8项客户端**通过；全前端 **228 passed**及严格构建、真实HTTPS Chromium逐序核对60个固定成员/选列/文件名并断言数据库仅1条导出审计。最终当前已编译源的完整串行Release Architecture **29**、Modules **479**、Persistence **507**、Route **228**，共 **1243 passed、0 failed、0 skipped**。既有1秒依赖健康探测此前两次波动已据实记录，未改合同/掩盖失败。见[设计](111-t04-authorized-audit-export.md)/[证据](112-t04-authorized-audit-export-tests.md)。
 - **整包状态不变**：T04其余DTC适用矩阵与生产/运维/人工证据、完整T06及T05/T07/T08剩余工作尚未全部验收；不得以此关闭五个整包或调用完成工具代签。
+
+### T07 当前授权暂存目录
+
+- 当前read全部metadata字段逐字段计算Own/creator当前部门/All交集，SQL内tenant/真实creator/引用计数和实际引用过滤后稳定分页；状态筛选、25/50/100及offset上限严格校验。仅未绑定暂存目录，不用文件权限绕过业务实体授权，不读取物理内容/扫描或产生审计。
+- Files页面已加入显式目录、共享实时分页及状态筛选。选择只传Id并重新读取当前详情/版本；同查询503保留Stale但禁选，401/403或换scope/过滤即时清行，迟到响应不落入新范围；重复Id、非法metadata/分页形状拒绝，离线不排队，无新增本机缓存。
+- 新增**14项HTTP、8项真实MySQL owner、12项客户端**通过；既有及新增授权文件owner共52项，前端全套**240 passed**及严格构建。真实HTTPS Chromium目录加载后验证375/768/1440、键盘选择后重读、原字节下载及单条审计。完整Release构建**0警告/0错误**，最终全套Architecture **29**、Modules **493**、Persistence **515**、Route **228**，共**1265 passed、0 failed、0 skipped**。首轮架构失败及修正见[证据](114-t07-authorized-staging-catalog-tests.md)，没有放宽边界测试；[设计](113-t07-authorized-staging-catalog.md)。
+- **T07仍partial**：业务绑定/实体附件授权与完整业务文件目录、真实ClamAV/病毒库/识别/健康、部署ACL未验收；T04/T05/T06/T08剩余门禁不变。暂存发现能力完成不等于五个整包已关闭。

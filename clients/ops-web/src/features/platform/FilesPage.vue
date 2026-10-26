@@ -2,16 +2,8 @@
 import { computed, onUnmounted, ref, shallowRef, watch } from "vue";
 import QueryState from "../../components/QueryState.vue";
 import { api, apiBlob, ApiError, isRecord, sessionState } from "../identity/identity-api";
-
-interface StagingFile {
-  id: string; fileName: string; contentType: string; byteCount: number; state: number; stored: boolean;
-  version: string; createdAt: string; processingProblem: boolean;
-}
-const maximum = 20971520;
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const readFields = ["Id", "FileName", "ContentType", "ByteCount", "State", "Stored", "Version", "CreatedAt", "ProcessingProblem"];
-const types: Record<string, string> = { pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", txt: "text/plain" };
-const labels = ["隔离待处理", "可用（未绑定）", "扫描拒绝", "删除处理中", "已删除"];
+import StagingFileCatalog from "./StagingFileCatalog.vue";
+import { labels, maximum, parseStagingFile, readFields, types, uuid, validName, type StagingFile } from "./staging-file";
 const record = ref<StagingFile | null>(null);
 const selected = shallowRef<File | null>(null);
 const picker = ref<HTMLInputElement | null>(null);
@@ -67,24 +59,12 @@ function failed(failure: unknown) {
 }
 function parseFile(value: unknown): StagingFile {
   if (!isRecord(value) || value.decision !== 0 || !isRecord(value.file)) throw new Error("文件响应未确认，请重新读取。");
-  const file = value.file;
-  if (typeof file.id !== "string" || !uuid.test(file.id) || typeof file.fileName !== "string"
-    || !validName(file.fileName) || typeof file.contentType !== "string" || !Object.values(types).includes(file.contentType)
-    || typeof file.byteCount !== "number" || !Number.isInteger(file.byteCount) || file.byteCount < 1 || file.byteCount > maximum
-    || typeof file.state !== "number" || !Number.isInteger(file.state) || file.state < 0 || file.state > 4
-    || typeof file.stored !== "boolean" || typeof file.version !== "string" || !file.version
-    || typeof file.createdAt !== "string" || !Number.isFinite(Date.parse(file.createdAt))
-    || typeof file.processingProblem !== "boolean") throw new Error("文件元数据响应无效，已丢弃，请重新读取。");
-  return { id: file.id, fileName: file.fileName, contentType: file.contentType, byteCount: file.byteCount, state: file.state,
-    stored: file.stored, version: file.version, createdAt: file.createdAt, processingProblem: file.processingProblem };
+  return parseStagingFile(value.file);
 }
 async function loadRecord(id: string, signal: AbortSignal): Promise<StagingFile> {
   const result = parseFile(await api(`/api/platform/files/staging/${id}`, { signal }));
   if (result.id.toLowerCase() !== id.toLowerCase()) throw new Error("文件身份与请求不符，已丢弃响应。");
   return result;
-}
-function validName(name: string) {
-  return name.length > 0 && name.length <= 255 && !/[\u0000-\u001f\u007f/\\:]/u.test(name) && !/[. ]$/u.test(name);
 }
 function fileType(file: File) { return file.type || types[file.name.split(".").pop()?.toLowerCase() ?? ""] || ""; }
 function selectFile(event: Event) {
@@ -111,6 +91,11 @@ async function readFile() {
     if (run.current()) { record.value = value; fresh.value = true; }
   } catch (failure) { if (run.current()) failed(failure); }
   finally { if (run.ticket === sequence) { busy.value = false; loading.value = false; } }
+}
+function selectCatalogFile(id: string) {
+  if (busy.value) return;
+  lookupId.value = id;
+  void readFile();
 }
 async function uploadFile() {
   if (!mayUpload.value || busy.value || !selected.value || !operation.value) return;
@@ -199,6 +184,7 @@ function cancel() {
     </div>
     <p v-else-if="busy" role="status">正在读取或处理；扫描工作量未知，不显示虚构进度。</p>
     <button v-if="busy" type="button" @click="cancel">取消等待（结果可能未知）</button>
+    <StagingFileCatalog v-if="mayRead" :busy="busy" @select="selectCatalogFile" />
     <form data-test="file-lookup" @submit.prevent="readFile" aria-label="读取已知文件">
       <label>暂存文件 UUID <input v-model="lookupId" name="fileId" autocomplete="off" :disabled="busy" /></label>
       <button type="submit" :disabled="busy || !mayRead">读取当前状态</button>

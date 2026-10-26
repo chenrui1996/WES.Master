@@ -33,6 +33,117 @@ async function read() {
   await wrapper!.get('[data-test="file-lookup"]').trigger("submit");
   await flushPromises();
 }
+
+it("discovers a file from the catalog but rereads current metadata before allowing actions", async () => {
+  const fetch = vi.fn(async (url: string) => new Response(JSON.stringify(url.includes("?")
+    ? { decision: 0, rows: [row], offset: 0, limit: 25 }
+    : { decision: 0, file: { ...row, version: "fresh-version" } })));
+  vi.stubGlobal("fetch", fetch);
+  wrapper = mount(FilesPage);
+  await wrapper.get('[data-test="file-catalog-read"]').trigger("click"); await flushPromises();
+  expect(wrapper.get('[data-test="file-catalog"]').text()).toContain("检验 note.txt");
+  expect(wrapper.find('[data-test="file-details"]').exists()).toBe(false);
+  await wrapper.get('[data-test="file-catalog-select"]').trigger("click"); await flushPromises();
+  expect(wrapper.get('[data-test="file-details"]').text()).toContain("fresh-version");
+  expect(fetch.mock.calls.map(call => call[0])).toEqual([
+    "/api/platform/files/staging?offset=0&limit=25", `/api/platform/files/staging/${id}`,
+  ]);
+});
+
+it("keeps a failed same-query catalog explicitly stale and forbids selection", async () => {
+  const fetch = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ decision: 0, rows: [row], offset: 0, limit: 25 })))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ code: "DependencyUnavailable", correlationId: "catalog-correlation" }), { status: 503 }));
+  vi.stubGlobal("fetch", fetch);
+  wrapper = mount(FilesPage);
+  await wrapper.get('[data-test="file-catalog-read"]').trigger("click"); await flushPromises();
+  await wrapper.get('[data-test="file-catalog-read"]').trigger("click"); await flushPromises();
+  expect(wrapper.get('[data-test="file-catalog"]').text()).toContain("catalog-correlation");
+  expect(wrapper.get('[data-test="file-catalog-select"]').attributes("disabled")).toBeDefined();
+  expect(wrapper.find('[data-test="file-details"]').exists()).toBe(false);
+});
+
+it("discards a late catalog after the scope changes and clears its original rows", async () => {
+  let finish!: (response: Response) => void;
+  vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(resolve => { finish = resolve; })));
+  wrapper = mount(FilesPage);
+  await wrapper.get('[data-test="file-catalog-read"]').trigger("click"); await flushPromises();
+  sessionState.subject = { ...sessionState.subject!, userId: "other-user" };
+  await flushPromises();
+  finish(new Response(JSON.stringify({ decision: 0, rows: [row], offset: 0, limit: 25 }))); await flushPromises();
+  expect(wrapper.find('[data-test="file-catalog-select"]').exists()).toBe(false);
+  expect(wrapper.get('[data-test="file-catalog"]').text()).not.toContain("检验 note.txt");
+});
+
+it.each([
+  { decision: 0, rows: [row, row], offset: 0, limit: 25 },
+  { decision: 0, rows: [row], offset: 25, limit: 25 },
+  { decision: 0, rows: [row], offset: 0, limit: 50 },
+  { decision: 0, rows: [{ ...row, state: 8 }], offset: 0, limit: 25 },
+  { decision: 0, rows: Array.from({ length: 26 }, () => row), offset: 0, limit: 25 },
+])("rejects a malformed catalog instead of exposing actionable rows %#", async payload => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(payload))));
+  wrapper = mount(FilesPage);
+  await wrapper.get('[data-test="file-catalog-read"]').trigger("click"); await flushPromises();
+  expect(wrapper.get('[data-test="file-catalog"]').text()).toContain("无效");
+  expect(wrapper.find('[data-test="file-catalog-select"]').exists()).toBe(false);
+});
+
+it("clears old rows immediately on a catalog filter change and requests only the selected lifecycle", async () => {
+  const fetch = vi.fn(async (_url: string) => new Response(JSON.stringify({ decision: 0, rows: [row], offset: 0, limit: 25 })));
+  vi.stubGlobal("fetch", fetch);
+  wrapper = mount(FilesPage);
+  await wrapper.get('[data-test="file-catalog-read"]').trigger("click"); await flushPromises();
+  await wrapper.get('[name="catalogState"]').setValue("1");
+  expect(wrapper.find('[data-test="file-catalog-select"]').exists()).toBe(false);
+  fetch.mockResolvedValueOnce(new Response(JSON.stringify({ decision: 0, rows: [], offset: 0, limit: 25 })));
+  await wrapper.get('[data-test="file-catalog-read"]').trigger("click"); await flushPromises();
+  expect(fetch.mock.calls.at(-1)?.[0]).toBe("/api/platform/files/staging?offset=0&limit=25&state=1");
+});
+
+it("uses shared bounded realtime paging and resets offset when changing page size", async () => {
+  const page = Array.from({ length: 25 }, (_, index) => ({ ...row,
+    id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}` }));
+  const fetch = vi.fn(async (url: string) => {
+    const query = new URL(url, "https://localhost").searchParams;
+    return new Response(JSON.stringify({ decision: 0, offset: Number(query.get("offset")), limit: Number(query.get("limit")),
+      rows: query.get("offset") === "25" ? [] : page }));
+  });
+  vi.stubGlobal("fetch", fetch);
+  wrapper = mount(FilesPage);
+  await wrapper.get('[data-test="file-catalog-read"]').trigger("click"); await flushPromises();
+  await wrapper.get('[data-test="file-catalog"] [data-test="next-page"]').trigger("click"); await flushPromises();
+  expect(wrapper.get('[data-test="file-catalog"]').text()).toContain("第 2 页");
+  expect(wrapper.find('[data-test="file-catalog-select"]').exists()).toBe(false);
+  await wrapper.get('[aria-label="暂存文件目录分页"] select').setValue("50"); await flushPromises();
+  expect(fetch.mock.calls.map(call => call[0])).toEqual([
+    "/api/platform/files/staging?offset=0&limit=25", "/api/platform/files/staging?offset=25&limit=25",
+    "/api/platform/files/staging?offset=0&limit=50",
+  ]);
+});
+
+it("removes previously visible catalog metadata immediately on an explicit authorization refusal", async () => {
+  const fetch = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ decision: 0, rows: [row], offset: 0, limit: 25 })))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ code: "Forbidden", correlationId: "catalog-denied" }), { status: 403 }));
+  vi.stubGlobal("fetch", fetch);
+  wrapper = mount(FilesPage);
+  await wrapper.get('[data-test="file-catalog-read"]').trigger("click"); await flushPromises();
+  await wrapper.get('[data-test="file-catalog-read"]').trigger("click"); await flushPromises();
+  expect(wrapper.find('[data-test="file-catalog-select"]').exists()).toBe(false);
+  expect(wrapper.get('[data-test="file-catalog"]').text()).not.toContain("检验 note.txt");
+  expect(wrapper.get('[data-test="file-catalog"]').text()).toContain("catalog-denied");
+});
+
+it("does not queue an offline catalog read for reconnect", async () => {
+  vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+  const fetch = vi.fn();
+  vi.stubGlobal("fetch", fetch);
+  wrapper = mount(FilesPage);
+  await wrapper.get('[data-test="file-catalog-read"]').trigger("click"); await flushPromises();
+  expect(wrapper.get('[data-test="file-catalog"]').text()).toContain("离线");
+  vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+  window.dispatchEvent(new Event("online")); await flushPromises();
+  expect(fetch).not.toHaveBeenCalled();
+});
 async function upload() {
   await wrapper!.get('[data-test="file-upload"]').trigger("submit");
   await flushPromises();

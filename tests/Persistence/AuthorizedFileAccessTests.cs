@@ -15,7 +15,7 @@ namespace Wes.Persistence.Tests;
 
 [Collection("PlatformPersistence")]
 [Trait("Provider", "MySQL")]
-public sealed class AuthorizedFileAccessTests : IAsyncLifetime
+public sealed partial class AuthorizedFileAccessTests : IAsyncLifetime
 {
     private readonly Guid _tenant = Guid.NewGuid();
     private readonly Guid _other = Guid.NewGuid();

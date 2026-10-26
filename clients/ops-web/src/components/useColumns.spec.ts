@@ -212,34 +212,92 @@ it("persists the user's explicit choice to unpin the primary identifier", async 
   wrapper.unmount();
 });
 
-it("keeps preferences isolated by environment and identity", async () => {
+it("keeps preference layouts isolated across tenant, identity, and environment changes", async () => {
   const values = new Map<string, string>();
   const storage = {
     getItem: (key: string) => values.get(key) ?? null,
     setItem: (key: string, value: string) => { values.set(key, value); },
   };
-  sessionState.subject = {
-    tenantId: "tenant-a", userId: "user-a", sessionId: "session-a",
-    requiresPasswordChange: false, credentialVersion: null, grants: [],
+  const setSubject = (tenantId: string, userId: string) => {
+    sessionState.subject = {
+      tenantId, userId, sessionId: `session-${userId}`,
+      requiresPasswordChange: false, credentialVersion: null, grants: [],
+    };
   };
-  const host = defineComponent({
-    setup() { return useColumns(() => [{ key: "id", label: "ID", required: true }, { key: "name", label: "Name" }],
-      { environment: "test", pageId: "users", tableId: "directory", storageProvider: () => storage }); },
-    template: `<output>{{ selected.join(',') }}</output><button @click="selected = ['id']">ID only</button>`,
+  const createHost = (environment: string) => defineComponent({
+    setup() {
+      const columns = useColumns(() => [
+        { key: "id", label: "ID", required: true },
+        { key: "name", label: "Name" },
+      ], { environment, pageId: "users", tableId: "directory", storageProvider: () => storage });
+      return {
+        ...columns,
+        selectIdOnly: () => { columns.selected.value = ["id"]; },
+        setNameWidth: () => { columns.widths.value = { name: 240 }; },
+      };
+    },
+    template: `<output data-test="selected">{{ selected.join(',') }}</output>
+      <output data-test="name-width">{{ widthStyle('name')?.width ?? 'auto' }}</output>
+      <button data-test="id-only" @click="selectIdOnly">ID only</button>
+      <button data-test="set-width" @click="setNameWidth">Set name width</button>`,
   });
+  const tenantAUserAKey = "wes-ops-web:columns:v1:test:tenant-a:user-a:users:directory";
+  const tenantBUserAKey = "wes-ops-web:columns:v1:test:tenant-b:user-a:users:directory";
+  const tenantAUserBKey = "wes-ops-web:columns:v1:test:tenant-a:user-b:users:directory";
+  const productionUserAKey = "wes-ops-web:columns:v1:production:tenant-a:user-a:users:directory";
+  setSubject("tenant-a", "user-a");
+  const host = createHost("test");
   const first = mount(host);
   await flushPromises();
-  expect(first.get("output").text()).toBe("id,name");
-  await first.get("button").trigger("click");
+  expect(first.get('[data-test="selected"]').text()).toBe("id,name");
+  await first.get('[data-test="id-only"]').trigger("click");
   await flushPromises();
+  expect(JSON.parse(values.get(tenantAUserAKey) ?? "{}")).toEqual({
+    version: 1, selected: ["id"], knownColumns: ["id", "name"], fixedFirstColumn: true,
+  });
+
+  setSubject("tenant-b", "user-a");
+  await flushPromises();
+  expect(first.get('[data-test="selected"]').text()).toBe("id,name");
+  await first.get('[data-test="set-width"]').trigger("click");
+  await flushPromises();
+  expect(JSON.parse(values.get(tenantBUserAKey) ?? "{}").widths).toEqual({ name: 240 });
+  expect(first.get('[data-test="name-width"]').text()).toBe("240px");
+
+  setSubject("tenant-a", "user-a");
+  await flushPromises();
+  expect(first.get('[data-test="selected"]').text()).toBe("id");
+  expect(first.get('[data-test="name-width"]').text()).toBe("200px");
+
+  setSubject("tenant-a", "user-b");
+  await flushPromises();
+  expect(first.get('[data-test="selected"]').text()).toBe("id,name");
+  expect(first.get('[data-test="name-width"]').text()).toBe("200px");
+  await first.get('[data-test="id-only"]').trigger("click");
+  await flushPromises();
+  expect(values.has(tenantAUserBKey)).toBe(true);
+
+  setSubject("tenant-a", "user-a");
+  await flushPromises();
+  expect(first.get('[data-test="selected"]').text()).toBe("id");
   first.unmount();
 
-  sessionState.subject!.userId = "user-b";
-  const second = mount(host);
+  const production = mount(createHost("production"));
   await flushPromises();
-  expect(second.get("output").text()).toBe("id,name");
-  expect([...values.keys()]).toEqual(["wes-ops-web:columns:v1:test:tenant-a:user-a:users:directory"]);
-  second.unmount();
+  expect(production.get('[data-test="selected"]').text()).toBe("id,name");
+  await production.get('[data-test="id-only"]').trigger("click");
+  await flushPromises();
+  expect(values.has(productionUserAKey)).toBe(true);
+  expect([...values.keys()]).toEqual([
+    tenantAUserAKey, tenantBUserAKey, tenantAUserBKey, productionUserAKey,
+  ]);
+  production.unmount();
+
+  const restoredTestEnvironment = mount(host);
+  await flushPromises();
+  expect(restoredTestEnvironment.get('[data-test="selected"]').text()).toBe("id");
+  expect(restoredTestEnvironment.get('[data-test="name-width"]').text()).toBe("200px");
+  restoredTestEnvironment.unmount();
 });
 
 it("reports corrupt preferences and excludes fields that are no longer authorized", async () => {

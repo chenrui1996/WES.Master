@@ -91,6 +91,7 @@
 - [x] DTC-UI-002 在Platform Users页首片已验证：区分首次无用户、筛选未提交、已提交条件无匹配和查询失败；见[实施](../../implementation/55-t06-users-empty-states.md)及[测试](../../implementation/56-t06-users-empty-states-tests.md)。用户目录不适用队列zero-work；其他PAGE/队列适用性仍待验收。
 - [x] DTC-UI-014 共享列设置首片已验证方向键排序草稿/显式应用与identity宽度160/600上下边界；见[实施](../../implementation/57-t06-column-settings-keyboard-widths.md)及[测试](../../implementation/58-t06-column-settings-keyboard-widths-tests.md)。其他页面长业务码、固定列/宽屏及全合同仍未验收。
 - [x] DTC-UI-016 跨标签首选项变化不覆盖当前未提交列设置草稿，受控StorageEvent和显式应用流程已验证；见[实施](../../implementation/59-t06-column-preference-cross-tab-draft.md)及[测试](../../implementation/60-t06-column-preference-cross-tab-draft-tests.md)。schema升级及其它损坏/存储失败变体仍单独适用，整项不标完成。
+- [x] DTC-UI-015 的本机偏好作用域切换首片已验证：同一存储下租户、主体与环境独立读写且恢复各自列布局；见[实施](../../implementation/61-t06-column-preference-scope-isolation.md)及[测试](../../implementation/62-t06-column-preference-scope-isolation-tests.md)。此受控组件测试不替代完整DTC-UI-015实体/登出和无业务写E2E。
 - [ ] 实现语义HTML/Composition API/strict TS与Element Plus已有组件复用；白名单偏好不存业务数据/secret/待写。核对/已有导出固定有序ID及读值、水位TTL600秒，权限撤销直接失效；实时offset变化不承诺无丢重。
 - [ ] 60条动态更新/增删、599/600秒快照、单位混合不求和、200%字体/+40%翻译/768/1024/1440与局部滚动验收；RVT-06/07。组件绿不代表64页绿，T32逐PAGE适用性再验，PDA/地图不机械套Grid。
 

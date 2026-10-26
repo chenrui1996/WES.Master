@@ -49,6 +49,50 @@ it("supports visibility and keyboard ordering without offering revoked fields", 
   wrapper.unmount();
 });
 
+it("restores only the column layout without clearing filters or business data", async () => {
+  const host = defineComponent({
+    components: { ColumnSettings },
+    setup() {
+      return {
+        columns: [
+          { key: "id", label: "标识", required: true },
+          { key: "name", label: "名称" },
+          { key: "state", label: "状态" },
+        ],
+        selected: ref(["id"]),
+        widths: ref({ name: 240 }),
+        fixedFirstColumn: ref(false),
+        filter: ref("WA"),
+        row: ref({ id: "R-1", quantity: 3 }),
+      };
+    },
+    template: `<ColumnSettings :columns="columns" v-model="selected" v-model:widths="widths"
+        v-model:fixed-first-column="fixedFirstColumn" />
+      <input data-test="filter" v-model="filter">
+      <output data-test="selected">{{ selected.join(',') }}</output>
+      <output data-test="widths">{{ JSON.stringify(widths) }}</output>
+      <output data-test="fixed">{{ fixedFirstColumn }}</output>
+      <output data-test="business">{{ row.id }}|{{ row.quantity }}</output>`,
+  });
+  const wrapper = mount(host);
+  expect(wrapper.get('[data-test="selected"]').text()).toBe("id");
+
+  await wrapper.get('[data-test="restore-columns"]').trigger("click");
+
+  expect(wrapper.get('[data-test="selected"]').text()).toBe("id");
+  expect(wrapper.get('[data-test="filter"]').element).toHaveProperty("value", "WA");
+  expect(wrapper.get('[data-test="business"]').text()).toBe("R-1|3");
+
+  await wrapper.get("form").trigger("submit");
+
+  expect(wrapper.get('[data-test="selected"]').text()).toBe("id,name,state");
+  expect(wrapper.get('[data-test="widths"]').text()).toBe("{}");
+  expect(wrapper.get('[data-test="fixed"]').text()).toBe("true");
+  expect(wrapper.get('[data-test="filter"]').element).toHaveProperty("value", "WA");
+  expect(wrapper.get('[data-test="business"]').text()).toBe("R-1|3");
+  wrapper.unmount();
+});
+
 it("rejects widths above the category maximum and persists the exact upper bound", async () => {
   sessionState.subject = {
     tenantId: "tenant-a", userId: "user-a", sessionId: "session-a",

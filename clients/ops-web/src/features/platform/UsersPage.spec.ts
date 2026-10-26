@@ -62,6 +62,44 @@ it("preserves same-scope query results and reports a failed refresh as stale", a
   wrapper.unmount();
 });
 
+it("distinguishes the first empty directory, a submitted empty filter, and a failed query", async () => {
+  let failReads = false;
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (failReads && url.includes("/api/platform/users?"))
+      return new Response('{"code":"DirectoryUnavailable","correlationId":"empty-state-fixture"}', { status: 503 });
+    return new Response(JSON.stringify({ authorized: true, rows:
+      url.includes("/api/platform/users?") ? [] : url.includes("/departments") ? departments : [] }));
+  }));
+
+  const wrapper = mount(UsersPage);
+  await flushPromises();
+  const emptyState = wrapper.get('[aria-label="用户目录"]');
+  expect(emptyState.text()).toContain("尚无可读用户");
+  expect(emptyState.text()).toContain("新建用户档案");
+  expect(wrapper.get('[data-test="new-user"]').exists()).toBe(true);
+
+  await wrapper.get('[name="filterAccount"]').setValue("MISSING");
+  expect(emptyState.text()).toContain("筛选条件已更改");
+  await wrapper.get('[aria-label="用户筛选"]').trigger("submit");
+  await flushPromises();
+  expect(emptyState.text()).toContain("无匹配用户");
+  expect(emptyState.text()).toContain("清除筛选");
+
+  await wrapper.get('[name="filterAccount"]').setValue("");
+  expect(emptyState.text()).toContain("筛选条件已更改");
+  await wrapper.get('[aria-label="用户筛选"]').trigger("submit");
+  await flushPromises();
+  expect(emptyState.text()).toContain("尚无可读用户");
+
+  failReads = true;
+  await wrapper.get('[aria-label="用户筛选"]').trigger("submit");
+  await flushPromises();
+  expect(emptyState.find('[role="alert"]').text()).toContain("DirectoryUnavailable");
+  expect(emptyState.text()).not.toContain("尚无可读用户");
+  expect(emptyState.text()).not.toContain("无匹配用户");
+  wrapper.unmount();
+});
+
 it("clears prior query rows as soon as the filter scope changes", async () => {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(JSON.stringify({
     authorized: true,

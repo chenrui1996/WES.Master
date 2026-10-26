@@ -219,3 +219,11 @@
 - 最终`dotnet test WES.slnx --configuration Release --no-restore -m:1`：Architecture **29**、Modules **344**、Persistence **368**、Route **228**，合计 **969 passed、0 failed、0 skipped**，替代900作为本批最终软件回归数量。新增维护配置/托管34项、真实MySQL维护12项、WMS保护23项，共69项；已有保留回归13项另随定向25项通过。
 - 所有修改C#完整`dotnet format ... --verify-no-changes --include <修改路径>`、`git diff --check`通过；无新增依赖/迁移/生产配置或连接。真实测试仍只使用授权`wes_test`。
 - **T04/T05/T06/T08整体均仍partial**：真实Broker/托管publisher、其他owner、Quartz作业单例及Notifications聚合、审计归档/容量与生产启用、WMS主数据/账本持久化/CAS/授权/页面及相关完整DTC仍待后续，不由969自动化用例代签。SQL Server/PostgreSQL仍deferred，生产/设备/现场H许可未改变。
+
+### T07 隔离生命周期、私有存储、扫描协议与MySQL基础
+
+- 已实现Quarantined/Available/Rejected/Deleting/Deleted领域状态、每次扫描独立attempt、60秒截止、600秒处理问题投影、24小时零引用删除fence及Deleted墓碑。摘要和实际长度不一致、旧attempt、扫描不可用或超时均不能清除隔离；这些原语仍需应用owner安全编排。
+- 本地私有存储使用tenant/file UUID路径、CreateNew不覆盖、20MiB实际字节界限与读取摘要校验；ClamAV适配只使用loopback INSTREAM，扫描与摘要取同一输入快照，全流程60秒截止。没有Host注册、文件API、公开URL或假扫描fallback。
+- MySQL迁移新增Platform自有文件/引用表及其复合tenant键、外键和索引。真实`wes_test`验证往返、tenant读写隔离、Version CAS、引用唯一、显式事务回滚，以及绑定与孤儿删除两种先后顺序只能一方提交，不留下部分引用。追加真实Provider反例发现默认大小写不敏感会混合owner引用；标准/原生排序元数据未实际修正列，保留已应用历史后用固定单列DDL修复，information_schema和精确查询/唯一键均验证通过。没有跨模块私表引用。
+- 定向本地/协议 **78 passed**（含原内容校验38项及新增40项），真实MySQL新增 **8 passed**；最终完整串行Release为Architecture **29**、Modules **384**、Persistence **376**、Route **228**，合计 **1017 passed、0 failed、0 skipped**，替代969及本轮中间1016作为当前软件回归数量。所有修改C#和新迁移完整格式验证通过；model/snapshot无pending差异。详见[设计](93-t07-quarantined-file-lifecycle.md)/[测试证据](94-t07-quarantined-file-lifecycle-tests.md)。
+- **T07仍partial**：上传/扫描/引用/删除的应用协调、实体实时授权、审计/受权下载、API/页面、存储中断/进程恢复及真实扫描验收尚未完成。当前未发现ClamAV或内置Defender扫描能力，未安装系统服务；TCP测试监听器不代表病毒识别通过。不因1017项回归将T04/T05/T06/T07/T08整体关闭，也不改变生产/现场门禁。

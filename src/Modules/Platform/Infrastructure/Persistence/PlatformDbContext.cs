@@ -77,6 +77,7 @@ public sealed partial class PlatformDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ConfigureDirectory(modelBuilder);
+        ConfigureFiles(modelBuilder);
         var utc = new ValueConverter<DateTimeOffset, DateTime>(
             value => value.UtcDateTime,
             value => new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)));
@@ -328,6 +329,8 @@ public sealed partial class PlatformDbContext : DbContext
         foreach (var entry in ChangeTracker.Entries()
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
         {
+            if (entry.Entity is QuarantinedFile && entry.State == EntityState.Deleted)
+                throw new InvalidOperationException("File identities must be retained as deletion tombstones.");
             if (entry.Entity is PlatformInboxReceipt inboxReceipt
                 && entry.State != EntityState.Added
                 && (entry.State != EntityState.Deleted

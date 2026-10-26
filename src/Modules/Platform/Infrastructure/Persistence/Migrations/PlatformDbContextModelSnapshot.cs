@@ -327,6 +327,33 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                     b.ToTable("platform_directory_users", (string)null);
                 });
 
+            modelBuilder.Entity("Wes.Platform.Domain.FileReference", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("FileId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Owner")
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)")
+                        .UseCollation("utf8mb4_bin")
+                        .HasAnnotation("MySQL:Collation", "utf8mb4_bin");
+
+                    b.Property<string>("EntityId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "FileId", "Owner", "EntityId");
+
+                    b.HasIndex("TenantId", "Owner", "EntityId");
+
+                    b.ToTable("platform_file_references", (string)null);
+                });
+
             modelBuilder.Entity("Wes.Platform.Domain.LoginAccountBudget", b =>
                 {
                     b.Property<string>("TenantId")
@@ -692,6 +719,82 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                     b.ToTable("platform_outbox_replay_receipts", (string)null);
                 });
 
+            modelBuilder.Entity("Wes.Platform.Domain.QuarantinedFile", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<long>("ByteCount")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("CorrelationId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatorId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int?>("LastScanVerdict")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ReferenceCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ScanAttemptId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<DateTime?>("ScanStartedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<int>("State")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Stored")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "State", "CreatedAt");
+
+                    b.ToTable("platform_files", (string)null);
+                });
+
             modelBuilder.Entity("Wes.Platform.Domain.RefreshCredential", b =>
                 {
                     b.Property<string>("TenantId")
@@ -957,6 +1060,24 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                     b.HasOne("Wes.Platform.Domain.DirectoryDepartment", null)
                         .WithMany()
                         .HasForeignKey("TenantId", "DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Wes.Platform.Domain.FileReference", b =>
+                {
+                    b.HasOne("Wes.Platform.Domain.QuarantinedFile", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "FileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Wes.Platform.Domain.QuarantinedFile", b =>
+                {
+                    b.HasOne("Wes.Platform.Domain.DirectoryTenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

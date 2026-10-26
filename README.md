@@ -38,6 +38,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 T04/T05/T06/T08续实施：[批次计划](docs/superpowers/plans/2026-10-26-platform-retention-candidates-stock-protection.md)分别跟踪Platform目录回执/Inbox的可选租户级清理、关联候选撤权/旧响应边界，以及WMS执行单元保护量并集。清理默认关闭，不包含审计删除或真实Broker；WMS仍为未装配Host的纯领域基础。验证结果和未关闭项以[就绪台账](docs/implementation/readiness-register.md)为准，不将局部切片等同四个工作包整体完成。
 
+T07续实施：[隔离文件生命周期与存储/扫描基础](docs/implementation/93-t07-quarantined-file-lifecycle.md)及[测试证据](docs/implementation/94-t07-quarantined-file-lifecycle-tests.md)新增精确字节证据、扫描attempt/截止、删除fence、本地私有存储、loopback ClamAV协议和MySQL文件/引用表。协议测试不是病毒清除，持久化约束不替代实体授权；应用协调、API、页面和真实扫描仍待完成，不能据此关闭T07。
+
 以下是本轮已整理的文档章节。每份功能规格都有测试设计，并在总追踪矩阵中关联需求 ID、设计章节、测试 ID 和验收结果；测试用例尚非自动化测试结果。
 
 | 文档组 | 内容 |

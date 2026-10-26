@@ -1042,6 +1042,93 @@ public sealed class IdentityHttpTests : IAsyncLifetime
         Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
     }
 
+    /// <summary>Department code lookup filters the authorized directory before applying its page window.</summary>
+    [Fact]
+    [Trait("CaseId", "DTC-UI-022")]
+    public async Task DepartmentCandidateCodeLookupFiltersBeforePaging()
+    {
+        await SignInAsync(); await GrantPlatformAsync();
+        await using (var seed = Open())
+        {
+            seed.Departments.AddRange(
+                new DirectoryDepartment(_tenant, "LOOKUP-A", "Lookup A"),
+                new DirectoryDepartment(_tenant, "LOOKUP-AB", "Lookup AB"));
+            await seed.SaveChangesAsync();
+        }
+
+        using var response = await _client.GetAsync("/api/platform/departments?offset=0&limit=1&code=LOOKUP-AB");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(page.GetProperty("authorized").GetBoolean());
+        var row = Assert.Single(page.GetProperty("rows").EnumerateArray());
+        Assert.Equal("LOOKUP-AB", row.GetProperty("code").GetString());
+
+        using var afterMatch = await _client.GetAsync("/api/platform/departments?offset=1&limit=25&code=LOOKUP-AB");
+        Assert.Equal(HttpStatusCode.OK, afterMatch.StatusCode);
+        Assert.Empty((await afterMatch.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("rows").EnumerateArray());
+    }
+
+    /// <summary>A department code lookup is denied when the caller cannot read the Code field.</summary>
+    [Fact]
+    [Trait("CaseId", "DTC-UI-022")]
+    public async Task DepartmentCandidateCodeLookupRequiresCodeFieldGrant()
+    {
+        await SignInAsync();
+        await using (var seed = Open())
+        {
+            var role = new AccessRole(_tenant, "department-name-reader",
+            [
+                new PermissionGrant("platform.departments.read", DataScope.All, ImmutableHashSet<Guid>.Empty,
+                    ImmutableHashSet.Create("Id", "Name", "Enabled"))
+            ]);
+            seed.Roles.Add(role);
+            seed.Memberships.Add(new RoleMembership(_tenant, _user, role.Id));
+            await seed.SaveChangesAsync();
+        }
+
+        using var response = await _client.GetAsync("/api/platform/departments?offset=0&limit=25&code=FIXTURE");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>Code filtering intersects its field scope with the department ID scope before querying.</summary>
+    [Fact]
+    [Trait("CaseId", "DTC-UI-022")]
+    public async Task DepartmentCandidateCodeLookupIntersectsIdAndCodeScopes()
+    {
+        await SignInAsync();
+        Guid codeScopedDepartment;
+        await using (var seed = Open())
+        {
+            var department = new DirectoryDepartment(_tenant, "CODE-SCOPED", "Code scoped");
+            seed.Departments.Add(department);
+            codeScopedDepartment = department.Id;
+            var role = new AccessRole(_tenant, "department-field-scope-reader",
+            [
+                new PermissionGrant("platform.departments.read", DataScope.All, ImmutableHashSet<Guid>.Empty,
+                    ImmutableHashSet.Create("Id", "Name", "Enabled")),
+                new PermissionGrant("platform.departments.read", DataScope.Departments,
+                    ImmutableHashSet.Create(codeScopedDepartment), ImmutableHashSet.Create("Code"))
+            ]);
+            seed.Roles.Add(role);
+            seed.Memberships.Add(new RoleMembership(_tenant, _user, role.Id));
+            await seed.SaveChangesAsync();
+        }
+
+        using var hidden = await _client.GetAsync("/api/platform/departments?offset=0&limit=25&code=FIXTURE");
+        Assert.Equal(HttpStatusCode.OK, hidden.StatusCode);
+        var hiddenPage = await hidden.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(hiddenPage.GetProperty("authorized").GetBoolean());
+        Assert.Empty(hiddenPage.GetProperty("rows").EnumerateArray());
+
+        using var visible = await _client.GetAsync("/api/platform/departments?offset=0&limit=25&code=CODE-SCOPED");
+        Assert.Equal(HttpStatusCode.OK, visible.StatusCode);
+        var visiblePage = await visible.Content.ReadFromJsonAsync<JsonElement>();
+        var row = Assert.Single(visiblePage.GetProperty("rows").EnumerateArray());
+        Assert.Equal(codeScopedDepartment, row.GetProperty("id").GetGuid());
+        Assert.Equal("CODE-SCOPED", row.GetProperty("code").GetString());
+    }
+
     /// <summary>A forged role reference is rejected by the owner without changing membership, version, or audit.</summary>
     [Fact]
     [Trait("CaseId", "DTC-UI-022")]

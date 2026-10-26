@@ -79,19 +79,34 @@ public sealed partial class DirectoryService
         }).ToImmutableArray());
     }
 
-    /// <summary>Reads only departments with an ID grant; field grants are evaluated against each authoritative department.</summary>
+    /// <summary>Filters departments within the intersection of ID and code grants before paging and projects fields per resource.</summary>
     public async Task<DirectoryPage<DepartmentDirectoryRow>> ReadDepartmentsAsync(TenantContext context,
-        int offset = 0, int limit = 50, CancellationToken cancellationToken = default)
+        int offset = 0, int limit = 50, CancellationToken cancellationToken = default, string? code = null)
     {
         GuardRead();
         Bounds(offset, limit);
         var grants = await Authorization.ReadGrantsAsync(context, cancellationToken);
-        var readable = grants.Where(x => x.Permission == "platform.departments.read" && x.Fields.Contains("Id")).ToArray();
-        if (readable.Length == 0) return new(false, []);
-        var all = readable.Any(x => x.Scope == DataScope.All);
-        var ids = readable.Where(x => x.Scope == DataScope.Departments).SelectMany(x => x.Departments).ToArray();
+        var readableIds = grants.Where(x => x.Permission == "platform.departments.read" && x.Fields.Contains("Id")).ToArray();
+        if (readableIds.Length == 0) return new(false, []);
+        var readableCodes = code is null ? [] : grants
+            .Where(x => x.Permission == "platform.departments.read" && x.Fields.Contains("Code")).ToArray();
+        if (code is not null && readableCodes.Length == 0) return new(false, []);
+        var idAll = readableIds.Any(x => x.Scope == DataScope.All);
+        var idDepartments = readableIds.Where(x => x.Scope == DataScope.Departments)
+            .SelectMany(x => x.Departments).Distinct().ToArray();
+        var all = idAll;
+        var ids = idDepartments;
+        if (code is not null)
+        {
+            var codeAll = readableCodes.Any(x => x.Scope == DataScope.All);
+            var codeDepartments = readableCodes.Where(x => x.Scope == DataScope.Departments)
+                .SelectMany(x => x.Departments).Distinct().ToArray();
+            all = idAll && codeAll;
+            ids = idAll ? codeDepartments : codeAll ? idDepartments : idDepartments.Intersect(codeDepartments).ToArray();
+        }
         var departmentQuery = database.Departments.AsNoTracking();
         if (!all) departmentQuery = departmentQuery.Where(AnyId<DirectoryDepartment>(x => x.Id, ids));
+        if (code is not null) departmentQuery = departmentQuery.Where(x => x.Code == code);
         var rows = await departmentQuery
             .OrderBy(x => x.Code).ThenBy(x => x.Id).Skip(offset).Take(limit).ToListAsync(cancellationToken);
         var parentIds = rows.Where(row => row.ParentId.HasValue).Select(row => row.ParentId!.Value).Distinct().ToArray();

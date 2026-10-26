@@ -8,7 +8,7 @@ import { api, ApiError, canRead, sessionState, type Grant } from "../identity/id
 import { useDirectoryCandidates } from "./useDirectoryCandidates";
 
 interface RoleRow { id: string; code: string | null; enabled: boolean | null; version: string | null; rules: Grant[] | null; affectedSubjects: number | null }
-interface DepartmentRow { id: string; name: string | null; enabled: boolean | null }
+interface DepartmentRow { id: string; code: string | null; name: string | null; enabled: boolean | null }
 interface Page<T> { authorized: boolean; rows: T[] }
 const rows = ref<RoleRow[]>([]);
 const departmentCatalog = useDirectoryCandidates<DepartmentRow>("/api/platform/departments");
@@ -23,8 +23,16 @@ const message = ref("");
 const offset = ref(0);
 const pageSize = ref(25);
 const filters = reactive({ code: "", permission: "" });
+const departmentSearch = ref("");
+const selectedDepartmentSummaries = ref(new Map<string, DepartmentRow>());
+let departmentSearchTimer: ReturnType<typeof setTimeout> | undefined;
 const readFields = computed(() => new Set(sessionState.subject?.grants.filter(grant =>
   grant.permission === "platform.roles.read" && grant.scope === 2).flatMap(grant => grant.fields)));
+const departmentReadGrants = computed(() => sessionState.subject?.grants.filter(grant =>
+  grant.permission === "platform.departments.read") ?? []);
+const canSearchDepartmentCode = computed(() =>
+  departmentReadGrants.value.some(grant => grant.fields.includes("Id"))
+  && departmentReadGrants.value.some(grant => grant.fields.includes("Code")));
 const editor = ref<RoleRow | "new" | null>(null);
 const form = reactive({ code: "", enabled: true, rules: [] as Grant[] });
 const draft = reactive({ permission: "", scope: 0, departments: [] as string[], fields: [] as string[] });
@@ -79,22 +87,65 @@ const {
     ? [{ key: "affectedSubjects", label: "关联用户数（查询快照）", widthClass: "numeric" as const }] : [],
 ] : [], { pageId: "platform-roles", tableId: "directory", fixedActionWidth: 160 });
 function scopeName(scope: number) { return scope === 0 ? "本人" : scope === 1 ? "指定部门" : scope === 2 ? "当前租户全部" : "无效范围"; }
-function resetDraft() { Object.assign(draft, { permission: "", scope: 0, departments: [], fields: [] }); }
+function syncSelectedDepartmentSummaries() {
+  const selectedIds = new Set(draft.departments);
+  const summaries = new Map([...selectedDepartmentSummaries.value].filter(([id]) => selectedIds.has(id)));
+  for (const row of departmentCandidates.value) {
+    if (selectedIds.has(row.id) && row.enabled === true) summaries.set(row.id, row);
+  }
+  selectedDepartmentSummaries.value = summaries;
+}
+watch([() => draft.departments.slice(), departmentCandidates], syncSelectedDepartmentSummaries, { flush: "sync" });
+function resetDraft() {
+  Object.assign(draft, { permission: "", scope: 0, departments: [], fields: [] });
+  departmentSearch.value = "";
+  selectedDepartmentSummaries.value = new Map();
+}
 watch(() => draft.permission, () => {
-  draft.fields = []; draft.departments = []; draft.scope = scopes.value[0] ?? 0;
+  draft.fields = []; draft.departments = []; draft.scope = scopes.value[0] ?? 0; departmentSearch.value = "";
 });
-watch(() => draft.scope, () => { draft.fields = []; draft.departments = []; });
+watch(() => draft.scope, scope => {
+  draft.fields = []; draft.departments = []; departmentSearch.value = "";
+  if (scope === 1 && editor.value && !departments.value.length) scheduleDepartmentSearch("");
+});
 function closeEditor() {
   editor.value = null; Object.assign(form, { code: "", enabled: true, rules: [] }); resetDraft();
 }
 function clear(preserveRows = false) {
   generation++; controller?.abort();
+  if (departmentSearchTimer) clearTimeout(departmentSearchTimer);
+  departmentSearchTimer = undefined;
   if (!preserveRows) {
     rows.value = []; lastSuccessfulQuery.value = null;
   }
   departmentCatalog.reset();
   closeEditor(); loading.value = false; busy.value = false; queryError.value = "";
 }
+function isAbortError(reason: unknown) { return reason instanceof Error && reason.name === "AbortError"; }
+function scheduleDepartmentSearch(code: string) {
+  if (departmentSearchTimer) clearTimeout(departmentSearchTimer);
+  departmentCatalog.reset();
+  candidateError.value = "";
+  if (!editor.value || !draft.permission || draft.scope !== 1 || !canSearchDepartmentCode.value || !controller) return;
+  const current = generation;
+  departmentSearchTimer = setTimeout(async () => {
+    departmentSearchTimer = undefined;
+    if (current !== generation || !controller) return;
+    try {
+      const response = await departmentCatalog.read(controller.signal, false, code);
+      if (current !== generation) return;
+      if (response?.authorized !== true) candidateError.value = "无权查询部门代码。指定部门规则不能提交。";
+    } catch (reason) {
+      if (current === generation && reason instanceof ApiError && reason.status === 403) {
+        clear();
+        candidateError.value = "无权查询部门代码，已清除未提交的权限草稿。";
+      } else if (current === generation && !isAbortError(reason)) {
+        candidateError.value = `部门代码查询失败，请重试。${reason instanceof Error ? reason.message : ""}`;
+      }
+    }
+  }, 250);
+}
+watch(departmentSearch, code => scheduleDepartmentSearch(code));
 function fail(reason: unknown) {
   if (reason instanceof ApiError && [403, 412, 428].includes(reason.status)) clear();
   error.value = reason instanceof Error ? reason.message : "角色操作失败，请重新读取后检查权限。";
@@ -117,7 +168,8 @@ async function load() {
       if (response?.authorized === true && Array.isArray(response.rows)) departments.value = response.rows;
       else candidateError.value = "无权读取部门候选。指定部门规则不能提交。";
     } catch (reason) {
-      if (current === generation) candidateError.value = `部门候选读取失败，请重新读取。${reason instanceof Error ? reason.message : ""}`;
+      if (current === generation && !isAbortError(reason))
+        candidateError.value = `部门候选读取失败，请重新读取。${reason instanceof Error ? reason.message : ""}`;
     }
   })();
   try {
@@ -142,7 +194,8 @@ async function moreCandidates() {
   const current = generation; candidateError.value = "";
   try { await departmentCatalog.read(controller.signal, true); }
   catch (reason) {
-    if (current === generation) candidateError.value = `后续部门候选读取失败，请重试。${reason instanceof Error ? reason.message : ""}`;
+    if (current === generation && !isAbortError(reason))
+      candidateError.value = `后续部门候选读取失败，请重试。${reason instanceof Error ? reason.message : ""}`;
   }
 }
 function covered(rule: Grant) {
@@ -163,7 +216,7 @@ function addRule() {
   const rule: Grant = { permission: draft.permission, scope: Number(draft.scope),
     departments: Number(draft.scope) === 1 ? [...draft.departments] : [], fields: [...draft.fields] };
   if (!permissions.value.includes(rule.permission) || !scopes.value.includes(rule.scope) || !rule.fields.length
-    || rule.scope === 1 && (!rule.departments.length || rule.departments.some(id => !departmentCandidates.value.some(row => row.id === id)))
+    || rule.scope === 1 && (!rule.departments.length || rule.departments.some(id => !selectedDepartmentSummaries.value.has(id)))
     || !covered(rule)) {
     error.value = "规则无效：请选择可委派权限、范围、至少一个字段；指定部门须选择启用且可委派的部门。"; return;
   }
@@ -297,7 +350,16 @@ onBeforeUnmount(() => { clear(); window.removeEventListener("online", connectivi
             <label>权限<select v-model="draft.permission" name="permission"><option value="">选择可委派权限</option><option v-for="permission in permissions" :key="permission" :value="permission">{{ permission }}</option></select></label>
             <label v-if="draft.permission">数据范围<select v-model.number="draft.scope" name="scope"><option v-for="scope in scopes" :key="scope" :value="scope">{{ scopeName(scope) }}</option></select></label>
             <fieldset v-if="draft.permission && draft.scope === 1"><legend>启用部门（当前已加载页）</legend>
-              <label v-for="department in departmentCandidates" :key="department.id" class="check"><input v-model="draft.departments" name="grantDepartment" type="checkbox" :value="department.id" />{{ department.name ?? department.id }}</label>
+              <label v-if="canSearchDepartmentCode">部门代码（精确）<input v-model="departmentSearch" name="departmentCode" maxlength="128" autocomplete="off" /></label>
+              <ul v-if="selectedDepartmentSummaries.size" data-test="selected-departments" aria-label="已选部门草稿">
+                <li v-for="departmentId in draft.departments" :key="departmentId">
+                  {{ selectedDepartmentSummaries.get(departmentId)?.code ? `${selectedDepartmentSummaries.get(departmentId)?.code} · ` : '' }}{{ selectedDepartmentSummaries.get(departmentId)?.name ?? departmentId }}
+                  <button type="button" :aria-label="`移除已选部门 ${departmentId}`" @click="draft.departments = draft.departments.filter(id => id !== departmentId)">移除</button>
+                </li>
+              </ul>
+              <p v-if="departmentCatalog.loading.value" role="status">正在读取部门候选…</p>
+              <p v-if="candidateError" role="alert">{{ candidateError }}</p>
+              <label v-for="department in departmentCandidates" :key="department.id" class="check"><input v-model="draft.departments" name="grantDepartment" type="checkbox" :value="department.id" />{{ department.code ? `${department.code} · ` : '' }}{{ department.name ?? department.id }}</label>
               <p v-if="!departmentCandidates.length">没有已加载的可委派启用部门，请重新读取或选择其他范围。</p>
             </fieldset>
             <fieldset v-if="draft.permission"><legend>可委派字段</legend><label v-for="field in fields" :key="field" class="check"><input v-model="draft.fields" type="checkbox" name="grantField" :value="field" />{{ field }}</label></fieldset>

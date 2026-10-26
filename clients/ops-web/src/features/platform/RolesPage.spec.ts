@@ -3,6 +3,12 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import RolesPage from "./RolesPage.vue";
 import { forgetIdentity, sessionState, setAccessToken } from "../identity/identity-api";
 
+function deferredResponse() {
+  let resolve!: (response: Response) => void;
+  const promise = new Promise<Response>(done => { resolve = done; });
+  return { promise, resolve };
+}
+
 beforeEach(() => {
   setAccessToken("opaque", "2099-01-01T00:00:00Z");
   sessionState.subject = { tenantId: "t1", userId: "me", sessionId: "s1", requiresPasswordChange: false, credentialVersion: null,
@@ -24,6 +30,16 @@ it("queries exact role code and permission before returning to the first page", 
   await wrapper.get('[name="filterRolePermission"]').setValue("platform.users.read");
   await wrapper.get('[data-test="role-filters"]').trigger("submit"); await flushPromises();
   expect(reads).toContain("/api/platform/roles?offset=0&limit=25&code=OPS&permission=platform.users.read");
+  wrapper.unmount();
+});
+it("does not expose department code lookup without the Code field grant", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response('{"authorized":true,"rows":[]}')));
+  const wrapper = mount(RolesPage);
+  await flushPromises();
+  await wrapper.get('[data-test="new-role"]').trigger("click");
+  await wrapper.get('[name="permission"]').setValue("platform.users.read");
+  await wrapper.get('[name="scope"]').setValue("1");
+  expect(wrapper.find('[name="departmentCode"]').exists()).toBe(false);
   wrapper.unmount();
 });
 it("previews the selected version and authorized current membership count without assuming a global effect", async () => {
@@ -62,6 +78,86 @@ it("loads authorized department candidates in 25-row pages without dropping earl
   expect(wrapper.find('input[name="grantDepartment"][value="d-0"]').exists()).toBe(true);
   expect(wrapper.find('[data-test="more-departments"]').exists()).toBe(false);
   wrapper.unmount();
+});
+it("debounces department code lookup and retains an explicitly selected department summary", async () => {
+  vi.useFakeTimers();
+  sessionState.subject!.grants[3]!.fields.push("Code");
+  sessionState.subject!.grants[2]!.departments.push("d2");
+  const reads: string[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    reads.push(url);
+    const code = new URL(url, "https://test.local").searchParams.get("code");
+    return new Response(JSON.stringify({ authorized: true, rows: url.includes("departments")
+      ? code === "AB" ? [{ id: "d2", name: "部门AB", enabled: true }]
+        : [{ id: "d1", name: "部门A", enabled: true }]
+      : [] }));
+  }));
+  const wrapper = mount(RolesPage);
+  await flushPromises();
+  await wrapper.get('[data-test="new-role"]').trigger("click");
+  await wrapper.get('[name="permission"]').setValue("platform.users.read");
+  await wrapper.get('[name="scope"]').setValue("1");
+  await wrapper.get('input[name="grantDepartment"][value="d1"]').setValue(true);
+
+  await wrapper.get('[name="departmentCode"]').setValue("AB");
+  await vi.advanceTimersByTimeAsync(249);
+  expect(reads.some(url => url.includes("code=AB"))).toBe(false);
+  await vi.advanceTimersByTimeAsync(1);
+  await flushPromises();
+
+  expect(reads).toContain("/api/platform/departments?offset=0&limit=25&code=AB");
+  expect(wrapper.find('input[name="grantDepartment"][value="d1"]').exists()).toBe(false);
+  expect(wrapper.find('[data-test="selected-departments"]').text()).toContain("部门A");
+  expect(wrapper.find('input[name="grantDepartment"][value="d2"]').exists()).toBe(true);
+  await wrapper.get('input[name="grantField"][value="Name"]').setValue(true);
+  await wrapper.get('[data-test="add-rule"]').trigger("click");
+  expect(wrapper.get('[data-test="role-form"]').text()).toContain("d1");
+  wrapper.unmount();
+  vi.useRealTimers();
+});
+it("keeps the AB department results when an earlier A response arrives last", async () => {
+  vi.useFakeTimers();
+  sessionState.subject!.grants[3]!.fields.push("Code");
+  sessionState.subject!.grants[2]!.departments.push("d2", "d3");
+  const first = deferredResponse();
+  const second = deferredResponse();
+  const reads: string[] = [];
+  vi.stubGlobal("fetch", vi.fn((url: string) => {
+    reads.push(url);
+    const code = new URL(url, "https://test.local").searchParams.get("code");
+    if (url.includes("departments") && code === "A") return first.promise;
+    if (url.includes("departments") && code === "AB") return second.promise;
+    return Promise.resolve(new Response(JSON.stringify({ authorized: true, rows: url.includes("departments")
+      ? [{ id: "d1", code: "BASE", name: "默认部门", enabled: true }]
+      : [] })));
+  }));
+  const wrapper = mount(RolesPage);
+  await flushPromises();
+  await wrapper.get('[data-test="new-role"]').trigger("click");
+  await wrapper.get('[name="permission"]').setValue("platform.users.read");
+  await wrapper.get('[name="scope"]').setValue("1");
+  await wrapper.get('input[name="grantDepartment"][value="d1"]').setValue(true);
+
+  await wrapper.get('[name="departmentCode"]').setValue("A");
+  await vi.advanceTimersByTimeAsync(250);
+  expect(reads.some(url => url.endsWith("&code=A"))).toBe(true);
+  await wrapper.get('[name="departmentCode"]').setValue("AB");
+  await vi.advanceTimersByTimeAsync(250);
+  expect(reads.some(url => url.endsWith("&code=AB"))).toBe(true);
+
+  second.resolve(new Response(JSON.stringify({ authorized: true, rows: [
+    { id: "d2", code: "AB", name: "AB部门", enabled: true },
+  ] })));
+  await flushPromises();
+  first.resolve(new Response(JSON.stringify({ authorized: true, rows: [
+    { id: "d3", code: "A", name: "A部门", enabled: true },
+  ] })));
+  await flushPromises();
+  expect(wrapper.find('input[name="grantDepartment"][value="d2"]').exists()).toBe(true);
+  expect(wrapper.find('input[name="grantDepartment"][value="d3"]').exists()).toBe(false);
+  expect(wrapper.find('[data-test="selected-departments"]').text()).toContain("默认部门");
+  wrapper.unmount();
+  vi.useRealTimers();
 });
 it("uses validated grant choices and explicit numeric department scope", async () => {
   const writes: unknown[] = [];

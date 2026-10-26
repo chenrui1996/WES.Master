@@ -132,11 +132,12 @@ public static class PlatformEndpoints
             new UserDirectoryFilter(account, name, departmentId, enabled, offset, limit), ct);
         return Page(result);
     }
-    private static async Task<IResult> DepartmentsAsync(HttpContext http, IdentityDatabase factory, TimeProvider clock, CancellationToken ct, int offset = 0, int limit = 50)
+    private static async Task<IResult> DepartmentsAsync(HttpContext http, IdentityDatabase factory, TimeProvider clock, CancellationToken ct,
+        int offset = 0, int limit = 50, string? code = null)
     {
         var subject = IdentityRuntime.Subject(http.User);
         await using var database = factory.Open(subject.TenantId);
-        return Page(await database.Directory.ReadDepartmentsAsync(subject, offset, limit, ct));
+        return Page(await database.Directory.ReadDepartmentsAsync(subject, offset, limit, ct, code));
     }
     private static async Task<IResult> RolesAsync(HttpContext http, IdentityDatabase factory, TimeProvider clock, CancellationToken ct,
         int offset = 0, int limit = 50, string? code = null, string? permission = null)

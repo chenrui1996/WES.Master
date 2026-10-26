@@ -10,16 +10,35 @@ export function useDirectoryCandidates<T extends { id: string }>(path: string) {
   const loading = ref(false);
   let generation = 0;
   let nextOffset = 0;
+  let currentCode = "";
+  let activeController: AbortController | undefined;
   function reset() {
-    generation++; rows.value = []; more.value = false; loading.value = false; nextOffset = 0;
+    generation++; activeController?.abort(); activeController = undefined;
+    rows.value = []; more.value = false; loading.value = false; nextOffset = 0; currentCode = "";
   }
-  async function read(signal: AbortSignal, append = false) {
-    if (loading.value || append && !more.value) return null;
+  async function read(signal: AbortSignal, append = false, code?: string) {
+    if (append && (loading.value || !more.value)) return null;
+    if (!append) {
+      generation++;
+      activeController?.abort();
+      currentCode = code?.trim() ?? "";
+      nextOffset = 0;
+    }
     const current = generation;
+    const requestController = new AbortController();
+    activeController = requestController;
+    const abort = () => requestController.abort();
+    if (signal.aborted) abort();
+    else signal.addEventListener("abort", abort, { once: true });
     loading.value = true;
     try {
+      const query = new URLSearchParams({
+        offset: String(append ? nextOffset : 0),
+        limit: String(candidatePageSize),
+      });
+      if (currentCode) query.set("code", currentCode);
       const response = await api<CandidatePage<T>>(
-        `${path}?offset=${append ? nextOffset : 0}&limit=${candidatePageSize}`, { signal });
+        `${path}?${query}`, { signal: requestController.signal });
       if (current !== generation) return null;
       if (response.authorized !== true || !Array.isArray(response.rows) || response.rows.length > candidatePageSize
         || response.rows.some(row => !row || typeof row.id !== "string"))
@@ -28,7 +47,13 @@ export function useDirectoryCandidates<T extends { id: string }>(path: string) {
       nextOffset = (append ? nextOffset : 0) + candidatePageSize;
       more.value = response.rows.length === candidatePageSize;
       return response;
-    } finally { if (current === generation) loading.value = false; }
+    } finally {
+      signal.removeEventListener("abort", abort);
+      if (current === generation) {
+        loading.value = false;
+        if (activeController === requestController) activeController = undefined;
+      }
+    }
   }
   return { rows, more, loading, read, reset };
 }

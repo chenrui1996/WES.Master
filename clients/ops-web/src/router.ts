@@ -23,6 +23,7 @@ export const router = createRouter({
     { path: "/admin/tenants", component: () => import("./features/platform/TenantsPage.vue"), meta: { moduleCode: "Platform", permission: "platform.tenants.read" } },
     { path: "/admin/configuration", component: () => import("./features/platform/SettingsPage.vue"), meta: { moduleCode: "Platform", configuration: true } },
     { path: "/admin/audit", component: () => import("./features/platform/AuditPage.vue"), meta: { moduleCode: "Platform", permission: "platform.audit.read" } },
+    { path: "/files", component: () => import("./features/platform/FilesPage.vue"), meta: { moduleCode: "Platform", permission: "platform.files.read" } },
     { path: "/:pathMatch(.*)*", redirect: "/account/sessions" },
   ],
 });

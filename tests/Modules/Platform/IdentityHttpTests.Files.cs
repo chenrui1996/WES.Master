@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -423,6 +424,79 @@ public sealed partial class IdentityHttpTests
     {
         public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default) =>
             fail ? ValueTask.FromException(new IOException("synthetic response disconnect")) : base.WriteAsync(buffer, cancellationToken);
+    }
+
+    /// <summary>Real Chromium reads the built UI against fixture HTTPS/MySQL/private bytes; scanner refusal never clears quarantine.</summary>
+    [Fact]
+    [Trait("CaseId", "CLIENT-FILE-BROWSER-01")]
+    public async Task RealBrowserUploadsQuarantinedFilesAndDownloadsOnlyAvailableAuditedBytes()
+    {
+        using var unavailable = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        unavailable.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+        var scannerPort = ((IPEndPoint)unavailable.LocalEndPoint!).Port;
+        await FileHostAsync(scannerPort);
+        using var upload = await _client.SendAsync(FileRequest("safe"u8.ToArray(), Guid.NewGuid()));
+        Assert.Equal(HttpStatusCode.OK, upload.StatusCode);
+        Guid downloadId;
+        await using (var seed = Open())
+        {
+            var file = await seed.Files.SingleAsync();
+            // Seeded clearance exercises delivery only; it is not real virus identification evidence.
+            var attempt = file.BeginScan(_clock.GetUtcNow());
+            file.CompleteScan(attempt, FileScanVerdict.Clean, file.Sha256, file.ByteCount, _clock.GetUtcNow());
+            downloadId = file.Id;
+            await seed.SaveChangesAsync();
+        }
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "WES.slnx"))) root = root.Parent;
+        Assert.NotNull(root);
+        var web = Path.Combine(root.FullName, "clients", "ops-web");
+        Assert.True(File.Exists(Path.Combine(web, "dist", "index.html")), "Build the reviewed client before browser validation.");
+        using var rsa = RSA.Create(2048);
+        var certificateRequest = new CertificateRequest("CN=localhost", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        var names = new SubjectAlternativeNameBuilder();
+        names.AddIpAddress(IPAddress.Loopback);
+        certificateRequest.CertificateExtensions.Add(names.Build());
+        using var generated = certificateRequest.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddHours(1));
+        using var certificate = X509CertificateLoader.LoadPkcs12(generated.Export(X509ContentType.Pfx), password: null);
+        await using var server = new Factory(_connection, _corpus, _clock, Path.Combine(web, "dist"),
+            filesRoot: _filesRoot, scannerPort: scannerPort);
+        server.UseKestrel(options => options.Listen(IPAddress.Loopback, 0, listener => listener.UseHttps(certificate)));
+        server.StartServer();
+        var address = Assert.Single(server.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses);
+        using var handler = new HttpClientHandler
+        { ServerCertificateCustomValidationCallback = (_, actual, _, _) => actual?.Thumbprint == certificate.Thumbprint };
+        using var probe = new HttpClient(handler);
+        using var live = await probe.GetAsync(address + "/health/live");
+        Assert.Equal(HttpStatusCode.OK, live.StatusCode);
+        var start = new ProcessStartInfo("node")
+        {
+            WorkingDirectory = web,
+            RedirectStandardError = true,
+            RedirectStandardOutput = true,
+            StandardOutputEncoding = System.Text.Encoding.UTF8,
+            StandardErrorEncoding = System.Text.Encoding.UTF8,
+            UseShellExecute = false
+        };
+        start.ArgumentList.Add(Path.Combine(web, "node_modules", "@playwright", "test", "cli.js"));
+        start.ArgumentList.Add("test"); start.ArgumentList.Add("files.spec.ts"); start.ArgumentList.Add("--config=playwright.config.ts");
+        start.Environment["WES_E2E_URL"] = address;
+        start.Environment["WES_E2E_TENANT"] = _tenant.ToString("D");
+        start.Environment["WES_E2E_FILES"] = "true";
+        start.Environment["WES_E2E_DOWNLOAD_ID"] = downloadId.ToString("D");
+        using var process = Process.Start(start)!;
+        var output = process.StandardOutput.ReadToEndAsync();
+        var errors = process.StandardError.ReadToEndAsync();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+        try { await process.WaitForExitAsync(deadline.Token); }
+        catch (OperationCanceledException) { process.Kill(entireProcessTree: true); throw; }
+        Assert.True(process.ExitCode == 0, await output + Environment.NewLine + await errors);
+        await using var verify = Open();
+        var browser = await verify.Files.SingleAsync(file => file.Id != downloadId);
+        Assert.Equal("浏览器 检验.txt", browser.FileName);
+        Assert.Equal(QuarantinedFileState.Quarantined, browser.State);
+        Assert.Equal(FileScanVerdict.Unavailable, browser.LastScanVerdict);
+        Assert.Single(await verify.Audit.Where(item => item.TargetId == downloadId && item.Action == PlatformAuditAction.FileDownloaded).ToListAsync());
     }
 
     private async Task FileHostAsync(int scannerPort = 3310)

@@ -7,6 +7,7 @@ const entries = [
   { path: "/admin/tenants", name: "租户", short: "租", module: "Platform", permission: ["platform.tenants.read"] },
   { path: "/admin/configuration", name: "配置与语言", short: "配", module: "Platform", permission: ["platform.settings.read", "platform.dictionary.read"] },
   { path: "/admin/audit", name: "审计与登录事件", short: "审", module: "Platform", permission: ["platform.audit.read"] },
+  { path: "/files", name: "暂存文件", short: "文", module: "Platform", permission: ["platform.files.read"] },
 ] as const;
 
 export function getNavigation(

@@ -280,3 +280,10 @@
 - raw body不使用JSON/base64或multipart临时文件；真实已知/未知长度M/M+1门禁，未知最多读取M+1字节、所有自有缓冲清零。中文显示名RFC3986 UTF-8一次解码并规范往返，非法编码拒绝；下载先owner审计再attachment/no-store/nosniff交付，响应失败也释放内容。临时HTTPS Kestrel已证明实际chunked门限和中文名往返，不只是TestServer。
 - 新增 **46 passed**（23流/配置、23HTTP/Provider），包含当前撤权、跨tenant拒绝、安全503后原operation恢复、损坏500不审计、不可用扫描保持隔离、600秒问题和到龄删除。最终完整串行Release Architecture **29**、Modules **470**、Persistence **493**、Route **228**，合计 **1220 passed、0 failed、0 skipped**；格式验证通过，无新增依赖/迁移。见[设计及操作配置](107-t07-staging-file-http.md)/[证据](108-t07-staging-file-http-tests.md)。
 - **T07仍partial**：Files页面/业务实体绑定与附件授权、真实ClamAV病毒库/识别/健康及部署ACL验收未关闭；现有Host readiness仍保留未装配业务门禁。T04/T05/T06/T08各自剩余范围也未完成，不因1220项回归整包关闭或代表生产/现场签字。
+
+### T07 暂存文件客户端
+
+- `/files`单文件工作区已接通raw字节上传/真实XHR进度、当前状态读取、按版本扫描/孤儿删除及受权二进制下载。取消/503仅用户显式同File/operation重试；scope撤权清实际选择控件/草稿/行，迟到响应与字节不创建下载URL，编辑UUID立即清未匹配旧行，失败刷新使旧投影stale且禁用动作。导航遵循Platform与read权限，不伪装完整全局分页文件目录。
+- 前端 **22文件、220 passed**，严格vue-tsc/Vite构建通过。真实MySQL/私有存储/HTTPS Chromium验证中文1MiB上传、非零真实进度、scanner拒绝连接保持隔离、375/768/1440、键盘可见焦点/Enter下载、原字节/文件名及恰好一条下载审计。仅下载使用Available领域种子，不能当病毒识别；无API网络替身。
+- 最终完整串行Release Architecture **29**、Modules **471**、Persistence **493**、Route **228**，共 **1221 passed、0 failed、0 skipped**，包含原平台及新文件真实浏览器回归。见[设计](109-t07-staging-file-client.md)/[测试](110-t07-staging-file-client-tests.md)。无新增依赖/迁移。
+- **T07仍partial**：业务实体绑定/附件授权、完整文件目录、真实ClamAV病毒库/识别/健康及部署ACL验收未关闭。T04/T05/T06/T08各自剩余范围保持真实状态；不以软件片段或测试种子代签整包、生产或现场安全。

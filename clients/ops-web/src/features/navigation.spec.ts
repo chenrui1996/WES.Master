@@ -18,4 +18,10 @@ describe("management navigation", () => {
     const navigation = getNavigation(() => false, () => true);
     expect(navigation.map(item => item.path)).toEqual(["/account/sessions"]);
   });
+  it("shows the staging file workspace only with its read permission and Platform module", () => {
+    expect(getNavigation(() => true, permission => permission === "platform.files.read").map(item => item.path))
+      .toEqual(["/account/sessions", "/files"]);
+    expect(getNavigation(() => false, permission => permission === "platform.files.read").map(item => item.path))
+      .toEqual(["/account/sessions"]);
+  });
 });

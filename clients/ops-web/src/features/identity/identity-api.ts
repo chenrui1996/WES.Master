@@ -31,7 +31,20 @@ export class ApiError extends Error {
     super(`${code}。请检查输入或重新读取后重试。关联标识：${correlation}`);
   }
 }
-export async function api<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
+export interface UploadProgress { onUploadProgress: (loaded: number, total: number | null) => void }
+export async function api<T = unknown>(path: string, options: RequestInit = {}, upload?: UploadProgress): Promise<T> {
+  const { response, requestedGeneration } = await request(path, options, upload);
+  const value: unknown = response.status === 204 ? undefined : await response.json();
+  requireGeneration(requestedGeneration);
+  return value as T;
+}
+export async function apiBlob(path: string, options: RequestInit = {}): Promise<Blob> {
+  const { response, requestedGeneration } = await request(path, options);
+  const value = await response.blob();
+  requireGeneration(requestedGeneration);
+  return value;
+}
+async function request(path: string, options: RequestInit, upload?: UploadProgress) {
   if (!path.startsWith("/api/") || path.includes("\\") || path.includes("#"))
     throw new Error("只允许同源 API 请求。");
   if (!navigator.onLine) throw new Error("当前离线，未发送请求。恢复连接后请重新读取并手动提交。");
@@ -42,10 +55,11 @@ export async function api<T = unknown>(path: string, options: RequestInit = {}):
     && !/\/credential(?:\?|$)/.test(path) && !/\/tenants\/switch-check(?:\?|$)/.test(path)
     && !/\/users\/[^/]+\/disable(?:\?|$)/.test(path)
     && !headers.has("Idempotency-Key")) headers.set("Idempotency-Key", crypto.randomUUID());
-  if (options.body) headers.set("Content-Type", "application/json");
+  if (options.body && !headers.has("Content-Type") && typeof options.body === "string") headers.set("Content-Type", "application/json");
   if (sessionState.token) headers.set("Authorization", `Bearer ${sessionState.token}`);
   const requestedGeneration = generation;
-  const response = await fetch(path, { ...options, headers, credentials: "same-origin", cache: "no-store" });
+  const response = upload ? await uploadResponse(path, method, headers, options, upload, requestedGeneration)
+    : await fetch(path, { ...options, headers, credentials: "same-origin", cache: "no-store" });
   requireGeneration(requestedGeneration);
   if (!response.ok) {
     if (response.status === 401) forgetIdentity();
@@ -63,9 +77,54 @@ export async function api<T = unknown>(path: string, options: RequestInit = {}):
       typeof record.code === "string" ? record.code.slice(0, 100) : `RequestFailed${response.status}`,
       typeof record.correlationId === "string" ? record.correlationId.slice(0, 64) : "未提供");
   }
-  const value: unknown = response.status === 204 ? undefined : await response.json();
-  requireGeneration(requestedGeneration);
-  return value as T;
+  return { response, requestedGeneration };
+}
+
+function uploadResponse(path: string, method: string, headers: Headers, options: RequestInit,
+  progress: UploadProgress, requestedGeneration: number): Promise<Response> {
+  if (!(options.body instanceof Blob)) return Promise.reject(new Error("上传必须使用已限定大小的文件字节。"));
+  const body = options.body;
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const signal = options.signal;
+    let finished = false;
+    function complete(action: () => void) {
+      if (finished) return;
+      finished = true;
+      signal?.removeEventListener("abort", abort);
+      xhr.upload.onprogress = null;
+      action();
+    }
+    function abort() {
+      xhr.abort();
+      complete(() => reject(new DOMException("上传已取消，结果可能未确认；仅显式重试原文件。", "AbortError")));
+    }
+    xhr.open(method, path);
+    xhr.responseType = "blob";
+    xhr.timeout = 120000;
+    headers.forEach((value, key) => xhr.setRequestHeader(key, value));
+    xhr.upload.onprogress = event => {
+      if (!finished && !signal?.aborted && requestedGeneration === generation)
+        progress.onUploadProgress(event.loaded, event.lengthComputable ? event.total : null);
+    };
+    xhr.onload = () => complete(() => {
+      if (signal?.aborted) { reject(new DOMException("上传已取消。", "AbortError")); return; }
+      const responseHeaders = new Headers();
+      for (const line of xhr.getAllResponseHeaders().trim().split(/[\r\n]+/)) {
+        const separator = line.indexOf(":");
+        if (separator > 0) responseHeaders.append(line.slice(0, separator), line.slice(separator + 1).trim());
+      }
+      if (xhr.status < 200 || xhr.status > 599) { reject(new Error("上传未取得有效确认，请显式重试原文件。")); return; }
+      resolve(new Response(xhr.status === 204 ? null : xhr.response, { status: xhr.status, headers: responseHeaders }));
+    });
+    xhr.onerror = () => complete(() => reject(new Error("上传连接中断，结果未确认；请显式重试原文件。")));
+    xhr.ontimeout = () => complete(() => reject(new Error("上传确认超时，结果未确认；请显式重试原文件。")));
+    xhr.onabort = () => complete(() => reject(new DOMException("上传已取消，结果可能未确认。", "AbortError")));
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) { abort(); return; }
+    try { xhr.send(body); }
+    catch (error) { complete(() => reject(error)); }
+  });
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {

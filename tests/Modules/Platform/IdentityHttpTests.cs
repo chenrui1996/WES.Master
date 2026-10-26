@@ -1698,6 +1698,7 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
                 {
                     ["Wes:Files:Enabled"] = "true",
                     ["Wes:Files:StorageRoot"] = filesRoot,
+                    ["Features:Modules:Platform"] = "true",
                     ["Wes:Files:ScannerAddress"] = "127.0.0.1",
                     ["Wes:Files:ScannerPort"] = scannerPort.ToString(System.Globalization.CultureInfo.InvariantCulture)
                 }));
@@ -1705,6 +1706,14 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
             {
                 services.RemoveAll<TimeProvider>();
                 services.AddSingleton(clock);
+                if (filesRoot is not null)
+                {
+                    // The test factory adds configuration after top-level composition captures the deployment catalog.
+                    services.RemoveAll<Wes.Host.Runtime.FeatureSwitches>();
+                    services.RemoveAll<Microsoft.Extensions.Options.IOptions<Wes.Host.Runtime.FeatureSwitches>>();
+                    services.AddSingleton(provider => Wes.Host.Runtime.FeatureSwitchConfiguration.Load(provider.GetRequiredService<IConfiguration>()));
+                    services.AddSingleton(provider => Microsoft.Extensions.Options.Options.Create(provider.GetRequiredService<Wes.Host.Runtime.FeatureSwitches>()));
+                }
                 services.AddSingleton<IStartupFilter, PeerFixture>();
                 if (keyRing is null) services.AddSingleton<IDataProtectionProvider>(new EphemeralDataProtectionProvider());
             });

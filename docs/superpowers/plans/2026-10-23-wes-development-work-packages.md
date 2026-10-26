@@ -117,6 +117,7 @@
 - [x] 当前授权暂存文件入口：真实creator/当前目录部门、会话/角色/字段授权，受权扫描/删除及审计提交后下载、读取中撤权/绑定拒绝和未交付缓冲清零。新增21项真实MySQL测试，见[设计](../../implementation/103-t07-authorized-staging-file-access.md)/[测试](../../implementation/104-t07-authorized-staging-file-access-tests.md)。业务绑定文件明确拒绝，不以暂存权限替代实体授权；上传/HTTP/页面及真实扫描仍未验收，不关闭T07。
 - [x] 持久受权上传：当前Upload权限/Own范围、永久tenant/operation身份、审计后CreateNew与重新授权确认，保存失败/取消后只核验精确既存字节恢复，不覆盖部分对象；新增23项真实MySQL与4项名字反例，完整1174项回归通过。见[设计](../../implementation/105-t07-durable-authorized-uploads.md)/[测试](../../implementation/106-t07-durable-authorized-uploads-tests.md)。成功仍隔离，不代签业务实体绑定、HTTP流限额/API/页面或真实扫描，T07仍partial。
 - [x] 暂存HTTP传输：显式默认关闭的私有根/loopback装配、当前身份、raw流M/M+1、中文名规范UTF-8、受权元数据/审计下载/扫描/到龄孤儿删除；新增46项，真实HTTPS Kestrel及完整1220项回归通过。见[设计](../../implementation/107-t07-staging-file-http.md)/[测试](../../implementation/108-t07-staging-file-http-tests.md)。仅未绑定暂存范围，页面/业务实体授权/真实ClamAV和部署ACL仍待验收，不关闭T07。
+- [x] 暂存单文件工作区：当前授权导航、真实字节上传进度/显式原operation重试、隔离读取/扫描、版本确认删除及审计二进制下载；撤权/目标变更与迟到结果门禁。前端220项/严格构建、真实HTTPS Chromium与完整1221项.NET通过，见[设计](../../implementation/109-t07-staging-file-client.md)/[测试](../../implementation/110-t07-staging-file-client-tests.md)。完整文件目录/业务实体授权及真实病毒库/ACL仍未验收，T07不整体关闭。
 - [ ] DTC-PLAT-007/VAL-05先红：20MiB/+1字节、伪MIME/宏文档/禁类型、存储失败/扫描60秒超时、600秒未恢复、在用引用24小时后清理、跨租户下载。
 - [ ] 实现类型/签名/UTF-8与禁NUL验证、隔离存储、扫描结果/失败回收与明确处理问题；扫描服务无值不Available，清孤儿需确认无引用。
 - [ ] 跑存储中断/外部DB非ACID恢复/API鉴权/页面回填；只存合法文件hash/摘要不存secret，确认既有受权干净文件不被新上传故障误禁。

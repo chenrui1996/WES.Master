@@ -328,6 +328,93 @@ it("reports corrupt preferences and excludes fields that are no longer authorize
   wrapper.unmount();
 });
 
+it("keeps the current layout usable and reports when browser storage is disabled", async () => {
+  const failure = new DOMException("Storage is disabled", "SecurityError");
+  const storage = {
+    getItem: vi.fn(() => { throw failure; }),
+    setItem: vi.fn(() => { throw failure; }),
+  };
+  sessionState.subject = {
+    tenantId: "tenant-a", userId: "user-a", sessionId: "session-a",
+    requiresPasswordChange: false, credentialVersion: null, grants: [],
+  };
+  const host = defineComponent({
+    setup() {
+      const columns = useColumns(() => [
+        { key: "id", label: "ID", required: true },
+        { key: "name", label: "Name" },
+      ], { environment: "test", pageId: "users", tableId: "directory", storageProvider: () => storage });
+      return {
+        ...columns,
+        selectIdOnly: () => { columns.selected.value = ["id"]; },
+      };
+    },
+    template: `<output data-test="selected">{{ selected.join(',') }}</output>
+      <p role="status">{{ preferenceWarning }}</p><button @click="selectIdOnly">ID only</button>`,
+  });
+
+  const wrapper = mount(host);
+  await flushPromises();
+  expect(wrapper.get('[data-test="selected"]').text()).toBe("id,name");
+  expect(wrapper.get('[role="status"]').text()).toContain("无法读取或保存");
+
+  await wrapper.get("button").trigger("click");
+  await flushPromises();
+
+  expect(wrapper.get('[data-test="selected"]').text()).toBe("id");
+  expect(wrapper.get('[role="status"]').text()).toContain("无法读取或保存");
+  expect(storage.setItem).toHaveBeenCalled();
+  wrapper.unmount();
+});
+
+it("keeps applied columns in the page and the old preference when storage quota is exceeded", async () => {
+  const preferenceKey = "wes-ops-web:columns:v1:test:tenant-a:user-a:users:directory";
+  const values = new Map<string, string>([[preferenceKey, JSON.stringify({
+    version: 1, selected: ["id", "name"], knownColumns: ["id", "name"],
+  })]]);
+  let rejectWrites = false;
+  const storage = {
+    getItem: vi.fn((key: string) => values.get(key) ?? null),
+    setItem: vi.fn((key: string, value: string) => {
+      if (rejectWrites) throw new DOMException("Storage quota exceeded", "QuotaExceededError");
+      values.set(key, value);
+    }),
+  };
+  sessionState.subject = {
+    tenantId: "tenant-a", userId: "user-a", sessionId: "session-a",
+    requiresPasswordChange: false, credentialVersion: null, grants: [],
+  };
+  const host = defineComponent({
+    setup() {
+      const columns = useColumns(() => [
+        { key: "id", label: "ID", required: true },
+        { key: "name", label: "Name" },
+      ], { environment: "test", pageId: "users", tableId: "directory", storageProvider: () => storage });
+      return {
+        ...columns,
+        selectIdOnly: () => { columns.selected.value = ["id"]; },
+      };
+    },
+    template: `<output data-test="selected">{{ selected.join(',') }}</output>
+      <p role="status">{{ preferenceWarning }}</p><button @click="selectIdOnly">ID only</button>`,
+  });
+
+  const wrapper = mount(host);
+  await flushPromises();
+  const savedBeforeFailure = values.get(preferenceKey);
+  expect(wrapper.get('[data-test="selected"]').text()).toBe("id,name");
+  expect(wrapper.get('[role="status"]').text()).toBe("");
+  rejectWrites = true;
+
+  await wrapper.get("button").trigger("click");
+  await flushPromises();
+
+  expect(wrapper.get('[data-test="selected"]').text()).toBe("id");
+  expect(wrapper.get('[role="status"]').text()).toContain("无法读取或保存");
+  expect(values.get(preferenceKey)).toBe(savedBeforeFailure);
+  wrapper.unmount();
+});
+
 it("drops revoked columns from live preferences when the authorized schema changes", async () => {
   const values = new Map<string, string>([
     ["wes-ops-web:columns:v1:test:tenant-a:user-a:users:directory",

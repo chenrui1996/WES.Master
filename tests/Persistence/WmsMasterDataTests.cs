@@ -232,6 +232,7 @@ public sealed partial class WmsMasterDataTests : IAsyncLifetime
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_locations WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_warehouses WHERE TenantId = {tenant.ToString("D")}");
         }
+        await RemoveAuthorizationAsync();
     }
     private sealed class Clock : TimeProvider
     {

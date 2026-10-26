@@ -64,6 +64,8 @@ T08保护续实施：[持久预留与账本保护](docs/implementation/99-t08-du
 
 T08主数据续实施：[禁用仓库/库位创建基础](docs/implementation/115-t08-location-master-data.md)及[证据](docs/implementation/116-t08-location-master-data-tests.md)补齐不可变仓/Pack/schema归属、tenant复合约束、永久operation与创建事实同事务。新增14项领域/34项真实MySQL测试通过，实际列属性反例驱动修正Provider忽略binary注解问题；完整.NET **1313项通过**、Release构建0警告/0错误。未装配业务授权/Host/API/页面或启停/容器绑定/Outbox，T08及其他整包仍未关闭。
 
+T08授权详情续实施：[当前主数据读取](docs/implementation/117-t08-current-master-data-reads.md)及[证据](docs/implementation/118-t08-current-master-data-reads-tests.md)以WMS创建事实和Platform当前会话/角色/creator部门衔接公开应用边界，Own/Departments/All逐次复验完整字段，无私表跨引用。新增22项真实MySQL联动，联合159项、领域32项及架构29项通过；构建零警告/错误。尚无Host生产注册/HTTP/列表/页面或创建授权，不把应用详情基础当作T08整体关闭。
+
 | 文档组 | 内容 |
 |---|---|
 | 项目治理 | [业务范围与现状矩阵](docs/01-business-scope-and-status.md)、[系统架构](docs/02-system-architecture.md)、[工程/注释/文档规范](docs/03-engineering-governance.md)、[需求追踪矩阵](docs/04-requirement-design-test-traceability.md)、[ADR](docs/adr/README.md) |

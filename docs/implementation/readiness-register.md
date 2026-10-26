@@ -308,3 +308,9 @@
 - 真实information_schema反例发现Oracle10.0.7忽略CreateTable列collation，5/5列错误；追加显式binary修正迁移后列属性及schema大小写查询通过，不修改已执行迁移，不改旧库存表，不自动伪造历史主数据。EF无pending，增量SQL已查，无生产DDL。
 - 新增**14领域+34真实MySQL**测试通过，与原账本/预留联合**82 passed**；最终全solution Release构建**0警告/0错误**，完整Architecture **29**、Modules **507**、Persistence **549**、Route **228**，共**1313 passed、0 failed、0 skipped**。见[设计](115-t08-location-master-data.md)/[证据](116-t08-location-master-data-tests.md)。
 - **T08仍partial**：业务当前授权/Host/API/页面、编辑启停/占用/预约/锁/活动证据、层级/容器绑定、Outbox与运输完成证明未验收。测试schema是受控合同fixture，不代替真实Pack或物理安全签字；其余四包剩余门禁保持不变。
+
+### T08 当前授权主数据详情
+
+- WMS公开单资源读取owner边界与当前authority端口，不引用Platform程序集/私表。creator来自WMS永久创建事实；Platform公开字段查询自行查creator当前目录部门，再逐次核验调用者当前会话/成员/角色/目录，精确匹配warehouse/location permission和完整字段；缺creator/字段拒绝，不返回半投影。
+- 新增**22项真实MySQL联动**通过，包括Own/Departments/All、另一owner移部门/撤角色/成员/session、实际跨tenant资源、错误字段比较器、缺策略/结果、取消及安全DB错误。联合主数据/账本/Platform回归**159 passed**，领域/授权**32 passed**、完整架构**29 passed**；Release全solution构建**0警告/0错误**。见[设计](117-t08-current-master-data-reads.md)/[证据](118-t08-current-master-data-reads-tests.md)。
+- 本片无迁移/依赖/前端变化，仅运行相关定向验证，不声称已重跑整套.NET/Vitest。真实Platform-backed适配器仍仅用于测试装配，尚无Host生产注册、HTTP/目录/页面或创建授权；其他T08生命周期与五包剩余门禁保持未完成。

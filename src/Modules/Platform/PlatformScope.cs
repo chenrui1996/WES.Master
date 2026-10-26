@@ -95,6 +95,11 @@ public sealed partial class PlatformScope : IAsyncDisposable
     }
     /// <summary>Named directory application use cases, not a persistence handle or generated CRUD surface.</summary>
     public DirectoryService Directory => new(_database, _clock, _operation);
+    /// <summary>Resolves trusted external resource provenance against live Platform authority, without exposing directory tables.</summary>
+    public Task<ImmutableHashSet<string>> VisibleOwnedResourceFieldsAsync(TenantContext context, string permission,
+        Guid resourceTenantId, Guid creatorId, CancellationToken cancellationToken = default) =>
+        new CurrentAuthorization(_database, _clock).VisibleOwnedFieldsAsync(
+            context, permission, resourceTenantId, creatorId, cancellationToken);
     /// <summary>Commits one bounded batch per receipt kind for this clean owner; no audit, outbox or domain expiry.</summary>
     public Task<RetentionMaintenanceResult> RemoveExpiredReceiptsAsync(int limit, CancellationToken cancellationToken = default) =>
         PlatformRetentionMaintenance.RemoveExpiredAsync(_database, _clock, limit, cancellationToken);

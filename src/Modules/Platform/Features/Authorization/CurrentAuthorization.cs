@@ -52,4 +52,24 @@ public sealed class CurrentAuthorization(PlatformDbContext database, TimeProvide
         }
         return RolePolicy.VisibleFields(context.TenantId, context.ActorId, permission, resource, grants);
     }
+
+    /// <summary>
+    /// Resolves a trusted resource creator's current directory department before evaluating fields.
+    /// Only resource-owner application code may supply creator/tenant metadata; neither is a client authorization assertion.
+    /// Missing creators and foreign resources fail closed, including All grants; no grant or department result is cached.
+    /// </summary>
+    public async Task<ImmutableHashSet<string>> VisibleOwnedFieldsAsync(TenantContext context, string permission,
+        Guid resourceTenantId, Guid creatorId, CancellationToken cancellationToken = default)
+    {
+        var grants = await ReadGrantsAsync(context, cancellationToken);
+        if (resourceTenantId != database.TenantId || creatorId == Guid.Empty || grants.IsEmpty)
+            return ImmutableHashSet<string>.Empty;
+        var creator = await database.DirectoryUsers.AsNoTracking()
+            .Where(item => item.Id == creatorId)
+            .Select(item => new { item.Id, item.DepartmentId })
+            .SingleOrDefaultAsync(cancellationToken);
+        if (creator is null) return ImmutableHashSet<string>.Empty;
+        return RolePolicy.VisibleFields(context.TenantId, context.ActorId, permission,
+            new ResourceScope(resourceTenantId, creator.Id, creator.DepartmentId), grants);
+    }
 }

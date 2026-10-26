@@ -95,6 +95,9 @@ public sealed class PlatformScope : IAsyncDisposable
     }
     /// <summary>Named directory application use cases, not a persistence handle or generated CRUD surface.</summary>
     public DirectoryService Directory => new(_database, _clock, _operation);
+    /// <summary>Commits one bounded batch per receipt kind for this clean owner; no audit, outbox or domain expiry.</summary>
+    public Task<RetentionMaintenanceResult> RemoveExpiredReceiptsAsync(int limit, CancellationToken cancellationToken = default) =>
+        PlatformRetentionMaintenance.RemoveExpiredAsync(_database, _clock, limit, cancellationToken);
     /// <summary>Trusted local-process provisioning only; it is deliberately absent from HTTP mappings.</summary>
     public Task<DirectoryWriteResult> ProvisionLocalAsync(bool enabled, LocalDirectoryInput input, string password,
         PasswordBreachEvidence evidence, Guid correlation, CancellationToken ct = default) =>

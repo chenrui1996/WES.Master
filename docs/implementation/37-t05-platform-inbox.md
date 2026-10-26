@@ -16,7 +16,7 @@ Platform 增加 `platform_inbox_receipts`，主键为 tenant、稳定 consumer I
 
 `PlatformInboxRetention.RemoveExpiredAsync`按`ProcessedAt <= now - 90 days`选择到期收据，稳定按处理时间、consumer和event排序，每批限制1..200条。调用者必须提供owner数据库事务，并负责调用`SaveChanges`后提交或回滚；数据库查询过滤和持久层owner校验共同限制当前tenant。常规代码仍不能直接修改/删除Inbox收据，只有清理原语选出的、当前owner下已跟踪且确实过期的收据可删除。
 
-现有Inbox migration已包含`TenantId, ProcessedAt, Consumer`索引，本切片无schema迁移。此原语不注册周期Job、不自行提交事务、不触碰Outbox或业务效果；清理Job调度、运行时owner注册和过期重投现场验证仍未完成。清理只在PAR-09既定58天最大恢复窗口之外开始，不代替领域唯一身份/tombstone。
+现有Inbox migration已包含`TenantId, ProcessedAt, Consumer`索引，本切片无schema迁移。此原语不注册周期Job、不自行提交事务、不触碰Outbox或业务效果；显式启用的托管调度和运行时owner事务续实施见[87](87-platform-retention-maintenance.md)，过期重投现场验证仍未完成。清理只在PAR-09既定58天最大恢复窗口之外开始，不代替领域唯一身份/tombstone。
 
 保存失败恢复补充见[实施](49-t05-inbox-retention-save-recovery.md)及[测试](50-t05-inbox-retention-save-recovery-tests.md)：删除许可绑定暂存时的显式事务，仅在保存成功后消耗；保存失败不再误拒绝仍有效同事务中的显式重试，旧许可不能跨事务沿用。
 
@@ -24,6 +24,6 @@ Platform 增加 `platform_inbox_receipts`，主键为 tenant、稳定 consumer I
 
 - 尚无实际消息订阅/ACK 适配器、consumer 注册、托管 publisher 周期扫描或 broker 崩溃窗口验证。
 - Platform 有界 Outbox due scanner 见[Outbox实施记录](35-t05-platform-outbox.md)，尚未接入托管周期调度或运行时 transport。
-- Inbox 90天保留的owner-local有界清理原语已实现；尚无托管保留/清理Job，不会自动执行；不得通过任意删除收据触发重放。
+- Inbox 90天保留的owner-local有界清理原语已实现；[87](87-platform-retention-maintenance.md)补齐默认关闭、显式白名单的托管保留，不自动启用；不得通过任意删除收据触发重放。
 - 本首片只实现 Platform owner Inbox；其它业务 owner 的 Outbox/Inbox、授权查询/重放及 Messages 运维页仍未完成。
 - 只在隔离 MySQL 验证；没有真实 Broker、SQL Server/PostgreSQL、生产权限或容量证据。

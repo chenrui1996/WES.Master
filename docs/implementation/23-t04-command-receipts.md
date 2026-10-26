@@ -1,6 +1,6 @@
 # T04 非机密目录命令耐久回执
 
-- 状态：owner持久化与具名非机密HTTP写接线已验证；成员重放使用最小角色引用证据并复验当前权限；生产清理调度未接线；owner：Platform directory；关联 T04、DTC-PLAT-004..006/008/011/014、WES-RULES-1.0。
+- 状态：owner持久化与具名非机密HTTP写接线已验证；成员重放使用最小角色引用证据并复验当前权限；显式启用的有界托管保留续实施见[87](87-platform-retention-maintenance.md)，生产运维验收仍未完成；owner：Platform directory；关联 T04、DTC-PLAT-004..006/008/011/014、WES-RULES-1.0。
 - 测试证据：[T04命令回执测试记录](30-t04-command-receipts-tests.md)
 - 仅具名非机密命令可选使用 UUID 操作上下文；不增加公开端点、通用 CRUD、Outbox 或生产自动迁移。凭据、密码、登录禁止使用回执。
 

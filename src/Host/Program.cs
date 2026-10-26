@@ -13,6 +13,7 @@ builder.Services.AddWesRuntime(builder.Configuration);
 builder.Services.AddPlatformDependencyHealth(builder.Configuration);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddWesIdentity(builder.Configuration);
+builder.Services.AddWesPlatformRetention(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddCheck("ApplicationNotAssembled",
         () => HealthCheckResult.Unhealthy("Business persistence and control modules have not been assembled."),

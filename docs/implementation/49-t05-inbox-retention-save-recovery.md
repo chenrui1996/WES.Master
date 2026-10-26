@@ -21,3 +21,5 @@
 ## 不变边界
 
 90 天阈值、tenant 隔离、1–200 条批次、显式 owner 事务及普通 append-only 保护均保留，无 schema 迁移。该原语仍不注册清理 Job、不自行提交事务，也不提供 Broker、自动重放或领域身份清理。
+
+后续公开owner事务与默认关闭的托管调度见[87](87-platform-retention-maintenance.md)及[88](88-platform-retention-maintenance-tests.md)；运行失败后释放scope，不自动重用本原语的同事务重试许可。

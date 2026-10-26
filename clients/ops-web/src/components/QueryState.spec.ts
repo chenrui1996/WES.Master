@@ -1,8 +1,10 @@
 import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import QueryState from "./QueryState.vue";
 
 describe("QueryState", () => {
+  afterEach(() => vi.useRealTimers());
+
   it("announces loading without rendering result content", () => {
     const wrapper = mount(QueryState, {
       props: { label: "消息", state: "loading", busy: true },
@@ -12,6 +14,37 @@ describe("QueryState", () => {
     expect(wrapper.get('[role="region"]').attributes("aria-busy")).toBe("true");
     expect(wrapper.get('[role="status"]').text()).toContain("正在加载消息");
     expect(wrapper.find("p").text()).not.toBe("消息行");
+    wrapper.unmount();
+  });
+
+  it("delays a page-shaped loading placeholder until a request is observably slow", async () => {
+    vi.useFakeTimers();
+    const wrapper = mount(QueryState, {
+      props: { label: "消息", state: "loading", busy: true },
+      slots: {
+        loading: '<div data-test="loading-placeholder">消息表格占位行</div>',
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(200);
+    expect(wrapper.find('[data-test="loading-placeholder"]').exists()).toBe(false);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(wrapper.get('[data-test="loading-placeholder"]').text()).toContain("消息表格占位行");
+    expect(wrapper.get('[role="status"]').text()).toContain("正在加载消息");
+    wrapper.unmount();
+  });
+
+  it("cancels the delayed placeholder when the query finishes early", async () => {
+    vi.useFakeTimers();
+    const wrapper = mount(QueryState, {
+      props: { label: "消息", state: "loading" },
+      slots: { loading: '<div data-test="loading-placeholder">占位行</div>' },
+    });
+
+    await vi.advanceTimersByTimeAsync(200);
+    await wrapper.setProps({ state: "ready" });
+    await vi.advanceTimersByTimeAsync(200);
+    expect(wrapper.find('[data-test="loading-placeholder"]').exists()).toBe(false);
     wrapper.unmount();
   });
 

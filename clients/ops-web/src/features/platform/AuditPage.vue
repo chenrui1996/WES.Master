@@ -13,6 +13,7 @@ const pageSize = ref(25);
 const kind = ref(""); const action = ref(""); const correlation = ref(""); const rows = ref<(AuditRow | EventRow)[]>([]);
 const error = ref(""); const busy = ref(false); let controller = new AbortController(); let sequence = 0;
 let lastSuccessfulQuery: string | null = null;
+const lastSuccessfulAt = ref<string | null>(null);
 const snapshotId = ref<string | null>(null); const snapshotExpiresAt = ref<string | null>(null);
 const snapshotCount = ref<number | null>(null);
 const currentQuery = computed(() => JSON.stringify([
@@ -22,9 +23,12 @@ const queryState = computed(() => busy.value
   ? rows.value.length ? "stale" : "loading"
   : error.value ? rows.value.length ? "stale" : "error"
     : rows.value.length ? "ready" : "empty");
-const staleMessage = computed(() => busy.value
-  ? "正在刷新；页面保留的是最近一次已加载的证据。"
-  : `刷新失败，仍保留最近一次已加载的证据：${error.value}`);
+const staleMessage = computed(() => {
+  const lastRead = lastSuccessfulAt.value ? `最近成功读取（UTC）：${lastSuccessfulAt.value}。` : "";
+  return busy.value
+    ? `${lastRead}正在刷新；页面保留的是最近一次已加载的证据。`
+    : `${lastRead}刷新失败，仍保留最近一次已加载的证据：${error.value}`;
+});
 const auditGrants = computed(() => sessionState.subject?.grants.filter(grant => grant.permission === "platform.audit.read") ?? []);
 const fields = computed(() => new Set(auditGrants.value.flatMap(grant => grant.fields)));
 const canReadAudit = computed(() => {
@@ -55,7 +59,7 @@ const {
 ].filter(column => fields.value.has(column.field)), { pageId: "platform-audit", tableId: () => mode.value });
 function invalidate(preserveRows = false) {
   sequence++; controller.abort(); controller = new AbortController(); busy.value = false;
-  if (!preserveRows) { rows.value = []; lastSuccessfulQuery = null; }
+  if (!preserveRows) { rows.value = []; lastSuccessfulQuery = null; lastSuccessfulAt.value = null; }
 }
 function clearSnapshot() {
   snapshotId.value = null; snapshotExpiresAt.value = null; snapshotCount.value = null;
@@ -121,12 +125,13 @@ async function read() {
       throw new Error("审计响应无效，请重新读取。");
     applySnapshotPage(data, requestedMode, requestedSnapshot);
     lastSuccessfulQuery = fingerprint;
+    lastSuccessfulAt.value = new Date().toISOString();
   } catch (failure) {
     if (!signal.aborted && request === sequence) {
       if (failure instanceof ApiError && [401, 403].includes(failure.status)) {
-        rows.value = []; lastSuccessfulQuery = null; clearSnapshot();
+        rows.value = []; lastSuccessfulQuery = null; lastSuccessfulAt.value = null; clearSnapshot();
       } else if (failure instanceof ApiError && failure.status === 410 && requestedSnapshot) {
-        rows.value = []; lastSuccessfulQuery = null; clearSnapshot();
+        rows.value = []; lastSuccessfulQuery = null; lastSuccessfulAt.value = null; clearSnapshot();
         error.value = "核对快照已过期，请重新创建快照或返回实时查询。";
         return;
       }
@@ -158,9 +163,10 @@ async function createSnapshot() {
     snapshotId.value = data.snapshotId;
     applySnapshotPage(data, requestedMode, data.snapshotId);
     lastSuccessfulQuery = currentQuery.value;
+    lastSuccessfulAt.value = new Date().toISOString();
   } catch (failure) {
     if (!signal.aborted && request === sequence) {
-      clearSnapshot(); rows.value = []; lastSuccessfulQuery = null;
+      clearSnapshot(); rows.value = []; lastSuccessfulQuery = null; lastSuccessfulAt.value = null;
       error.value = failure instanceof ApiError && failure.status === 413
         ? "核对快照范围超过10,000条，请缩小时间范围或筛选条件。"
         : failure instanceof Error ? failure.message : "创建核对快照失败。";
@@ -218,6 +224,26 @@ onMounted(read); onUnmounted(() => { controller.abort(); sequence++; });
       :preference-warning="preferenceWarning" :column-views="columnViews" />
     <QueryState label="当前权限下的证据" :state="queryState" :busy="busy" :error-message="error"
       :stale-message="staleMessage" @retry="read">
+      <template #loading>
+        <div :ref="setTableFrame" class="table-scroll audit-loading-frame" data-test="audit-loading-skeleton" aria-hidden="true">
+          <table class="audit-loading-table">
+            <thead><tr>
+              <th v-for="column in visible" :key="column.key" scope="col"
+                :class="fixedColumnClass(column.key)" :style="[widthStyle(column.key), fixedColumnStyle(column.key)]">{{ column.label }}</th>
+              <th v-if="!visible.length" v-for="column in 4" :key="column" scope="col"></th>
+            </tr></thead>
+            <tbody><tr v-for="row in 5" :key="row">
+              <td v-for="column in visible" :key="column.key" :class="fixedColumnClass(column.key)"
+                :style="[widthStyle(column.key), fixedColumnStyle(column.key)]">
+                <span class="audit-loading-bar" :class="`audit-loading-bar-${row % 3}`"></span>
+              </td>
+              <td v-if="!visible.length" v-for="column in 4" :key="column">
+                <span class="audit-loading-bar" :class="`audit-loading-bar-${row % 3}`"></span>
+              </td>
+            </tr></tbody>
+          </table>
+        </div>
+      </template>
       <template #empty>该区间没有当前可见记录。可以调整时间后重新查询。</template>
       <p v-if="snapshotId && snapshotExpiresAt" role="status" class="snapshot-status">
         固定核对快照：{{ snapshotCount }} 条；有效至 {{ snapshotExpiresAt }}。授权仍会在每次翻页时重新检查。
@@ -236,3 +262,46 @@ onMounted(read); onUnmounted(() => { controller.abort(); sequence++; });
       :busy="busy" :failed="!!error" :consistency="snapshotId ? 'snapshot' : 'realtime'" @change="page" />
   </section>
 </template>
+
+<style scoped>
+.audit-loading-frame {
+  min-height: 12rem;
+}
+
+.audit-loading-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.audit-loading-table th,
+.audit-loading-table td {
+  height: 2.75rem;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--wes-color-border-soft);
+}
+
+.audit-loading-table th {
+  color: transparent;
+}
+
+.audit-loading-bar {
+  display: block;
+  width: 72%;
+  height: 0.8rem;
+  border-radius: var(--wes-radius);
+  background: var(--wes-color-border-soft);
+  animation: audit-loading-pulse 1.2s ease-in-out infinite alternate;
+}
+
+.audit-loading-bar-1 { width: 48%; }
+.audit-loading-bar-2 { width: 88%; }
+
+@keyframes audit-loading-pulse {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .audit-loading-bar { animation: none; }
+}
+</style>

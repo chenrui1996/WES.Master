@@ -1,5 +1,7 @@
 <script setup lang="ts">
-withDefaults(defineProps<{
+import { onBeforeUnmount, ref, watch } from "vue";
+
+const props = withDefaults(defineProps<{
   label: string;
   state: "loading" | "error" | "empty" | "stale" | "ready";
   busy?: boolean;
@@ -13,14 +15,36 @@ withDefaults(defineProps<{
 const emit = defineEmits<{
   retry: [];
 }>();
+
+const showDelayedLoading = ref(false);
+let loadingTimer: ReturnType<typeof setTimeout> | undefined;
+
+watch(() => props.state, state => {
+  if (loadingTimer !== undefined) clearTimeout(loadingTimer);
+  showDelayedLoading.value = false;
+  if (state === "loading") {
+    loadingTimer = setTimeout(() => { showDelayedLoading.value = true; }, 300);
+  }
+}, { immediate: true });
+
+onBeforeUnmount(() => {
+  if (loadingTimer !== undefined) clearTimeout(loadingTimer);
+});
 </script>
 
 <template>
   <section class="query-state" role="region" :aria-label="label"
     :aria-busy="busy || state === 'loading' ? 'true' : 'false'">
-    <p v-if="state === 'loading'" class="query-state-message" role="status" aria-live="polite">
+    <p v-if="state === 'loading' && !showDelayedLoading" class="sr-only" role="status" aria-live="polite">
       正在加载{{ label }}…
     </p>
+
+    <div v-else-if="state === 'loading'" class="query-state-loading">
+      <p class="sr-only" role="status" aria-live="polite">正在加载{{ label }}…</p>
+      <slot name="loading">
+        <p class="query-state-message">正在加载{{ label }}…</p>
+      </slot>
+    </div>
 
     <div v-else-if="state === 'error'" class="query-state-message query-state-error" role="alert">
       <p>无法加载{{ label }}：{{ errorMessage }}</p>
@@ -46,6 +70,17 @@ const emit = defineEmits<{
 
 <style scoped>
 .query-state { min-width: 0; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .query-state-message, .query-state-stale {
   display: flex;
   flex-wrap: wrap;

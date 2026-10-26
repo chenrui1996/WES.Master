@@ -52,6 +52,7 @@ it("keeps the last same-scope audit page visible when an explicit refresh fails"
   sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", credentialVersion: "v", requiresPasswordChange: false,
     grants: [{ permission: "platform.audit.read", scope: 0, departments: [], fields: ["Id", "OccurredAt", "CorrelationId"] }] };
   let calls = 0;
+  let finishRefresh!: (response: Response) => void;
   vi.stubGlobal("fetch", vi.fn(async () => {
     calls++;
     return calls === 1
@@ -59,13 +60,19 @@ it("keeps the last same-scope audit page visible when an explicit refresh fails"
         { id: "audit-current", occurredAt: "2026-10-24T04:00:00Z", correlationId: "safe-correlation",
           actorId: null, targetId: null, action: null, beforeVersion: null, afterVersion: null },
       ] }))
-      : new Response(JSON.stringify({ code: "DatabaseUnavailable" }), { status: 503 });
+      : new Promise<Response>(resolve => { finishRefresh = resolve; });
   }));
   const wrapper = mount(AuditPage); await flushPromises();
   expect(wrapper.text()).toContain("audit-current");
   await wrapper.get("form").trigger("submit");
   await flushPromises();
+  expect(wrapper.get('[role="status"]').text()).toContain("正在刷新");
+  expect(wrapper.get('[role="status"]').text()).toContain("最近成功读取（UTC）");
+  expect(wrapper.text()).toContain("audit-current");
+  finishRefresh(new Response(JSON.stringify({ code: "DatabaseUnavailable" }), { status: 503 }));
+  await flushPromises();
   expect(wrapper.get('[role="status"]').text()).toContain("刷新失败");
+  expect(wrapper.get('[role="status"]').text()).toContain("最近成功读取（UTC）");
   expect(wrapper.text()).toContain("audit-current");
   expect(wrapper.text()).toContain("重新加载当前权限下的证据");
   wrapper.unmount();
@@ -76,6 +83,30 @@ function authorizeAudit() {
   sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", credentialVersion: "v", requiresPasswordChange: false,
     grants: [{ permission: "platform.audit.read", scope: 2, departments: [], fields: ["Id", "OccurredAt", "Action", "CorrelationId"] }] };
 }
+
+it("shows a table-shaped audit placeholder only after the request exceeds the short-load window", async () => {
+  authorizeAudit();
+  vi.useFakeTimers();
+  let finishRequest!: (response: Response) => void;
+  vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(resolve => { finishRequest = resolve; })));
+
+  const wrapper = mount(AuditPage);
+  await flushPromises();
+  await vi.advanceTimersByTimeAsync(200);
+  expect(wrapper.find('[data-test="audit-loading-skeleton"]').exists()).toBe(false);
+
+  await vi.advanceTimersByTimeAsync(100);
+  const skeleton = wrapper.get('[data-test="audit-loading-skeleton"]');
+  expect(skeleton.findAll("thead th")).toHaveLength(4);
+  expect(skeleton.findAll("tbody tr")).toHaveLength(5);
+  expect(skeleton.findAll("tbody td")).toHaveLength(20);
+  await vi.advanceTimersByTimeAsync(1_700);
+  expect(wrapper.find('[data-test="audit-loading-skeleton"]').exists()).toBe(true);
+  finishRequest(new Response(JSON.stringify({ authorized: true, rows: [] })));
+  await flushPromises();
+  expect(wrapper.find('[data-test="audit-loading-skeleton"]').exists()).toBe(false);
+  wrapper.unmount();
+});
 function auditRows(count: number) {
   return Array.from({ length: count }, (_, index) => ({
     id: `audit-${String(index + 1).padStart(3, "0")}`, occurredAt: "2026-10-24T04:00:00Z",

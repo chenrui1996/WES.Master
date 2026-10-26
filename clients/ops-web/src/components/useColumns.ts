@@ -269,22 +269,26 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
       knownColumns: columns.map(column => column.key) };
   }
 
+  function serializePreference(layout: ColumnLayout, savedViews: SavedColumnView[]): string {
+    const normalized = normalizeLayout(layout, available.value);
+    return JSON.stringify({
+      version: 1,
+      selected: normalized.selected,
+      knownColumns: normalized.knownColumns,
+      fixedFirstColumn: normalized.fixedFirstColumn,
+      ...(Object.keys(normalized.widths).length ? { widths: normalized.widths } : {}),
+      ...(Object.keys(normalized.fixedPositions).length ? { fixedPositions: normalized.fixedPositions } : {}),
+      ...(savedViews.length ? { views: savedViews.map(view => ({
+        id: view.id, name: view.name, ...normalizeLayout(view, available.value),
+      })) } : {}),
+    });
+  }
+
   function persistPreference(layout: ColumnLayout, savedViews: SavedColumnView[]): boolean {
     const key = preferenceScope.value;
     if (!key || hydratedScope.value !== key) return false;
-    const normalized = normalizeLayout(layout, available.value);
     try {
-      storageProvider().setItem(key, JSON.stringify({
-        version: 1,
-        selected: normalized.selected,
-        knownColumns: normalized.knownColumns,
-        fixedFirstColumn: normalized.fixedFirstColumn,
-        ...(Object.keys(normalized.widths).length ? { widths: normalized.widths } : {}),
-        ...(Object.keys(normalized.fixedPositions).length ? { fixedPositions: normalized.fixedPositions } : {}),
-        ...(savedViews.length ? { views: savedViews.map(view => ({
-          id: view.id, name: view.name, ...normalizeLayout(view, available.value),
-        })) } : {}),
-      }));
+      storageProvider().setItem(key, serializePreference(layout, savedViews));
       preferenceWarning.value = null;
       return true;
     } catch (failure) {
@@ -476,8 +480,9 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
   watch([preferenceScope, available], ([key, columns]) => {
     if (!key || !columns.length || hydratedScope.value === key) return;
     let stored: StoredColumnPreference | null = null;
+    let value: string | null = null;
     try {
-      const value = storageProvider().getItem(key);
+      value = storageProvider().getItem(key);
       if (value !== null) stored = parsePreference(value);
       if (value !== null && stored === null) preferenceWarning.value = invalidPreferenceWarning;
     } catch (failure) {
@@ -512,12 +517,19 @@ export function useColumns(source: () => AuthorizedColumn[], options: ColumnPref
     })).filter((view, index, all) =>
       all.findIndex(candidate => candidate.id === view.id) === index
       && all.findIndex(candidate => candidate.name.toLocaleLowerCase() === view.name.toLocaleLowerCase()) === index);
+    const needsNormalization = stored?.knownColumns !== undefined && value !== null
+      && JSON.stringify(stored.knownColumns) !== JSON.stringify(columns.map(column => column.key));
     defaultLayout.value = copyLayout(storedLayout);
     views.value = normalizedViews;
     activeViewId.value = null;
     activeViewSnapshot.value = null;
     setLayout(storedLayout);
     hydratedScope.value = key;
+    if (needsNormalization) {
+      const persisted = persistPreference(storedLayout, normalizedViews);
+      if (persisted && hasOutOfRangeWidth)
+        preferenceWarning.value = "部分列宽超出当前字段范围，已恢复为基准宽度。";
+    }
   }, { immediate: true, flush: "sync" });
 
   watch([selected, widths, fixedFirstColumn, fixedPositions], () => {

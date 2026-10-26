@@ -328,6 +328,50 @@ it("reports corrupt preferences and excludes fields that are no longer authorize
   wrapper.unmount();
 });
 
+it("migrates saved column choices by stable ID when the authorized schema changes", async () => {
+  const preferenceKey = "wes-ops-web:columns:v1:test:tenant-a:user-a:users:directory";
+  const values = new Map<string, string>([[preferenceKey, JSON.stringify({
+    version: 1,
+    selected: ["name", "id", "secret"],
+    knownColumns: ["id", "name", "secret"],
+    widths: { name: 220, secret: 360 },
+    fixedFirstColumn: true,
+  })]]);
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => { values.set(key, value); },
+  };
+  sessionState.subject = {
+    tenantId: "tenant-a", userId: "user-a", sessionId: "session-a",
+    requiresPasswordChange: false, credentialVersion: null, grants: [],
+  };
+  const host = defineComponent({
+    setup() {
+      return useColumns(() => [
+        { key: "id", label: "ID", required: true },
+        { key: "name", label: "User name" },
+        { key: "email", label: "Email" },
+      ], { environment: "test", pageId: "users", tableId: "directory", storageProvider: () => storage });
+    },
+    template: `<output data-test="selected">{{ selected.join(',') }}</output>
+      <output data-test="name-width">{{ widthStyle('name')?.width ?? 'auto' }}</output>`,
+  });
+
+  const wrapper = mount(host);
+  await flushPromises();
+
+  expect(wrapper.get('[data-test="selected"]').text()).toBe("name,id,email");
+  expect(wrapper.get('[data-test="name-width"]').text()).toBe("220px");
+  expect(JSON.parse(values.get(preferenceKey) ?? "{}")).toEqual({
+    version: 1,
+    selected: ["name", "id", "email"],
+    knownColumns: ["id", "name", "email"],
+    fixedFirstColumn: true,
+    widths: { name: 220 },
+  });
+  wrapper.unmount();
+});
+
 it("keeps the current layout usable and reports when browser storage is disabled", async () => {
   const failure = new DOMException("Storage is disabled", "SecurityError");
   const storage = {

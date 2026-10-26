@@ -121,6 +121,7 @@
 
 **Interfaces:** 消费租户/版本/事件/快照协议；产出FUNC-WMS-001/007、PAGE-WMS-001/002/008以及最小授权位置/库存查询与owner写账合同；不存在公开“任意改余额”接口。
 
+- [x] RULE-01纯数量领域foundation：非负`decimal(28,6)`库存数量、精度0..6/单位默认值及正向单笔上限已完成本地单元测试；见[实施记录](../../implementation/85-t08-quantity-domain-foundation.md)与[测试记录](../../implementation/86-t08-quantity-domain-foundation-tests.md)。不关闭本工作包所列账本/Provider/权限/并发验收或T08整包。
 - [ ] DTC-WMS-001/010/011及DTC-WMS-004的并发原语先红：同容器并发绑定、跨仓/Pack、流水重算、十进制超精度/溢出、Qty10/Reserved7内inTransit5时Available3，重复业务键无二效。
 - [ ] 实现decimal(28,6)/API decimal string、计件0小数/可分割默认3（显式0..6）、换算默认关、负库存拒绝；普通FIFO/启用效期FEFO完整必需日期、单序列量1；保护按并集不重扣。
 - [ ] 三Provider量化/约束/事务和固定快照导出测试，元数据/关联列/盲盘字段投影不泄露；账本append-only补偿，WCS只能消费契约；VAL-01/02/08。

@@ -36,6 +36,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 查询续实施：[T03/T04受权登录安全事件查询](docs/implementation/17-authorized-login-event-query.md)，当前All范围/字段权限、时间/结果/关联筛选后有界分页；Own/部门无不可变主体归属时拒绝，隐藏字段不能作为查询oracle。24项真实MySQL查询测试，最新全量662项通过；保留/归档、导出、HTTP和页面仍待完成。
 
+T04/T05/T06/T08续实施：[批次计划](docs/superpowers/plans/2026-10-26-platform-retention-candidates-stock-protection.md)分别跟踪Platform目录回执/Inbox的可选租户级清理、关联候选撤权/旧响应边界，以及WMS执行单元保护量并集。清理默认关闭，不包含审计删除或真实Broker；WMS仍为未装配Host的纯领域基础。验证结果和未关闭项以[就绪台账](docs/implementation/readiness-register.md)为准，不将局部切片等同四个工作包整体完成。
+
 以下是本轮已整理的文档章节。每份功能规格都有测试设计，并在总追踪矩阵中关联需求 ID、设计章节、测试 ID 和验收结果；测试用例尚非自动化测试结果。
 
 | 文档组 | 内容 |

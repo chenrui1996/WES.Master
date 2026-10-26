@@ -1,6 +1,6 @@
 # T04/T05/T06/T08 续实施计划
 
-- 状态：实施中。
+- 状态：已验收（仅本批三个有界切片；T04/T05/T06/T08整包仍partial）。
 - 批准基线：[开发总计划](2026-10-23-wes-development-and-testing.md)、[工作包](2026-10-23-wes-development-work-packages.md)、[规则](../../detailed-design/05-approved-rules-and-defaults.md)、[就绪台账](../../implementation/readiness-register.md)。
 - 本批只推进以下三个有界切片，不将四个工作包或其父DTC整体标记完成。
 
@@ -26,8 +26,12 @@
 
 ## 验证与交付
 
-- [ ] 各切片编码前完成设计与测试场景，先观察失败测试再实现。
-- [ ] 分别运行最窄相关测试、Release/strict TS构建与格式检查。
-- [ ] 更新工作包、就绪台账、需求追踪；每片形成独立提交。
-- [ ] 串行完整Release测试、Ops Web全部组件测试及生产构建。
-- [ ] 核对变更和未关闭项；按已有授权正常推送现有远端，不强推、不触碰其他worktree。
+- [x] 各切片编码前完成设计与测试场景，先观察失败测试再实现。
+- [x] 分别运行最窄相关测试、Release/strict TS构建与格式检查。
+- [x] 更新工作包、就绪台账、需求追踪；每片形成独立提交。
+- [x] 串行完整Release测试、Ops Web全部组件测试及生产构建。
+- [x] 核对变更和未关闭项；按已有授权正常推送现有远端，不强推、不触碰其他worktree。
+
+2026-10-26最终验证：串行Release 969 passed（Architecture29 / Modules344 / Persistence368 / Route228），0失败/0跳过；Ops Web 20文件201项及严格TS/生产构建通过；修改C#完整格式检查、diff检查和本批文档链接检查通过。本片浏览器E2E、生产容量/启用、真实Broker、WMS持久化/并发及SQL Server/PostgreSQL不在已验收范围。
+
+三个实现提交均已正常推送既有`origin/main`：`df80e66`（T04/T05保留维护）、`6b476d4`（T06候选边界）、`fab0f14`（T08保护量并集）。共享状态记录随本计划同步提交；完整证据见对应87..92记录与就绪台账。

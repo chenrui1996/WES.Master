@@ -26,6 +26,9 @@
 | T03/T04 受权登录事件查询 | PAGE-PLAT-008、FUNC-PLAT-006、DTC-PLAT-008内部查询部分 | [查询记录](implementation/17-authorized-login-event-query.md)：24项真实MySQL测试，当前All字段权限、隐藏字段筛选拒绝、租户/时间/类型/关联先过滤再稳定分页、真实100条门限、撤权/故障/取消通过；全量662项。无不可变主体/部门时不猜Own归属；导出/保留治理/HTTP/页面仍另验 |
 | T17 Route纯内核软件包 | REQ-ROUTE-001..008、DTC-ROUTE-001..004及性质/差分的静态候选路径部分 | [Route内核记录](implementation/07-route-kernel.md)：Stacker/FourWay私有不可变图、物理映射谱系、能力/方向/负载/设备约束、确定性最短路及完整资源/执行段；228自动化测试、独立oracle/seed/shrinker和SPEC/CODE审查通过。T17软件包完成不将包含预约/实时反馈的父DTC或全部Route/H验收标passed |
 | T08数量领域Task 1局部基础 | WES-RULES-1.0 RULE-01；DTC-WMS-004/010/011中的纯数量合同子集 | [数量领域实施](implementation/85-t08-quantity-domain-foundation.md)及[测试证据](implementation/86-t08-quantity-domain-foundation-tests.md)：16项定向测试覆盖非负`decimal(28,6)`范围/精度、显式加减溢出、精度0..6与正单笔上限；全solution 900项回归通过。仅此纯领域子集由本地自动化验证；父DTC与T08整体仍未验收，数据库、事务、并发、权限及集成行为未覆盖 |
+| T04/T05普通回执保留维护 | PAR-09 / VAL-08、DTC-PLAT-011、DTC-NTF-002普通结果保留子集 | [维护设计](implementation/87-platform-retention-maintenance.md)及[测试](implementation/88-platform-retention-maintenance-tests.md)：默认禁用，显式tenant白名单/有界周期，目录回执与Inbox各90天、同owner事务提交；34项配置/托管测试及12项新增真实MySQL测试，另13项保留回归通过。两owner竞争正确归类瞬时失败，未删审计/Outbox/领域身份；不是Quartz作业、真实Broker或生产清理许可，T04/T05仍partial |
+| T06候选撤权与旧请求边界 | DTC-UI-021/022/024在Platform Users/Roles及共享候选的适用子集 | [候选设计](implementation/89-t06-candidate-authorization-boundary.md)及[测试](implementation/90-t06-candidate-authorization-boundary-tests.md)：当前拒绝清候选和实际编辑草稿，旧成功/失败/已取消signal不污染新范围，保留25条分页/稳定ID；整套前端201项及严格构建通过。不代表本片浏览器E2E或完整T06验收 |
+| T08保护量并集纯领域基础 | SCOPE-WMS-02 / REQ-WMS-005..011、RULE-01/05/08及REV-03；DTC-WMS-004/010与VAL-01计算子集 | [并集设计](implementation/91-t08-stock-protection-union.md)及[测试](implementation/92-t08-stock-protection-union-tests.md)：23项新增领域测试；按互不重叠执行单元的保护标志计算并集，Qty10/Reserved7含InTransit5得到Available3，Unknown继续保护。调用owner仍须证明单元划分/同库存维度；没有API、持久化、租户授权或并发预留，不关闭父DTC或T08 |
 
 ## 1. ID 规则
 

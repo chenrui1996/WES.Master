@@ -65,6 +65,7 @@
 - [ ] DTC-PLAT-004..006/008..009/011..014先红：空范围放大、跨租户同码缓存、无租户后台主体、旧版本覆盖、secret配置、热更新半状态、引用字典被删、审计越权修改。
 - [ ] 做具名RBAC/组织/租户切换、字典/语言回退、强类型业务配置及来源/版本展示；部署Features与租户/数据库业务配置分离，非法P配置拒绝不回退，H缺项保持Unverified；业务审计与所属事务可靠关联。
 - [ ] 三Provider的复合唯一键/幂等清理90天后领域键仍防重；页面关联筛选/撤权/敏感字段列不可恢复，验证PAR-01/02/09及VAL-04/08。审计界面不可修改历史。
+- [x] 目录命令回执90天清理已接入默认禁用、显式tenant白名单的owner事务维护入口与托管周期；与Inbox原子提交，领域身份/审计/Outbox不删，真实MySQL两owner竞争安全退至下周期。见[维护设计](../../implementation/87-platform-retention-maintenance.md)和[测试](../../implementation/88-platform-retention-maintenance-tests.md)。生产启用/容量及T04其余验收仍未关闭。
 
 ### T05：owner事务Outbox/Inbox与可靠投递
 
@@ -74,7 +75,7 @@
 
 - [ ] DTC-NTF-001/002：业务提交前故障→业务/Outbox均0；提交后Broker断开记录保留；消费提交后ACK丢失重投效果1；物理Unknown0自动重发。
 - [x] Platform首片实现发布竞争/Inbox幂等、错误分类、1/5/30/120/600秒相邻等待最多5次、总15分钟deadline、永久隔离及受权同payload重放与稳定事件身份；见[Outbox/Inbox](../../implementation/35-t05-platform-outbox.md)、[Inbox](../../implementation/37-t05-platform-inbox.md)、[消息运维](../../implementation/39-t05-platform-message-operations.md)。这不代表Notifications聚合、其他owner适配或真实Broker闭环完成。
-- [x] Platform Inbox 90天owner-local有界保留清理及保存失败恢复，许可绑定原owner事务、成功后失效；见[实施](../../implementation/49-t05-inbox-retention-save-recovery.md)及[测试](../../implementation/50-t05-inbox-retention-save-recovery-tests.md)。托管清理Job与真实Broker仍未实现。
+- [x] Platform Inbox 90天owner-local有界保留清理及保存失败恢复，许可绑定原owner事务、成功后失效；见[实施](../../implementation/49-t05-inbox-retention-save-recovery.md)及[测试](../../implementation/50-t05-inbox-retention-save-recovery-tests.md)。默认关闭的显式tenant托管保留维护已接线，见[设计](../../implementation/87-platform-retention-maintenance.md)及[测试](../../implementation/88-platform-retention-maintenance-tests.md)；它不等于Quartz作业、托管publisher或真实Broker。
 - [ ] 三Provider/隔离Broker执行崩溃窗口，断线不得丢Outbox；过deadline控制拒发、迟到可信完成核验且不覆盖新位置、认证过期隔离/query；采用RVT-05、VAL-07/08，不声称消息exactly-once。
 
 ### T06：共享交互与授权查询底座
@@ -84,6 +85,7 @@
 **Interfaces:** 消费当前scope/字段权限；产出loading/空态/error/Stale状态、列偏好/关联候选/父子指纹、实时与固定水位快照协议。快照数据属于查询owner，不集中备份所有域数据到Platform。
 
 - [ ] DTC-UI-001..028/032先用真实具名最小测试页加受控API验证：列必显/顺序/宽度/键盘替代、损坏storage显式提示、本机主体租户环境隔离、父切换旧回包/主从行ID竞态、无导出页不增导出。
+- [x] Users/Roles及共享候选撤权/旧请求首片：401/403/明确拒绝清候选与真实编辑草稿，旧成功/失败/已取消signal不能污染新范围；保留25条分页、稳定ID及详情回填，见[实施](../../implementation/89-t06-candidate-authorization-boundary.md)和[测试](../../implementation/90-t06-candidate-authorization-boundary-tests.md)。整套Ops Web 201项及严格构建通过；本片浏览器E2E、其他页面及完整DTC仍待验收。
 - [x] 按[功能开关设计](../../detailed-design/feature-switches.md)接入匿名白名单模块UI catalog；加载导航/路由前获取，关闭模块隐藏入口、直接导航有明确不可用态；catalog失败显式报错，不默认全开/空配置。API仍独立授权。已实施，见[客户端记录](../../implementation/41-t06-query-state-and-module-catalog.md)及[测试证据](../../implementation/42-t06-query-state-and-module-catalog-tests.md)。
 - [x] 现有审计、用户、角色、租户、配置、字典与会话接入共享实时分页，25条默认与25/50/100选项、查询指纹/失败/空后续页边界及实时offset限制已验证，见[实施](../../implementation/47-t06-shared-realtime-pager.md)和[测试](../../implementation/48-t06-shared-realtime-pager-tests.md)。这不关闭以下固定快照与完整DTC门禁。
 - [x] Platform审计 owner 首个固定成员快照切片已落地：RepeatableRead冻结有序审计ID、10分钟TTL、当前授权复验及真实MySQL/HTTPS/Chromium验证；见[实施](../../implementation/51-t06-platform-audit-snapshot.md)和[测试](../../implementation/52-t06-platform-audit-snapshot-tests.md)。该切片不涵盖其他owner、可变数据值快照或T06整体。
@@ -122,6 +124,7 @@
 **Interfaces:** 消费租户/版本/事件/快照协议；产出FUNC-WMS-001/007、PAGE-WMS-001/002/008以及最小授权位置/库存查询与owner写账合同；不存在公开“任意改余额”接口。
 
 - [x] RULE-01纯数量领域foundation：非负`decimal(28,6)`库存数量、精度0..6/单位默认值及正向单笔上限已完成本地单元测试；见[实施记录](../../implementation/85-t08-quantity-domain-foundation.md)与[测试记录](../../implementation/86-t08-quantity-domain-foundation-tests.md)。不关闭本工作包所列账本/Provider/权限/并发验收或T08整包。
+- [x] RULE-08保护量并集纯领域投影：同一执行单元Reserved/InTransit/Unknown只扣一次，互不重叠单元相加、重复身份/超量保护拒绝；23项新增测试验证10/7含在途5时Available3及Unknown保护，见[设计](../../implementation/91-t08-stock-protection-union.md)和[测试](../../implementation/92-t08-stock-protection-union-tests.md)。调用owner须证明单元划分；无Host、数据库或预留命令接线，不关闭以下整体门禁。
 - [ ] DTC-WMS-001/010/011及DTC-WMS-004的并发原语先红：同容器并发绑定、跨仓/Pack、流水重算、十进制超精度/溢出、Qty10/Reserved7内inTransit5时Available3，重复业务键无二效。
 - [ ] 实现decimal(28,6)/API decimal string、计件0小数/可分割默认3（显式0..6）、换算默认关、负库存拒绝；普通FIFO/启用效期FEFO完整必需日期、单序列量1；保护按并集不重扣。
 - [ ] 三Provider量化/约束/事务和固定快照导出测试，元数据/关联列/盲盘字段投影不泄露；账本append-only补偿，WCS只能消费契约；VAL-01/02/08。

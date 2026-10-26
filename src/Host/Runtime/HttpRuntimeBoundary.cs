@@ -45,7 +45,7 @@ public sealed class HttpRuntimeBoundary(RequestDelegate next, ILogger<HttpRuntim
             {
                 TimeoutException => StatusCodes.Status503ServiceUnavailable,
                 Wes.Host.Identity.BreachEvidenceUnavailableException => StatusCodes.Status503ServiceUnavailable,
-                BadHttpRequestException => StatusCodes.Status400BadRequest,
+                BadHttpRequestException errorRequest => errorRequest.StatusCode,
                 _ => StatusCodes.Status500InternalServerError
             };
             logger.Log(status >= 500 ? LogLevel.Error : LogLevel.Warning,
@@ -95,6 +95,7 @@ internal static class SafeProblem
         405 => ("MethodNotAllowed", "The request method is not supported."),
         409 => ("ResourceConflict", "The request conflicts with current state."),
         412 => ("VersionConflict", "The resource version has changed."),
+        413 => ("PayloadTooLarge", "The request content exceeds the allowed size."),
         422 => ("UnsupportedCapability", "The requested capability is not supported."),
         428 => ("VersionRequired", "A resource version is required."),
         429 => ("RateLimited", "The request limit has been reached."),

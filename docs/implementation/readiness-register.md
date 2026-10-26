@@ -273,3 +273,10 @@
 - 确认保存失败或取消后，同operation可核验已存在的精确字节恢复；缺失/部分/不同摘要仍明确失败、不覆盖、不伪造Stored。原始身份/内容元数据保存门禁不可修改，新增nullable UUID和tenant/operation唯一索引兼容旧NULL记录。
 - 真实授权wes_test上传新增23项，原21项访问及28项协调/持久化合计定向72项通过；内容名字校验新增4反例。最终完整串行Release Architecture **29**、Modules **424**、Persistence **493**、Route **228**，共 **1174 passed、0 failed、0 skipped**。EF无pending模型变化，迁移SQL仅增加列/唯一索引，格式及diff验证通过。见[设计](105-t07-durable-authorized-uploads.md)/[证据](106-t07-durable-authorized-uploads-tests.md)。
 - **整包状态不变**：T07业务实体绑定/附件授权、HTTP流限额/API/页面、真实ClamAV病毒库/部署ACL仍未验收。T04/T05/T06/T07/T08保持partial；本片无生产连接、服务安装或设备安全放行。
+
+### T07 暂存文件HTTP传输
+
+- 默认关闭的Wes:Files装配接通受权暂存上传/元数据/下载/扫描/孤儿删除；启用需Identity、已存在私有绝对目录及明确loopback scanner IP/端口。严格拒绝非法已提供配置和公开根重叠，Host仅调用公共module工厂，不引用Infrastructure。没有启动scanner或安装系统服务。
+- raw body不使用JSON/base64或multipart临时文件；真实已知/未知长度M/M+1门禁，未知最多读取M+1字节、所有自有缓冲清零。中文显示名RFC3986 UTF-8一次解码并规范往返，非法编码拒绝；下载先owner审计再attachment/no-store/nosniff交付，响应失败也释放内容。临时HTTPS Kestrel已证明实际chunked门限和中文名往返，不只是TestServer。
+- 新增 **46 passed**（23流/配置、23HTTP/Provider），包含当前撤权、跨tenant拒绝、安全503后原operation恢复、损坏500不审计、不可用扫描保持隔离、600秒问题和到龄删除。最终完整串行Release Architecture **29**、Modules **470**、Persistence **493**、Route **228**，合计 **1220 passed、0 failed、0 skipped**；格式验证通过，无新增依赖/迁移。见[设计及操作配置](107-t07-staging-file-http.md)/[证据](108-t07-staging-file-http-tests.md)。
+- **T07仍partial**：Files页面/业务实体绑定与附件授权、真实ClamAV病毒库/识别/健康及部署ACL验收未关闭；现有Host readiness仍保留未装配业务门禁。T04/T05/T06/T08各自剩余范围也未完成，不因1220项回归整包关闭或代表生产/现场签字。

@@ -39,7 +39,7 @@ namespace Wes.Modules.Tests.Platform;
 /// <summary>Real HTTP and isolated MySQL authentication, cookie secrecy and durable access revocation.</summary>
 [Collection("IdentityHttp")]
 [Trait("Provider", "MySQL")]
-public sealed class IdentityHttpTests : IAsyncLifetime
+public sealed partial class IdentityHttpTests : IAsyncLifetime
 {
     private const string Password = "WES reference fixture password";
     private const string Hash = "$2a$12$N9qo8uLOickgx2ZMRZoMyebq.QrfAcQ2j7P1iiG.cM44tPZp1iuQS";
@@ -1641,11 +1641,14 @@ public sealed class IdentityHttpTests : IAsyncLifetime
     {
         _client?.Dispose();
         if (_factory is not null) await _factory.DisposeAsync();
+        if (_filesRoot is not null && Directory.Exists(_filesRoot)) Directory.Delete(_filesRoot, recursive: true);
         if (File.Exists(_corpus)) File.Delete(_corpus);
         if (!_migrated) return;
         await using var database = Open();
         await database.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM platform_audit WHERE TenantId = {_tenant.ToString("D")}");
         await database.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM platform_login_events WHERE TenantId = {_tenant.ToString("D")}");
+        await database.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM platform_file_references WHERE TenantId = {_tenant.ToString("D")}");
+        await database.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM platform_files WHERE TenantId = {_tenant.ToString("D")}");
         database.Sessions.RemoveRange(await database.Sessions.ToListAsync());
         database.PasswordCredentials.RemoveRange(await database.PasswordCredentials.ToListAsync());
         database.LoginAccounts.RemoveRange(await database.LoginAccounts.ToListAsync());
@@ -1673,7 +1676,8 @@ public sealed class IdentityHttpTests : IAsyncLifetime
         public override DateTimeOffset GetUtcNow() => _now;
         public void Advance(TimeSpan interval) => _now += interval;
     }
-    private sealed class Factory(string connection, string corpus, TimeProvider clock, string? webRoot = null, string? keyRing = null) : WebApplicationFactory<Program>
+    private sealed class Factory(string connection, string corpus, TimeProvider clock, string? webRoot = null, string? keyRing = null,
+        string? filesRoot = null, int scannerPort = 3310) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -1689,6 +1693,14 @@ public sealed class IdentityHttpTests : IAsyncLifetime
                 ["Wes:Web:Root"] = webRoot,
                 ["Wes:Identity:KeyRingPath"] = keyRing
             }));
+            if (filesRoot is not null)
+                builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Wes:Files:Enabled"] = "true",
+                    ["Wes:Files:StorageRoot"] = filesRoot,
+                    ["Wes:Files:ScannerAddress"] = "127.0.0.1",
+                    ["Wes:Files:ScannerPort"] = scannerPort.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                }));
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<TimeProvider>();

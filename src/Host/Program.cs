@@ -13,6 +13,7 @@ builder.Services.AddWesRuntime(builder.Configuration);
 builder.Services.AddPlatformDependencyHealth(builder.Configuration);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddWesIdentity(builder.Configuration);
+builder.Services.AddWesPlatformFiles(builder.Environment);
 builder.Services.AddWesPlatformRetention(builder.Configuration);
 builder.Services.AddWesPlatformPublisher(builder.Configuration);
 builder.Services.AddHealthChecks()
@@ -21,6 +22,8 @@ builder.Services.AddHealthChecks()
         tags: ["application"]);
 
 await using var app = builder.Build();
+if (app.Services.GetRequiredService<PlatformFileSettings>().Enabled)
+    _ = app.Services.GetRequiredService<PlatformFileAdapters>();
 if (args.Contains("--wes-provision=true", StringComparer.Ordinal))
 {
     Environment.ExitCode = await LocalProvisioning.RunAsync(app.Services, app.Configuration, LocalProvisioning.ReadPassword) ? 0 : 1;

@@ -69,6 +69,7 @@ public static class PlatformEndpoints
                 return Results.BadRequest();
             }
         });
+        if (app.Services.GetRequiredService<PlatformFileSettings>().Enabled) group.MapStagingFiles();
         group.MapGet("/users", UsersAsync);
         group.MapPost("/users", async (CreateUserInput input, HttpContext http, IdentityDatabase factory, TimeProvider clock, CancellationToken ct) =>
             await WriteAsync(http, factory, clock, (owner, subject, correlation) =>

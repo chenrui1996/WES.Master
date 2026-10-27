@@ -9,6 +9,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 ## 文档工作区
 
+T08客户端续片：[禁用仓库创建表单](docs/implementation/139-t08-disabled-warehouse-creation-client.md)/[证据](docs/implementation/140-t08-disabled-warehouse-creation-client-tests.md)接通当前write字段、预览/二次确认、冻结原键未知恢复及显式GET。前端462/严格构建通过，WMS领域/HTTP/两套真实HTTPS浏览器146+架构29通过、Release零警告错误；默认不开放后端写装配，无库位创建/启停或完整生命周期。
+
 T08 HTTP续片：[当前授权仓库创建](docs/implementation/137-t08-authorized-warehouse-creation-http.md)/[证据](docs/implementation/138-t08-authorized-warehouse-creation-http-tests.md)新增独立默认关闭写开关、HTTPS/可信主体/严格body/永久key，复用WMS writer原子创建。38新HTTP+7配置，相关145+架构29通过，Release零警告错误；位置创建/表单/启停和整包仍未完成。
 
 T05/T08最新续片：[WMS创建原子Outbox](docs/implementation/135-t05-t08-wms-creation-outbox.md)/[测试证据](docs/implementation/136-t05-t08-wms-creation-outbox-tests.md)，新增默认禁用主数据时同owner事务派生精确待发布事件，重放不重复、晚期失败三表均回滚。相关MySQL/领域/HTTP/真实浏览器/架构270通过，Release零警告错误；不含WMS publisher/Inbox、跨owner统计或真实Broker，T04–T08整包仍未关闭。

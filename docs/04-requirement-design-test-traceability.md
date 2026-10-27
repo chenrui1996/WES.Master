@@ -9,6 +9,7 @@
 
 | 切片 | 范围/设计 | 测试/证据状态 |
 |---|---|---|
+| T08 禁用仓库创建客户端 | REQ-WMS-001..004、PAGE-WMS-001/FUNC-WMS-001；[设计](implementation/139-t08-disabled-warehouse-creation-client.md) | [证据](implementation/140-t08-disabled-warehouse-creation-client-tests.md)：新增35客户端，前端462/严格构建通过，WMS领域/HTTP/真HTTPS只读+写浏览器146+架构29通过；精确预览/原键/未知/撤权/显式读回，非完整DTC-WMS-001 |
 | T08 仓库创建HTTP | REQ-WMS-001..004、PAGE-WMS-001/FUNC-WMS-001；[设计](implementation/137-t08-authorized-warehouse-creation-http.md) | [证据](implementation/138-t08-authorized-warehouse-creation-http-tests.md)：新增38真实HTTP/7配置，相关145+架构29=174通过；Release零警告错误；默认关闭单独写装配，非位置创建/表单/完整DTC-WMS-001 |
 | T05/T08 WMS创建原子Outbox | REQ-NTF-004..008/FUNC-NTF-001、REQ-WMS-001..004/FUNC-WMS-001；[设计](implementation/135-t05-t08-wms-creation-outbox.md) | [证据](implementation/136-t05-t08-wms-creation-outbox-tests.md)：新增17真实owner，主数据141+领域/HTTP/真实浏览器100+架构29=270通过；Release零警告错误，无模型漂移、实查DDL；仅创建原语，非DTC-NTF-001/002或DTC-WMS-001整体验收 |
 | T05 Platform owner消息计数 | REQ-NTF-004..008、PAGE-NTF-003；[设计](implementation/133-t05-owner-message-counts.md) | [证据](implementation/134-t05-owner-message-counts-tests.md)：新增20真实owner/8HTTP/31客户端；前端427/严格构建、MySQL38、HTTP/真实浏览器21、架构29通过；非Broker健康或业务效果累计，跨owner/父DTC不代签 |

@@ -2,12 +2,14 @@
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from "vue";
 import QueryState from "../../components/QueryState.vue";
 import MasterDataCatalog from "./MasterDataCatalog.vue";
+import WarehouseCreation from "./WarehouseCreation.vue";
 import { ApiError, sessionState } from "../identity/identity-api";
-import { locationFields, MasterDataResponseError, readMasterData, validIdentity, warehouseFields, type MasterData, type ResourceKind } from "./master-data";
+import { locationFields, MasterDataResponseError, mayCreateWarehouse, readMasterData, validIdentity, warehouseFields, type MasterData, type ResourceKind } from "./master-data";
 
 const resourceKind = ref<ResourceKind>(mayRead("warehouses") ? "warehouses" : "locations");
 const resourceId = ref("");
 const catalogRevision = ref(0);
+const creationOpen = ref(false); const canCreate = computed(mayCreateWarehouse);
 const record = shallowRef<MasterData | null>(null);
 const busy = ref(false); const fresh = ref(false); const error = ref(""); const notFound = ref(false);
 const loadedAt = ref(""); const online = ref(navigator.onLine);
@@ -35,7 +37,7 @@ function connection() {
 onMounted(() => { addEventListener("online", connection); addEventListener("offline", connection); });
 onUnmounted(() => { cancel(); removeEventListener("online", connection); removeEventListener("offline", connection); });
 async function read() {
-  if (!readable.value || !online.value || busy.value) return;
+  if (!readable.value || !online.value || busy.value || creationOpen.value) return;
   const id = resourceId.value.trim();
   if (!validIdentity(id)) { error.value = "请输入有效的非空 UUID。"; return; }
   cancel(); busy.value = true; error.value = ""; notFound.value = false;
@@ -60,12 +62,20 @@ async function read() {
 function selectCatalogResource(id: string) {
   reset(); resourceId.value = id; void read();
 }
+function creationAttempted() { reset(); ++catalogRevision.value; }
+function openCreation() { creationAttempted(); creationOpen.value = true; }
+function readCreatedWarehouse(id: string) {
+  creationOpen.value = false; resourceKind.value = "warehouses"; selectCatalogResource(id);
+}
 </script>
 
 <template>
   <section class="page" aria-labelledby="master-data-heading">
-    <header class="page-heading"><div><p class="eyebrow">WMS · 只读定义</p><h1 id="master-data-heading">仓库与库位详情</h1></div></header>
-    <p class="hint">通过实时目录或已知 UUID 读取当前授权的主数据。不代表可分配、位置空闲或物理安全许可；层级树和管理动作尚未开放。</p>
+    <header class="page-heading"><div><p class="eyebrow">WMS · 主数据定义</p><h1 id="master-data-heading">仓库与库位详情</h1></div></header>
+    <p class="hint">通过实时目录或已知 UUID 读取当前授权的主数据。不代表可分配、位置空闲或物理安全许可；层级树、库位创建和启停尚未开放。</p>
+    <button v-if="canCreate && !creationOpen" type="button" @click="openCreation">新建禁用仓库</button>
+    <WarehouseCreation v-if="creationOpen" @attempted="creationAttempted" @read="readCreatedWarehouse" @close="creationOpen = false" />
+    <template v-if="!creationOpen">
     <form class="master-data-query" @submit.prevent="read">
       <div class="master-data-kind"><label for="master-data-kind">资源类型</label>
         <select id="master-data-kind" v-model="resourceKind" name="resourceKind"><option value="warehouses">仓库</option><option value="locations">库位</option></select></div>
@@ -102,6 +112,7 @@ function selectCatalogResource(id: string) {
         </dl>
       </article>
     </QueryState>
+    </template>
   </section>
 </template>
 

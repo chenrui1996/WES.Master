@@ -42,6 +42,8 @@
 
 ## 2. 功能/契约
 
+仓库创建UI现有[禁用仓库表单](../implementation/139-t08-disabled-warehouse-creation-client.md)/[证据](../implementation/140-t08-disabled-warehouse-creation-client-tests.md)：当前write字段、code/name预览、第二次确认、冻结原operation与10秒未知/离线边界；回执不赠read，用户另点才读取详情。原无write授权保持只读；后端开关默认关闭。库位创建/树层巷/编辑启停、占用/绑定/活动任务及完整DTC-WMS-001仍未实现，旧“管理动作均未开放”不再适用于这项仓库创建子集。
+
 仓库创建现增加[独立受权HTTP](../implementation/137-t08-authorized-warehouse-creation-http.md)/[证据](../implementation/138-t08-authorized-warehouse-creation-http-tests.md)：需额外默认false部署开关，仅code/name与永久Idempotency-Key，201+Location或当前授权200重放，代码/摘要冲突409。无schema成功替身/位置创建、无启用/库存写入；UI表单与完整DTC仍未交付。
 
 仓/位创建现增加[owner原子Outbox](../implementation/135-t05-t08-wms-creation-outbox.md)/[证据](../implementation/136-t05-t08-wms-creation-outbox-tests.md)，与默认禁用资源及永久创建事实同事务，逐字段防伪、稳定事件身份、重放不重复，失败全部回滚。只非物理创建事实，不能推断资源已启用或库存/运输完成；不代签DTC-WMS-001的占用/绑定/活动任务变体。迁移不回填历史事件，无WMS publisher/Inbox/Host写入接线。

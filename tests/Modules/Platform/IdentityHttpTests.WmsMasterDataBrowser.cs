@@ -13,11 +13,14 @@ namespace Wes.Modules.Tests.Platform;
 
 public sealed partial class IdentityHttpTests
 {
-    [Fact]
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     [Trait("CaseId", "WMS-CLIENT-06")]
-    public async Task RealBrowserReadsWarehouseAndLocationAndClearsDetailsAfterCurrentRevocation()
+    public async Task RealBrowserReadsWarehouseAndLocationAndClearsDetailsAfterCurrentRevocation(bool warehouseCreation)
     {
-        var ids = await WmsHostAsync();
+        var ids = await WmsHostAsync(warehouseCreation);
+        if (warehouseCreation) await GrantWarehouseCreationAsync();
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "WES.slnx"))) root = root.Parent;
         Assert.NotNull(root);
@@ -30,7 +33,8 @@ public sealed partial class IdentityHttpTests
         request.CertificateExtensions.Add(names.Build());
         using var generated = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddHours(1));
         using var certificate = X509CertificateLoader.LoadPkcs12(generated.Export(X509ContentType.Pfx), password: null);
-        await using var server = new Factory(_connection, _corpus, _clock, Path.Combine(web, "dist"), wmsMasterData: true);
+        await using var server = new Factory(_connection, _corpus, _clock, Path.Combine(web, "dist"), wmsMasterData: true,
+            wmsWarehouseCreation: warehouseCreation);
         server.UseKestrel(options => options.Listen(IPAddress.Loopback, 0, listener => listener.UseHttps(certificate)));
         server.StartServer();
         var address = Assert.Single(server.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses);
@@ -55,6 +59,7 @@ public sealed partial class IdentityHttpTests
             start.Environment["WES_E2E_WAREHOUSE_ID"] = ids.Warehouse.ToString("D");
             start.Environment["WES_E2E_LOCATION_ID"] = ids.Location.ToString("D");
             start.Environment["WES_E2E_WMS_COORDINATION"] = coordination;
+            start.Environment["WES_E2E_WMS_CREATE"] = warehouseCreation ? "true" : "false";
             using var process = Process.Start(start)!;
             var output = process.StandardOutput.ReadToEndAsync();
             var errors = process.StandardError.ReadToEndAsync();
@@ -100,9 +105,20 @@ public sealed partial class IdentityHttpTests
             Directory.Delete(coordination);
         }
         await using var verify = OpenWmsMasterData();
-        Assert.Equal(2, await verify.MasterDataChanges.CountAsync());
+        Assert.Equal(warehouseCreation ? 3 : 2, await verify.MasterDataChanges.CountAsync());
+        Assert.Equal(warehouseCreation ? 3 : 2, await verify.OutboxMessages.CountAsync());
         Assert.Empty(await verify.Entries.ToListAsync());
-        Assert.False((await verify.Warehouses.SingleAsync()).Enabled);
+        Assert.All(await verify.Warehouses.ToListAsync(), item => Assert.False(item.Enabled));
         Assert.False((await verify.Locations.SingleAsync()).Enabled);
+        if (warehouseCreation)
+        {
+            var created = await verify.Warehouses.SingleAsync(item => item.Code == "BROWSER-WH");
+            Assert.Equal("Browser warehouse", created.Name);
+            var fact = await verify.MasterDataChanges.SingleAsync(item => item.WarehouseId == created.Id);
+            Assert.Equal(_user, fact.ActorId);
+            var message = await verify.OutboxMessages.SingleAsync(item => item.EventId == fact.OperationId);
+            Assert.Equal(created.Id, message.AggregateId);
+            Assert.Equal(created.Version, message.AggregateVersion);
+        }
     }
 }

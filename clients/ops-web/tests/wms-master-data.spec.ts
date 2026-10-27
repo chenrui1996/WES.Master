@@ -2,12 +2,13 @@ import { expect, test } from "@playwright/test";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-test("real WMS definitions remain read-only and disappear after current role revocation", async ({ page, context }) => {
+test("real WMS definitions and explicitly enabled warehouse creation retain current authority", async ({ page, context }) => {
   test.skip(!process.env.WES_E2E_WMS_COORDINATION, "Requires the explicit WMS/current-role fixture, not the Platform-only fixture.");
   const tenant = process.env.WES_E2E_TENANT;
   const warehouse = process.env.WES_E2E_WAREHOUSE_ID;
   const location = process.env.WES_E2E_LOCATION_ID;
   const coordination = process.env.WES_E2E_WMS_COORDINATION;
+  const creation = process.env.WES_E2E_WMS_CREATE === "true";
   if (!tenant || !warehouse || !location || !coordination) throw new Error("Requires the controlled WMS/MySQL revocation fixture.");
   const failures: string[] = [];
   const methods: string[] = [];
@@ -84,6 +85,50 @@ test("real WMS definitions remain read-only and disappear after current role rev
   expect(methods.length).toBe(beforeReconnect);
   await expect(page.getByRole("region", { name: "主数据详情", exact: true })).toContainText("陈旧");
 
+  if (creation) {
+    await page.getByRole("button", { name: "新建禁用仓库", exact: true }).click();
+    await expect(details).toHaveCount(0);
+    await page.getByLabel("新仓库代码", { exact: true }).fill("browser-wh");
+    await page.getByLabel("新仓库名称", { exact: true }).fill("Browser warehouse");
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: "预览禁用仓库创建", exact: true })).toBeFocused();
+    await page.keyboard.press("Enter");
+    const preview = page.getByTestId("warehouse-preview");
+    await expect(preview).toContainText("BROWSER-WH");
+    const operation = await preview.locator("dd").nth(3).innerText();
+    expect(operation).toMatch(/^[a-f0-9-]{36}$/);
+    for (const width of [375, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    }
+    await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
+    const createResponse = page.waitForResponse(response => new URL(response.url()).pathname === "/api/wms/warehouses" && response.request().method() === "POST");
+    await page.getByRole("button", { name: "确认创建禁用仓库", exact: true }).click();
+    const createdResponse = await createResponse;
+    expect(createdResponse.status()).toBe(201);
+    expect(createdResponse.headers()["cache-control"]).toBe("no-store");
+    expect(createdResponse.request().headers()["idempotency-key"]).toBe(operation);
+    expect(createdResponse.request().postDataJSON()).toEqual({ code: "BROWSER-WH", name: "Browser warehouse" });
+    const created = await createdResponse.json() as { decision: number; id: string; version: string };
+    expect(created.decision).toBe(0);
+    await expect(page.getByTestId("warehouse-receipt")).toContainText("已确认禁用仓库");
+    const readCreated = page.waitForResponse(response => response.url().endsWith(`/api/wms/warehouses/${created.id}`));
+    await page.getByRole("button", { name: "用回执 UUID 读取当前仓库", exact: true }).click();
+    expect((await readCreated).status()).toBe(200);
+    await expect(details).toContainText("BROWSER-WH");
+    await expect(details).toContainText("主数据禁用");
+    await expect(details).toContainText(created.version);
+    await page.getByLabel("资源类型", { exact: true }).selectOption("locations");
+    await page.getByLabel("资源 UUID", { exact: true }).fill(location);
+    const restore = page.waitForResponse(response => response.url().endsWith(`/api/wms/locations/${location}`));
+    await submit.click();
+    expect((await restore).status()).toBe(200);
+  } else {
+    await expect(page.getByRole("button", { name: "新建禁用仓库", exact: true })).toHaveCount(0);
+  }
+
   // The host fixture changes the real role through a second DB owner, not a fake HTTP response.
   await writeFile(join(coordination, "revoke.request"), "revoke");
   await expect.poll(async () => readFile(join(coordination, "revoke.confirmed"), "utf8").catch((error: NodeJS.ErrnoException) => {
@@ -97,9 +142,10 @@ test("real WMS definitions remain read-only and disappear after current role rev
   await expect(page.getByTestId("master-data-catalog")).toHaveCount(0);
   await expect(page.getByRole("region", { name: "主数据详情", exact: true })).toContainText("PermissionDenied");
   const stored = await page.evaluate(() => JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage)]));
-  for (const secret of [warehouse, location, locationDefinition.packId, "HTTP location", "accessToken"])
+  for (const secret of [warehouse, location, locationDefinition.packId, "HTTP location", "BROWSER-WH", "Browser warehouse", "accessToken"])
     expect(stored).not.toContain(secret);
-  expect(methods.length).toBe(5);
-  expect(methods.every(method => method === "GET")).toBe(true);
+  expect(methods.length).toBe(creation ? 8 : 5);
+  expect(methods.filter(method => method === "POST")).toHaveLength(creation ? 1 : 0);
+  expect(methods.every(method => method === "GET" || creation && method === "POST")).toBe(true);
   expect(failures).toEqual([]);
 });

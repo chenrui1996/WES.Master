@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+最新T08客户端：[仓库创建表单](139-t08-disabled-warehouse-creation-client.md)/[证据](140-t08-disabled-warehouse-creation-client-tests.md)已交付当前write字段可见、精确预览/二次确认、10秒确认未知原键手工恢复、创建/查询互锁与显式读取回执。新增35客户端，全套462/严格构建通过，相关WMS领域/HTTP/真实HTTPS Chromium只读+写两变体146、架构29通过，Release零警告错误。此前“仓库表单未完成”已被本片替代；位置创建/真实Pack/树层巷/编辑启停/容器库存闭环与T08整包仍缺，其余T04–T07也不虚关闭。
+
 最新T08 HTTP：[仓库创建入口](137-t08-authorized-warehouse-creation-http.md)/[证据](138-t08-authorized-warehouse-creation-http-tests.md)已交付单独默认关闭`WarehouseCreationEnabled`、当前write字段、严格JSON/key、201/200/409及真实单效果。新增38HTTP/7配置，相关WMS145+架构29=174通过，Release零警告错误；旧“Host创建未接线”仅库位/其他生命周期仍适用，仓库表单/真实Pack/编辑启停/整包未完成。
 
 最新T05/T08：[WMS创建原子Outbox](135-t05-t08-wms-creation-outbox.md)/[证据](136-t05-t08-wms-creation-outbox-tests.md)已交付owner持久化门禁由新创建事实派生唯一待发布事件；永久operation重放不追加，故障资源/事实/事件三表均回滚，旧operation不自动回填。新增17真实owner，最终主数据141+WMS领域/HTTP/真实HTTPS浏览器100+架构29=270通过，Release零警告错误；实际FK/索引/UTC列与模型无漂移通过。历史“WMS无Outbox”仅其余业务/发布消费部分仍适用；跨owner统计、WMS publisher/Inbox与真实Broker未完成，五个整包仍不关闭。

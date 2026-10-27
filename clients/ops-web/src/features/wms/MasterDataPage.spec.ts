@@ -2,6 +2,7 @@ import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import MasterDataPage from "./MasterDataPage.vue";
 import { forgetIdentity, sessionState, setAccessToken } from "../identity/identity-api";
+import WarehouseCreation from "./WarehouseCreation.vue";
 
 const id = "77966ccd-f1dd-412d-8e45-adb475608842";
 const second = "a029ce52-d810-405c-b349-c0ac9ebad74b";
@@ -219,4 +220,26 @@ it("clears current details if a refreshed catalog no longer has current full-fie
   await wrapper.get(".master-data-catalog form").trigger("submit"); await flushPromises();
   expect(wrapper.find('[data-test="master-data-details"]').exists()).toBe(false);
   expect(wrapper.text()).toContain("RequestFailed403");
+});
+
+it("integrates creation without retaining old query results or automatically reading its receipt", async () => {
+  sessionState.subject!.grants.push({ permission: "wms.warehouses.write", scope: 0, departments: [], fields: ["Code", "Name"] });
+  vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify(row)))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ decision: 0, id: second, version: id }), { status: 201 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ ...row, id: second, code: "NEW-WH" })));
+  wrapper = mount(MasterDataPage); await read();
+  await wrapper.findAll("button").find(button => button.text() === "新建禁用仓库")!.trigger("click");
+  expect(wrapper.find('[data-test="master-data-details"]').exists()).toBe(false);
+  expect(wrapper.find(".master-data-query").exists()).toBe(false);
+  const form = wrapper.getComponent(WarehouseCreation);
+  await form.get('input[name="warehouseCode"]').setValue("new-wh");
+  await form.get('input[name="warehouseName"]').setValue("New warehouse");
+  await form.get("form").trigger("submit"); await flushPromises();
+  await form.get('[data-test="confirm-warehouse"]').trigger("click"); await flushPromises();
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(wrapper.find('[data-test="master-data-catalog"]').exists()).toBe(false);
+  await form.get('[data-test="read-created-warehouse"]').trigger("click"); await flushPromises();
+  expect(fetch).toHaveBeenCalledTimes(3);
+  expect(vi.mocked(fetch).mock.calls[2]![0]).toBe(`/api/wms/warehouses/${second}`);
+  expect(wrapper.get('[data-test="master-data-details"]').text()).toContain("NEW-WH");
 });

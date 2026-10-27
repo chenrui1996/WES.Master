@@ -1,10 +1,14 @@
-import { api, isRecord } from "../identity/identity-api";
+import { api, isRecord, sessionState } from "../identity/identity-api";
 
 export type ResourceKind = "warehouses" | "locations";
 export const warehouseFields = ["Id", "Code", "Name", "Enabled", "Version", "CreatedAt"] as const;
 export const locationFields = [...warehouseFields, "WarehouseId", "PackId", "SchemaVersion"] as const;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const code = /^[a-z0-9_.-]{1,64}$/i;
+function validName(value: unknown): value is string {
+  return typeof value === "string" && value.length >= 1 && value.length <= 128 && value.trim() === value
+    && !/[\u0000-\u001f\u007f-\u009f]/.test(value);
+}
 export function validIdentity(value: unknown): value is string {
   return typeof value === "string" && uuid.test(value) && value !== "00000000-0000-0000-0000-000000000000";
 }
@@ -28,8 +32,7 @@ function parseDefinition(value: unknown, kind: ResourceKind, id: string): Master
   if (!isRecord(value) || Object.keys(value).length !== expected.length || !expected.every(field => field in value)
     || !validIdentity(value.id) || value.id.toLowerCase() !== id.toLowerCase()
     || typeof value.code !== "string" || !code.test(value.code) || value.code !== value.code.toUpperCase()
-    || typeof value.name !== "string" || value.name.length < 1 || value.name.length > 128 || value.name.trim() !== value.name
-    || /[\u0000-\u001f\u007f-\u009f]/.test(value.name) || typeof value.enabled !== "boolean"
+    || !validName(value.name) || typeof value.enabled !== "boolean"
     || !validIdentity(value.version) || !validUtc(value.createdAt))
     throw new MasterDataResponseError();
   const definition: MasterDefinition = {
@@ -81,4 +84,32 @@ export async function queryMasterData(kind: ResourceKind, offset: number, limit:
   });
   if (rows.some((row, index) => index > 0 && rows[index - 1]!.definition.code >= row.definition.code)) throw new MasterDataResponseError();
   return { rows, offset, limit };
+}
+
+export function mayCreateWarehouse(): boolean {
+  const fields = new Set(sessionState.subject?.grants.filter(grant => grant.permission === "wms.warehouses.write").flatMap(grant => grant.fields));
+  return !!sessionState.subject && ["Code", "Name"].every(field => fields.has(field));
+}
+export function warehouseDraftError(draftCode: string, name: string): string {
+  if (!code.test(draftCode)) return "代码须为 1 至 64 个 ASCII 字母、数字、-、_ 或 .，不自动去除空白。";
+  if (!validName(name)) return "名称须为 1 至 128 个字符，不能含控制字符或边界空白。";
+  return "";
+}
+export interface WarehouseCreationCommand { code: string; name: string; operation: string }
+export interface WarehouseCreationReceipt { decision: 0 | 1; id: string; version: string }
+export async function createWarehouse(command: WarehouseCreationCommand, signal: AbortSignal): Promise<WarehouseCreationReceipt> {
+  const error = warehouseDraftError(command.code, command.name);
+  if (error || !validIdentity(command.operation)) throw new Error(error || "创建操作 UUID 无效。");
+  let value: unknown;
+  try {
+    value = await api("/api/wms/warehouses", { method: "POST", signal,
+      headers: { "Idempotency-Key": command.operation }, body: JSON.stringify({ code: command.code, name: command.name }) });
+  } catch (failure) {
+    if (failure instanceof SyntaxError) throw new Error("创建响应无效，提交结果不明；请保留原操作核对。");
+    throw failure;
+  }
+  if (!isRecord(value) || Object.keys(value).length !== 3 || !["decision", "id", "version"].every(field => field in value)
+    || value.decision !== 0 && value.decision !== 1 || !validIdentity(value.id) || !validIdentity(value.version))
+    throw new Error("创建响应无效，提交结果不明；请保留原操作核对。");
+  return { decision: value.decision, id: value.id, version: value.version };
 }

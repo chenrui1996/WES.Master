@@ -111,3 +111,81 @@ it("rejects invalid JSON and clears prior observations", async () => {
   expect(wrapper.text()).toContain("无效");
   expect(wrapper.find('[data-test="message-counts"]').exists()).toBe(false);
 });
+
+const wmsSummary = { owner: "Wms", observedAt: "2026-10-27T00:00:00Z", pendingCount: 27 };
+function wmsGrants(scope = 0, selected = ["Owner", "ObservedAt", "PendingCount"]) {
+  sessionState.subject!.grants = [{ permission: "wms.messages.read", scope, departments: [], fields: selected }];
+}
+it.each([0, 1, 2])("reads WMS creator-scoped statistics with explicit fields and scope %i", async scope => {
+  wmsGrants(scope); vi.mocked(fetch).mockResolvedValueOnce(response(wmsSummary));
+  wrapper = mount(MessageCounts, { props: { owner: "Wms" } });
+  expect(fetch).not.toHaveBeenCalled(); await read();
+  expect(fetch).toHaveBeenCalledWith("/api/wms/master-data-events/summary", expect.objectContaining({ cache: "no-store" }));
+  expect(wrapper.get('[data-test="message-counts"]').text()).toContain("待发布27");
+  expect(wrapper.text()).toContain("creator");
+  expect(wrapper.find('[data-test="message-counts"]').text()).not.toContain("Inbox");
+  expect(wrapper.find('[data-test="message-counts"]').text()).not.toContain("Broker");
+});
+it.each(["Owner", "ObservedAt", "PendingCount"])("requires independent WMS statistics field %s", async missing => {
+  wmsGrants(0, ["Owner", "ObservedAt", "PendingCount"].filter(field => field !== missing));
+  wrapper = mount(MessageCounts, { props: { owner: "Wms" } }); await read();
+  expect(fetch).not.toHaveBeenCalled();
+});
+it("does not borrow Platform statistics authority for WMS", async () => {
+  wrapper = mount(MessageCounts, { props: { owner: "Wms" } }); await read();
+  expect(fetch).not.toHaveBeenCalled();
+});
+it.each([
+  { ...wmsSummary, pendingCount: -1 }, { ...wmsSummary, pendingCount: 1.1 },
+  { ...wmsSummary, pendingCount: Number.MAX_SAFE_INTEGER + 1 }, { ...wmsSummary, pendingCount: "27" },
+  { ...wmsSummary, observedAt: "2026-02-30T00:00:00Z" }, { ...wmsSummary, owner: "Platform" },
+  { ...wmsSummary, inboxReceiptCount: 0 }, { authorized: true, summary: wmsSummary }, { ...wmsSummary, observedAt: null },
+])("rejects invalid WMS counters without showing a successful zero %#", async invalid => {
+  wmsGrants(); vi.mocked(fetch).mockResolvedValueOnce(response(wmsSummary));
+  wrapper = mount(MessageCounts, { props: { owner: "Wms" } }); await read();
+  vi.mocked(fetch).mockResolvedValueOnce(response(invalid)); await read();
+  expect(wrapper.find('[data-test="message-counts"]').exists()).toBe(false);
+  expect(wrapper.text()).toContain("无效");
+});
+it.each([401, 403, 404])("clears WMS statistics on live HTTP status %i", async status => {
+  wmsGrants(); vi.mocked(fetch).mockResolvedValueOnce(response(wmsSummary));
+  wrapper = mount(MessageCounts, { props: { owner: "Wms" } }); await read();
+  vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ code: "Denied", correlationId: "c1" }), { status }));
+  await read(); expect(wrapper.find('[data-test="message-counts"]').exists()).toBe(false);
+});
+it("keeps WMS observations explicitly stale on 503 without inventing transport counts", async () => {
+  wmsGrants(); vi.mocked(fetch).mockResolvedValueOnce(response(wmsSummary));
+  wrapper = mount(MessageCounts, { props: { owner: "Wms" } }); await read();
+  vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ code: "Unavailable", correlationId: "c1" }), { status: 503 }));
+  await read(); expect(wrapper.get('[data-test="message-counts"]').text()).toContain("待发布27");
+  expect(wrapper.text()).toContain("陈旧");
+});
+it("clears and cancels statistics on owner change and discards a late result without auto-fetching", async () => {
+  let finish!: (value: Response) => void;
+  vi.mocked(fetch).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  wrapper = mount(MessageCounts, { props: { owner: "Platform" } });
+  await wrapper.get('[data-test="read-counts"]').trigger("click"); await flushPromises();
+  const signal = vi.mocked(fetch).mock.calls[0]![1]!.signal!;
+  await wrapper.setProps({ owner: "Wms" });
+  expect(signal.aborted).toBe(true);
+  finish(response()); await flushPromises();
+  expect(wrapper.find('[data-test="message-counts"]').exists()).toBe(false);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+it("clears WMS observations immediately on statistics field revocation", async () => {
+  wmsGrants(); vi.mocked(fetch).mockResolvedValueOnce(response(wmsSummary));
+  wrapper = mount(MessageCounts, { props: { owner: "Wms" } }); await read();
+  sessionState.subject!.grants[0]!.fields = ["Owner", "ObservedAt"]; await flushPromises();
+  expect(wrapper.find('[data-test="message-counts"]').exists()).toBe(false);
+  await read(); expect(fetch).toHaveBeenCalledTimes(1);
+});
+it("keeps WMS offline observations stale and reconnects without a request", async () => {
+  wmsGrants(); vi.mocked(fetch).mockResolvedValueOnce(response(wmsSummary));
+  wrapper = mount(MessageCounts, { props: { owner: "Wms" } }); await read();
+  vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+  dispatchEvent(new Event("offline")); await flushPromises(); await read();
+  expect(wrapper.text()).toContain("陈旧");
+  vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+  dispatchEvent(new Event("online")); await flushPromises();
+  expect(fetch).toHaveBeenCalledTimes(1);
+});

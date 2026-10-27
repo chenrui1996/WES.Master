@@ -39,6 +39,7 @@ public static partial class WmsMasterDataEndpoints
             ReadAsync(id, http, database, location: true, ct));
         group.MapGet("/master-data-events", (int? offset, int? limit, HttpContext http, MasterDataDatabase database, CancellationToken ct) =>
             ReadCreationEventsAsync(new(offset ?? 0, limit ?? 25), http, database, ct));
+        group.MapGet("/master-data-events/summary", ReadCreationEventSummaryAsync);
         group.MapGet("/inventory", (int? offset, int? limit, Guid? warehouseId, Guid? locationId, Guid? itemId,
             Guid? containerId, string? batch, HttpContext http, InventoryDatabase database, CancellationToken ct) =>
             QueryInventoryAsync(new(offset ?? 0, limit ?? 25, warehouseId, locationId, itemId, containerId, batch), http, database, ct));
@@ -119,7 +120,7 @@ public static partial class WmsMasterDataEndpoints
 
     private sealed class MasterDataDatabase(IdentitySettings settings, MasterDataAuthority authorization, ILoggerFactory logs, TimeProvider clock)
     {
-        internal WmsMasterDataScope Open(Guid tenant) => new(settings.ConnectionString, tenant, authorization, logs);
+        internal WmsMasterDataScope Open(Guid tenant) => new(settings.ConnectionString, tenant, authorization, logs, clock);
         internal WmsMasterDataWriter OpenWarehouseWriter(Guid tenant) =>
             new(settings.ConnectionString, tenant, authorization, WarehouseOnlySchema.Instance, clock, logs);
     }

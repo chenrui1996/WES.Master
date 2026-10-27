@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+最新T05统计：[WMS创建事件计数](149-t05-wms-creation-event-counts.md)/[证据](150-t05-wms-creation-event-counts-tests.md)已交付第二owner独立统计字段/当前creator交集、SQL全量LongCount及共享owner计数UI。新增26真实owner/12HTTP/23前端，最终主数据205+HTTP/三套真实HTTPS浏览器36+架构29=270通过、前端604/严格构建、Release0/0。历史“WMS无统计”由本片替代；不伪造不存在的Inbox/投递状态、不跨owner求和；统一快照、发布/消费、真实Broker及其他四包缺口不变。
+
 最新T08客户端：[设计](147-t08-inventory-query-client.md)/[证据](148-t08-inventory-query-client-tests.md)已交付实时库存入口、完整All字段/精确维度筛选、六位数量字符串与BigInt校验、撤权/取消/离线清旧；新增60前端，最终581/严格构建、真实HTTP18+HTTPS Chromium三变体3=21、架构29通过，Release0/0。历史“库存客户端未交付”仅固定核对快照/授权流水/导出部分仍适用；真实Pack、完整生命周期、其余T04–T07缺口不变，不关闭整包。
 
 最新T08库存：[当前受权owner/API](145-t08-authorized-inventory-query.md)/[证据](146-t08-authorized-inventory-query-tests.md)已交付All完整字段、tenant精确维度SQL过滤后分页、同一RepeatableRead账面/保护量投影、重叠并集和六位decimal字符串，无改账端点。新增26真实owner/18HTTP，最终原账本预留+新读取74+HTTP18+架构29=121通过、Release0/0、无模型漂移。历史“库存查询无API”已由本片替代；客户端/固定核对快照/导出、真实Pack、主数据完整生命周期、容器/业务单据/运输完成仍缺，T04–T08不虚关闭。

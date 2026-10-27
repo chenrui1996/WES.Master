@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from "vue";
 import QueryState from "../../components/QueryState.vue";
 import RealtimePager from "../../components/RealtimePager.vue";
+import MessageCounts from "./MessageCounts.vue";
 import { ApiError, sessionState } from "../identity/identity-api";
 import { CreationEventResponseError, mayReadCreationEvents, queryCreationEvents, type CreationEvent } from "./wms-creation-events";
 
@@ -46,7 +47,8 @@ function move(nextOffset: number, nextLimit: number) {
   <section class="wms-events-page" aria-labelledby="wms-events-title">
     <h1 id="wms-events-title">消息诊断 · WMS 创建事件</h1>
     <p class="notice">仅显示当前授权 creator 范围的 WMS 创建事件元数据，不提供消息正文。
-      Pending 不是已投递、业务完成或仓库启用许可；WMS 发布器、Inbox、统计与重放尚未接入，不显示虚构零值。</p>
+      Pending 不是已投递、业务完成或仓库启用许可；WMS 发布器、Inbox 与重放尚未接入，不显示虚构零值。</p>
+    <MessageCounts owner="Wms" />
     <p v-if="!readable" role="alert">缺少当前 WMS 消息读取的完整九字段权限，不能查询。</p>
     <p v-if="!online" class="notice" role="status">当前离线，已加载事件仅为陈旧参考；恢复连接后请手工重新读取。</p>
     <button type="button" data-test="read-wms-events" :disabled="!readable || !online || busy" @click="load">读取 WMS 创建事件</button>

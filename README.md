@@ -9,6 +9,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 ## 文档工作区
 
+T05第二owner统计：[WMS创建事件范围计数](docs/implementation/149-t05-wms-creation-event-counts.md)/[证据](docs/implementation/150-t05-wms-creation-event-counts-tests.md)接通当前完整统计字段creator交集、SQL全量计数与共享owner计数组件。WMS只返回Pending三字段，不虚构Inbox/发布状态、不跨owner求和；前端604/严格构建、主数据205+HTTP/三套浏览器36+架构29=270通过，Release0/0。统一快照、WMS发布消费与真实Broker仍缺，整包不关闭。
+
 T08库存客户端：[设计](docs/implementation/147-t08-inventory-query-client.md)/[证据](docs/implementation/148-t08-inventory-query-client-tests.md)已交付独立Wms库存入口、All完整字段、精确筛选/数量字符串与取消清旧；全前端581/严格构建、真实HTTP及三套HTTPS浏览器21、架构29通过，Release零警告错误。历史“库存客户端缺失”已由本片替代；固定核对快照/授权流水/导出及完整生命周期仍缺，T04–T08整包不虚关闭。
 
 T08库存续片：[当前受权库存读取](docs/implementation/145-t08-authorized-inventory-query.md)/[证据](docs/implementation/146-t08-authorized-inventory-query-tests.md)接通独立WMS owner与GET，当前All完整字段、精确维度过滤、RepeatableRead保护量并集及无损十进制字符串，不开放改账。真实owner74+HTTP18+架构29=121通过，Release零警告错误、无模型漂移；客户端/核对快照/导出及完整生命周期仍缺。

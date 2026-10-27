@@ -23,6 +23,7 @@ public sealed partial class IdentityHttpTests
         var ids = await WmsHostAsync(warehouseCreation);
         if (warehouseCreation) await GrantWarehouseCreationAsync();
         await GrantCreationEventReadAsync();
+        await GrantCreationEventCountsAsync();
         var balance = inventoryRead ? await SeedInventoryAsync(ids) : null;
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "WES.slnx"))) root = root.Parent;
@@ -114,6 +115,8 @@ public sealed partial class IdentityHttpTests
                 }
                 var eventRole = await writer.Roles.SingleAsync(item => item.Code == "WMS-EVENT-READ", deadline.Token);
                 eventRole.Change(eventRole.Version, true, eventRole.Rules.Select(rule => rule with { Fields = rule.Fields.Remove("EventId") }));
+                var countRole = await writer.Roles.SingleAsync(item => item.Code == "WMS-EVENT-COUNTS", deadline.Token);
+                countRole.Change(countRole.Version, true, countRole.Rules.Select(rule => rule with { Fields = rule.Fields.Remove("PendingCount") }));
                 await writer.SaveChangesAsync(deadline.Token);
                 await File.WriteAllTextAsync(Path.Combine(coordination, "events-revoke.confirmed"), "revoked", deadline.Token);
                 if (!inventoryRead) return;

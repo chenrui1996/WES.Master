@@ -1,5 +1,22 @@
 import { api, isRecord, sessionState } from "../identity/identity-api";
 import { validIdentity, validUtc } from "../wms/master-data";
+import { MessageResponseError } from "./messages";
+
+export const creationEventCountFields = ["Owner", "ObservedAt", "PendingCount"] as const;
+export interface CreationEventSummary { owner: "Wms"; observedAt: string; pendingCount: number }
+export function mayReadCreationEventSummary(): boolean {
+  const fields = new Set(sessionState.subject?.grants.filter(grant => grant.permission === "wms.messages.read").flatMap(grant => grant.fields));
+  return !!sessionState.subject && creationEventCountFields.every(field => fields.has(field));
+}
+export async function queryCreationEventSummary(signal: AbortSignal): Promise<CreationEventSummary> {
+  let value: unknown;
+  try { value = await api("/api/wms/master-data-events/summary", { signal }); }
+  catch (error) { if (error instanceof SyntaxError) throw new MessageResponseError(); throw error; }
+  if (!isRecord(value) || Object.keys(value).length !== 3 || value.owner !== "Wms" || !validUtc(value.observedAt)
+    || typeof value.pendingCount !== "number" || !Number.isSafeInteger(value.pendingCount) || value.pendingCount < 0)
+    throw new MessageResponseError();
+  return { owner: value.owner, observedAt: value.observedAt, pendingCount: value.pendingCount };
+}
 
 export const creationEventFields = ["EventId", "Owner", "ContractName", "SchemaVersion", "AggregateId",
   "AggregateVersion", "CorrelationId", "OccurredAt", "Status"] as const;

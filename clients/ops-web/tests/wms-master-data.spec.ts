@@ -149,6 +149,20 @@ test("real WMS definitions and explicitly enabled warehouse creation retain curr
   await expect(owner).toHaveValue("Wms");
   await expect(owner.locator("option")).toHaveCount(1);
   await owner.focus(); await page.keyboard.press("Tab");
+  const countRead = page.getByRole("button", { name: "读取 Wms 计数", exact: true });
+  await expect(countRead).toBeFocused();
+  const countResponse = page.waitForResponse(response => new URL(response.url()).pathname === "/api/wms/master-data-events/summary");
+  await page.keyboard.press("Enter");
+  const count = await countResponse;
+  expect(count.status()).toBe(200); expect(count.headers()["cache-control"]).toBe("no-store");
+  const summary = await count.json() as { owner: string; observedAt: string; pendingCount: number };
+  expect(Object.keys(summary)).toEqual(["owner", "observedAt", "pendingCount"]);
+  expect(summary.owner).toBe("Wms"); expect(summary.pendingCount).toBe(creation ? 3 : 2);
+  const countDetails = page.getByTestId("message-counts");
+  await expect(countDetails).toContainText(summary.observedAt);
+  await expect(countDetails).toContainText(`待发布${creation ? 3 : 2}`);
+  await expect(countDetails).not.toContainText("Inbox");
+  await page.keyboard.press("Tab");
   const eventRead = page.getByRole("button", { name: "读取 WMS 创建事件", exact: true });
   await expect(eventRead).toBeFocused();
   expect(await eventRead.evaluate(element => element.matches(":focus-visible"))).toBe(true);
@@ -171,11 +185,12 @@ test("real WMS definitions and explicitly enabled warehouse creation retain curr
   await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
-  await context.setOffline(true); await expect(eventRead).toBeDisabled();
+  await context.setOffline(true); await expect(eventRead).toBeDisabled(); await expect(countRead).toBeDisabled();
   const beforeEventsReconnect = methods.length;
   await context.setOffline(false); await expect(eventRead).toBeEnabled();
   expect(methods.length).toBe(beforeEventsReconnect);
   await expect(page.getByRole("region", { name: "WMS 创建事件", exact: true })).toContainText("陈旧");
+  await expect(page.getByRole("region", { name: "Wms 消息计数", exact: true })).toContainText("陈旧");
   await writeFile(join(coordination, "events-revoke.request"), "revoke");
   await expect.poll(async () => readFile(join(coordination, "events-revoke.confirmed"), "utf8").catch((error: NodeJS.ErrnoException) => {
     if (error.code === "ENOENT") return "pending";
@@ -185,6 +200,10 @@ test("real WMS definitions and explicitly enabled warehouse creation retain curr
   await eventRead.click(); expect((await deniedEvents).status()).toBe(403);
   await expect(eventList).toHaveCount(0);
   await expect(page.getByRole("region", { name: "WMS 创建事件", exact: true })).toContainText("PermissionDenied");
+  const deniedCounts = page.waitForResponse(response => new URL(response.url()).pathname === "/api/wms/master-data-events/summary");
+  await countRead.click(); expect((await deniedCounts).status()).toBe(403);
+  await expect(countDetails).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Wms 消息计数", exact: true })).toContainText("PermissionDenied");
   if (inventoryId) {
     await page.getByTestId("navigation-toggle").click();
     await page.getByRole("navigation", { name: "管理导航" }).getByRole("link", { name: "库存与保护量", exact: true }).click();
@@ -231,7 +250,7 @@ test("real WMS definitions and explicitly enabled warehouse creation retain curr
     expect(stored).not.toContain(secret);
   for (const row of eventRows) expect(stored).not.toContain(row.eventId);
   if (inventoryId) expect(stored).not.toContain(inventoryId);
-  expect(methods.length).toBe(creation ? 10 : inventoryId ? 9 : 7);
+  expect(methods.length).toBe(creation ? 12 : inventoryId ? 11 : 9);
   expect(methods.filter(method => method === "POST")).toHaveLength(creation ? 1 : 0);
   expect(methods.every(method => method === "GET" || creation && method === "POST")).toBe(true);
   expect(failures).toEqual([]);

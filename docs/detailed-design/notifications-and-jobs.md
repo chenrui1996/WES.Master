@@ -20,6 +20,8 @@
 
 ## 2. 功能与契约
 
+后续[WMS创建事件范围统计](../implementation/149-t05-wms-creation-event-counts.md)/[证据](../implementation/150-t05-wms-creation-event-counts-tests.md)已接通独立统计字段当前creator交集、SQL全量LongCount与共享计数组件；替代下述历史“WMS统计未接入”。WMS只返回Owner/ObservedAt/PendingCount，不伪造Inbox/投递状态，不与Platform相加；两owner仍独立观察，不构成统一快照。前端604、主数据205+HTTP/三套浏览器36+架构29=270及严格构建通过，WMS发布/消费和真实Broker仍未完成。
+
 现有[消息owner选择与WMS事件客户端](../implementation/143-t05-owner-selected-message-client.md)/[证据](../implementation/144-t05-owner-selected-message-client-tests.md)替代历史“仅Platform页面/第二owner客户端缺失”：原路由通过Platform/Wms各自模块+当前permission成对OR，选择后只查该owner公共API。切换卸载取消/清旧，Platform重放面板打开锁owner；WMS只显示九字段创建事件，无虚构attempt/Inbox0/统计。前端521、真实HTTP/三套浏览器16、架构29通过；跨owner统一快照/统计、WMS发布消费与真实Broker仍未关闭。
 
 第二owner只读基础现有[WMS创建事件API](../implementation/141-t05-wms-creation-event-diagnostics.md)/[证据](../implementation/142-t05-wms-creation-event-diagnostics-tests.md)：当前`wms.messages.read`九字段完整creator范围交集，tenant/creator在SQL先过滤后分页；仅现有Pending创建事实，不显示payload/虚构attempt/Inbox0。独立公共owner读取，无第二owner客户端/跨owner统一快照/统计或真实Broker验收。

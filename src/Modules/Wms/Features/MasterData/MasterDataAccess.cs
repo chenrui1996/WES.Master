@@ -47,11 +47,13 @@ public sealed record MasterDataReadResult(MasterDataReadDecision Decision,
     WarehouseMasterView? Warehouse = null, LocationMasterView? Location = null);
 
 /// <summary>Tenant-owned catalog and single-resource reads with provenance derived inside WMS, not supplied by the caller.</summary>
-internal sealed partial class MasterDataAccess(WmsDbContext database, IMasterDataAuthorization authorization, ILogger<MasterDataAccess> logger)
+internal sealed partial class MasterDataAccess(WmsDbContext database, IMasterDataAuthorization authorization, ILogger<MasterDataAccess> logger,
+    TimeProvider? clock = null)
 {
     private static readonly string[] WarehouseFields = ["Id", "Code", "Name", "Enabled", "Version", "CreatedAt"];
     private static readonly string[] LocationFields = [.. WarehouseFields, "WarehouseId", "PackId", "SchemaVersion"];
     private readonly IMasterDataAuthorization _authorization = authorization ?? throw new ArgumentNullException(nameof(authorization));
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
 
     internal Task<MasterDataReadResult> ReadWarehouseAsync(MasterDataSubject subject, Guid id, CancellationToken ct = default) =>
         ReadAsync(subject, id, location: false, ct);

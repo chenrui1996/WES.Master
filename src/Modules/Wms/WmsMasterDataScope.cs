@@ -11,15 +11,15 @@ public sealed class WmsMasterDataScope : IAsyncDisposable
     private readonly WmsDbContext _database;
     private readonly MasterDataAccess _access;
 
-    /// <summary>Requires deployment-only connection material and a trusted current-authority adapter; does not apply migrations.</summary>
-    public WmsMasterDataScope(string connection, Guid tenant, IMasterDataAuthorization authorization, ILoggerFactory logs)
+    /// <summary>Requires deployment-only connection material and current authority; observation timestamps use the supplied clock or system UTC. No migrations.</summary>
+    public WmsMasterDataScope(string connection, Guid tenant, IMasterDataAuthorization authorization, ILoggerFactory logs, TimeProvider? clock = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connection);
         ArgumentNullException.ThrowIfNull(authorization);
         ArgumentNullException.ThrowIfNull(logs);
         _database = new WmsDbContext(new DbContextOptionsBuilder<WmsDbContext>().UseMySQL(connection,
             mysql => mysql.MigrationsHistoryTable("__WesWmsMigrations")).Options, tenant);
-        _access = new MasterDataAccess(_database, authorization, logs.CreateLogger<MasterDataAccess>());
+        _access = new MasterDataAccess(_database, authorization, logs.CreateLogger<MasterDataAccess>(), clock);
     }
 
     /// <summary>Returns a full warehouse projection only after current provenance-based field authorization; cancellation propagates.</summary>
@@ -41,6 +41,10 @@ public sealed class WmsMasterDataScope : IAsyncDisposable
     /// <summary>Returns safe pending creation-event metadata after independent current message-field and creator authorization.</summary>
     public Task<MasterDataEventPage> QueryCreationEventsAsync(MasterDataSubject subject, MasterDataEventQuery query, CancellationToken cancellationToken = default) =>
         _access.QueryCreationEventsAsync(subject, query, cancellationToken);
+
+    /// <summary>Counts pending creation events in the current complete-field creator scope; errors/cancellation never become zero.</summary>
+    public Task<MasterDataEventSummaryResult> ReadCreationEventSummaryAsync(MasterDataSubject subject, CancellationToken cancellationToken = default) =>
+        _access.ReadCreationEventSummaryAsync(subject, cancellationToken);
 
     /// <summary>Disposes this owner; no authority, connection or business state is retained by a global cache.</summary>
     public ValueTask DisposeAsync() => _database.DisposeAsync();

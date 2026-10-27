@@ -1703,7 +1703,7 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
         public void Advance(TimeSpan interval) => _now += interval;
     }
     private sealed class Factory(string connection, string corpus, TimeProvider clock, string? webRoot = null, string? keyRing = null,
-        string? filesRoot = null, int scannerPort = 3310, bool wmsMasterData = false) : WebApplicationFactory<Program>
+        string? filesRoot = null, int scannerPort = 3310, bool wmsMasterData = false, bool wmsWarehouseCreation = false) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -1719,6 +1719,7 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
                 ["Wes:Web:Root"] = webRoot,
                 ["Wes:Identity:KeyRingPath"] = keyRing,
                 ["Wes:WmsMasterData:Enabled"] = wmsMasterData.ToString(),
+                ["Wes:WmsMasterData:WarehouseCreationEnabled"] = wmsWarehouseCreation.ToString(),
                 ["Features:Modules:Wms"] = wmsMasterData.ToString()
             }));
             if (filesRoot is not null)

@@ -6,8 +6,8 @@ using Wes.Wms.Features.MasterData;
 
 namespace Wes.Host.Wms;
 
-/// <summary>Composition and read-only HTTP adaptation; neither inventory nor resource-authorization rules belong here.</summary>
-public static class WmsMasterDataEndpoints
+/// <summary>Composition and named HTTP adaptation; neither inventory nor resource-authorization rules belong here.</summary>
+public static partial class WmsMasterDataEndpoints
 {
     /// <summary>Registers immutable deployment settings and public owner adapters without opening a database or applying migrations.</summary>
     public static IServiceCollection AddWesWmsMasterData(this IServiceCollection services)
@@ -18,7 +18,7 @@ public static class WmsMasterDataEndpoints
         return services;
     }
 
-    /// <summary>Maps authenticated catalog/detail GETs only when explicitly assembled; no creation, activation or stock write endpoint exists.</summary>
+    /// <summary>Maps authenticated reads and separately enabled disabled-warehouse creation; no location creation, activation or stock writes.</summary>
     public static void MapWesWmsMasterData(this WebApplication app)
     {
         if (!app.Services.GetRequiredService<WmsMasterDataSettings>().Enabled) return;
@@ -35,6 +35,8 @@ public static class WmsMasterDataEndpoints
             ReadAsync(id, http, database, location: false, ct));
         group.MapGet("/locations/{id:guid}", (Guid id, HttpContext http, MasterDataDatabase database, CancellationToken ct) =>
             ReadAsync(id, http, database, location: true, ct));
+        if (app.Services.GetRequiredService<WmsMasterDataSettings>().WarehouseCreationEnabled)
+            group.MapPost("/warehouses", CreateWarehouseAsync);
     }
 
     private static async Task<IResult> QueryAsync(MasterDataQuery query, HttpContext http, MasterDataDatabase database, bool location, CancellationToken ct)
@@ -86,9 +88,11 @@ public static class WmsMasterDataEndpoints
         }
     }
 
-    private sealed class MasterDataDatabase(IdentitySettings settings, MasterDataAuthority authorization, ILoggerFactory logs)
+    private sealed class MasterDataDatabase(IdentitySettings settings, MasterDataAuthority authorization, ILoggerFactory logs, TimeProvider clock)
     {
         internal WmsMasterDataScope Open(Guid tenant) => new(settings.ConnectionString, tenant, authorization, logs);
+        internal WmsMasterDataWriter OpenWarehouseWriter(Guid tenant) =>
+            new(settings.ConnectionString, tenant, authorization, WarehouseOnlySchema.Instance, clock, logs);
     }
 
     private sealed class MasterDataAuthority(IdentityDatabase database) : IMasterDataAuthorization

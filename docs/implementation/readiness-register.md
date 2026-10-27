@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+最新T08 HTTP：[仓库创建入口](137-t08-authorized-warehouse-creation-http.md)/[证据](138-t08-authorized-warehouse-creation-http-tests.md)已交付单独默认关闭`WarehouseCreationEnabled`、当前write字段、严格JSON/key、201/200/409及真实单效果。新增38HTTP/7配置，相关WMS145+架构29=174通过，Release零警告错误；旧“Host创建未接线”仅库位/其他生命周期仍适用，仓库表单/真实Pack/编辑启停/整包未完成。
+
 最新T05/T08：[WMS创建原子Outbox](135-t05-t08-wms-creation-outbox.md)/[证据](136-t05-t08-wms-creation-outbox-tests.md)已交付owner持久化门禁由新创建事实派生唯一待发布事件；永久operation重放不追加，故障资源/事实/事件三表均回滚，旧operation不自动回填。新增17真实owner，最终主数据141+WMS领域/HTTP/真实HTTPS浏览器100+架构29=270通过，Release零警告错误；实际FK/索引/UTC列与模型无漂移通过。历史“WMS无Outbox”仅其余业务/发布消费部分仍适用；跨owner统计、WMS publisher/Inbox与真实Broker未完成，五个整包仍不关闭。
 
 最新T05计数：[设计](133-t05-owner-message-counts.md)/[证据](134-t05-owner-message-counts-tests.md)已交付Platform四状态与现存Inbox收据API/页面，新增20owner/8HTTP/31客户端。前端427/严格构建、MySQL38、HTTP/真实HTTPS浏览器21、架构29通过；显式统计字段，不自动授予原行读者，失败不转零、重放后陈旧且手工重读。此前“Inbox统计未完成”仅跨owner聚合部分仍适用；真实Broker/其他owner与五个整包仍未关闭。

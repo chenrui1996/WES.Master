@@ -146,11 +146,11 @@ public sealed partial class IdentityHttpTests
         Assert.DoesNotContain("Foreign", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
 
-    private async Task<(Guid Warehouse, Guid Location)> WmsHostAsync()
+    private async Task<(Guid Warehouse, Guid Location)> WmsHostAsync(bool warehouseCreation = false)
     {
         _client.Dispose();
         await _factory.DisposeAsync();
-        _factory = new Factory(_connection, _corpus, _clock, wmsMasterData: true);
+        _factory = new Factory(_connection, _corpus, _clock, wmsMasterData: true, wmsWarehouseCreation: warehouseCreation);
         _client = Client();
         await using (var seed = OpenWmsMasterData())
         {

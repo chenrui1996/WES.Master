@@ -42,6 +42,8 @@
 
 ## 2. 功能/契约
 
+仓库创建现增加[独立受权HTTP](../implementation/137-t08-authorized-warehouse-creation-http.md)/[证据](../implementation/138-t08-authorized-warehouse-creation-http-tests.md)：需额外默认false部署开关，仅code/name与永久Idempotency-Key，201+Location或当前授权200重放，代码/摘要冲突409。无schema成功替身/位置创建、无启用/库存写入；UI表单与完整DTC仍未交付。
+
 仓/位创建现增加[owner原子Outbox](../implementation/135-t05-t08-wms-creation-outbox.md)/[证据](../implementation/136-t05-t08-wms-creation-outbox-tests.md)，与默认禁用资源及永久创建事实同事务，逐字段防伪、稳定事件身份、重放不重复，失败全部回滚。只非物理创建事实，不能推断资源已启用或库存/运输完成；不代签DTC-WMS-001的占用/绑定/活动任务变体。迁移不回填历史事件，无WMS publisher/Inbox/Host写入接线。
 
 | FUNC定义 | PAGE/REQ/原TC | 编号主流程、状态和拒绝 |

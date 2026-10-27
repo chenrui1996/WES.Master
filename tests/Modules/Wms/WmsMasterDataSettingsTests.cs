@@ -25,6 +25,31 @@ public sealed class WmsMasterDataSettingsTests
     public void ValidExplicitReadBoundaryCanBeEnabled() =>
         Assert.True(WmsMasterDataSettings.Load(Configuration("true", "true")).Enabled);
 
+    [Fact]
+    public void ReadAssemblyDoesNotAutomaticallyEnableWarehouseCreation() =>
+        Assert.False(WmsMasterDataSettings.Load(Configuration("true", "true")).WarehouseCreationEnabled);
+
+    [Theory]
+    [InlineData("yes", "true", "true")]
+    [InlineData("", "true", "true")]
+    [InlineData("1", "true", "true")]
+    [InlineData("true", "false", "true")]
+    [InlineData("true", "true", "false")]
+    public void InvalidOrUnassembledWarehouseCreationIsRejected(string creation, string reads, string identity) =>
+        Assert.Throws<InvalidOperationException>(() => WmsMasterDataSettings.Load(CreationConfiguration(creation, reads, identity)));
+
+    [Fact]
+    public void ExplicitWarehouseCreationRequiresBothApprovedAssemblies() =>
+        Assert.True(WmsMasterDataSettings.Load(CreationConfiguration("true", "true", "true")).WarehouseCreationEnabled);
+
+    private static IConfiguration CreationConfiguration(string creation, string reads, string identity) =>
+        new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Wes:WmsMasterData:Enabled"] = reads,
+            ["Wes:Identity:Enabled"] = identity,
+            ["Wes:WmsMasterData:WarehouseCreationEnabled"] = creation
+        }).Build();
+
     private static IConfiguration Configuration(string enabled, string identity) =>
         new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {

@@ -246,6 +246,9 @@ public sealed partial class PlatformScope : IAsyncDisposable
     public Task<OutboxQueryPage> OutboxAsync(TenantContext subject, int offset, int limit, CancellationToken ct,
         OutboxQueryFilter? filter = null) =>
         new QueryOutbox(_database, _clock).ReadAsync(subject, offset, limit, ct, filter);
+    /// <summary>Reads explicitly field-authorized Platform counts, independently of message page filters.</summary>
+    public Task<MessageSummaryResult> MessageSummaryAsync(TenantContext subject, CancellationToken ct) =>
+        new QueryMessageSummary(_database, _clock).ReadAsync(subject, ct);
     /// <summary>Replays only a quarantined Platform audit event under current replay authority and idempotency.</summary>
     public Task<OutboxReplayResult> ReplayOutboxAsync(TenantContext subject, DirectoryOperation operation,
         Guid eventId, int expectedAttempts, string reason, CancellationToken ct) =>

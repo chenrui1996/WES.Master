@@ -2,6 +2,24 @@ import { api, isRecord, sessionState } from "../identity/identity-api";
 
 export const requiredMessageFields = ["EventId", "Owner", "Status", "CreatedAt"] as const;
 export const replayMessageFields = ["EventId", "Status", "Attempts", "Reason"] as const;
+export const messageCountFields = ["Owner", "ObservedAt", "PendingCount", "LeasedCount", "PublishedCount", "QuarantinedCount", "InboxReceiptCount"] as const;
+export interface MessageSummary {
+  owner: "Platform"; observedAt: string; pendingCount: number; leasedCount: number;
+  publishedCount: number; quarantinedCount: number; inboxReceiptCount: number;
+}
+export async function queryMessageSummary(signal: AbortSignal): Promise<MessageSummary> {
+  let value: unknown;
+  try { value = await api("/api/platform/messages/summary", { signal }); }
+  catch (error) { if (error instanceof SyntaxError) throw new MessageResponseError(); throw error; }
+  if (!isRecord(value) || Object.keys(value).length !== 2 || value.authorized !== true || !isRecord(value.summary))
+    throw new MessageResponseError();
+  const row = value.summary;
+  if (Object.keys(row).length !== 7 || row.owner !== "Platform" || !utc(row.observedAt)
+    || !integer(row.pendingCount, 0) || !integer(row.leasedCount, 0) || !integer(row.publishedCount, 0)
+    || !integer(row.quarantinedCount, 0) || !integer(row.inboxReceiptCount, 0)) throw new MessageResponseError();
+  return { owner: row.owner, observedAt: row.observedAt, pendingCount: row.pendingCount, leasedCount: row.leasedCount,
+    publishedCount: row.publishedCount, quarantinedCount: row.quarantinedCount, inboxReceiptCount: row.inboxReceiptCount };
+}
 export function allMessageFields(permission: "read" | "replay"): Set<string> {
   return new Set(sessionState.subject?.grants
     .filter(grant => grant.permission === `platform.messages.${permission}` && grant.scope === 2)

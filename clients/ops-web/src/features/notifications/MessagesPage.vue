@@ -4,6 +4,7 @@ import QueryState from "../../components/QueryState.vue";
 import RealtimePager from "../../components/RealtimePager.vue";
 import { ApiError, sessionState } from "../identity/identity-api";
 import MessageReplayPanel from "./MessageReplayPanel.vue";
+import MessageCounts from "./MessageCounts.vue";
 import { allMessageFields, MessageResponseError, messageStatuses, queryMessages, replayableMessage, replayMessageFields, requiredMessageFields, type MessageRow } from "./messages";
 
 const fields = computed(() => allMessageFields("read"));
@@ -11,6 +12,7 @@ const readable = computed(() => requiredMessageFields.every(field => fields.valu
 const canPrepare = computed(() => readable.value && ["ContractName", "SchemaVersion", "Attempts"].every(field => fields.value.has(field))
   && replayMessageFields.every(field => allMessageFields("replay").has(field)));
 const selected = shallowRef<MessageRow | null>(null);
+const countRevision = ref(0);
 const filterId = useId();
 const status = ref(""); const createdFrom = ref(""); const createdBefore = ref("");
 const scope = computed(() => JSON.stringify(sessionState.subject));
@@ -61,6 +63,7 @@ function move(nextOffset: number, nextLimit: number) {
 }
 function changed() { cancel(); rows.value = []; loaded.value = false; loadedAt.value = ""; }
 function denied(message: string) { clear(); error.value = message; }
+function attempted() { fresh.value = false; countRevision.value++; }
 function prepare(row: MessageRow) {
   if (fresh.value && online.value && !selected.value && canPrepare.value && replayableMessage(row)) void load(row.eventId);
 }
@@ -73,6 +76,7 @@ function prepare(row: MessageRow) {
       Broker 已确认不表示消费成功或业务完成；不提供消息正文，重放须另行受权及二次确认。</p>
     <p v-if="!readable" role="alert">缺少 Platform 消息 All 范围及必要字段读取权限，不能查询。</p>
     <p v-if="!online" class="notice" role="status">当前离线，已加载消息仅为陈旧参考；恢复连接后请手工重新读取。</p>
+    <MessageCounts :revision="countRevision" />
     <form class="message-filters" @submit.prevent="load()">
       <div><label :for="`${filterId}-status`">消息状态</label>
         <select :id="`${filterId}-status`" v-model="status" name="messageStatus" :disabled="selected !== null">
@@ -85,7 +89,7 @@ function prepare(row: MessageRow) {
         <input :id="`${filterId}-before`" v-model="createdBefore" name="messageBefore" type="datetime-local" :disabled="selected !== null" /></div>
       <button type="submit" :disabled="busy || !online || !readable || selected !== null">读取 Platform 消息</button>
     </form>
-    <MessageReplayPanel v-if="selected" :key="selected.eventId" :row="selected" @attempted="fresh = false"
+    <MessageReplayPanel v-if="selected" :key="selected.eventId" :row="selected" @attempted="attempted"
       @changed="changed" @denied="denied" @close="selected = null" />
     <p v-if="error && rows.length" class="error" role="alert">{{ error }}</p>
     <QueryState label="Platform 消息诊断" :state="state" :busy="busy" :error-message="error"

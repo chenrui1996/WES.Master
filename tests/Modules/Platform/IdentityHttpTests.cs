@@ -1505,6 +1505,7 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
         await GrantPlatformAsync();
         await GrantAuditExportAsync();
         await GrantReplayAsync();
+        await GrantSummaryAsync();
         Guid settingId;
         Guid replayEventId;
         string replayPayload;

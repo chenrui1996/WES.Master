@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+最新T05计数：[设计](133-t05-owner-message-counts.md)/[证据](134-t05-owner-message-counts-tests.md)已交付Platform四状态与现存Inbox收据API/页面，新增20owner/8HTTP/31客户端。前端427/严格构建、MySQL38、HTTP/真实HTTPS浏览器21、架构29通过；显式统计字段，不自动授予原行读者，失败不转零、重放后陈旧且手工重读。此前“Inbox统计未完成”仅跨owner聚合部分仍适用；真实Broker/其他owner与五个整包仍未关闭。
+
 最新T05消息筛选：[设计](131-t05-filtered-message-diagnostics.md)/[证据](132-t05-filtered-message-diagnostics-tests.md)已交付Platform状态/UTC创建时间SQL过滤后分页与客户端筛选。前端396/严格构建、HTTP/真实HTTPS Chromium13、MySQL18、架构29通过，Release零警告错误；原参数兼容，非法400，补SQL物化完成时取消检查。以下历史“过滤未完成”仅跨owner部分仍适用；Inbox统计/真实Broker及五个整包仍未关闭。
 
 最新T05续片：[Platform受权重放界面](129-t05-authorized-message-replay-client.md)/[证据](130-t05-authorized-message-replay-client-tests.md)已交付，替代下述历史“重放表单未完成”状态。前端379及严格构建、真实HTTPS浏览器/HTTP3、MySQL重放2通过；同事件/原operation/当前字段/expected/理由预览、未知结果显式同键重试，最终owner查证唯一回执与原payload不变。跨owner/过滤/Inbox计数、真实Broker与T04–T08整包仍未完成。

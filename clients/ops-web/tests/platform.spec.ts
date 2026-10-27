@@ -90,6 +90,15 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
   await nav.getByRole("link", { name: "Platform 消息诊断", exact: true }).click();
   await expect(page.getByRole("heading", { name: "消息诊断 · 仅 Platform" })).toBeVisible();
   expect(messageRequests).toEqual([]);
+  const firstCounts = page.waitForResponse(response => new URL(response.url()).pathname === "/api/platform/messages/summary");
+  await page.getByRole("button", { name: "读取 Platform 计数", exact: true }).click();
+  const countResponse = await firstCounts;
+  expect(countResponse.status()).toBe(200);
+  expect(countResponse.headers()["cache-control"]).toContain("no-store");
+  expect((await countResponse.json()).summary).toMatchObject({
+    owner: "Platform", pendingCount: 59, leasedCount: 0, publishedCount: 0, quarantinedCount: 1, inboxReceiptCount: 0,
+  });
+  await expect(page.getByTestId("message-counts")).toContainText("现存 Inbox 收据0");
   const readMessages = page.getByRole("button", { name: "读取 Platform 消息", exact: true });
   await readMessages.focus();
   await page.keyboard.press("Shift+Tab");
@@ -168,6 +177,13 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
   expect(replayed.request().headers()["idempotency-key"]).toBe(previewOperation);
   expect(replayed.request().postDataJSON()).toEqual({ expectedAttempts: 1, reason: "Browser reviewed contract repair" });
   await expect(page.getByRole("status").filter({ hasText: "已提交或已识别原操作" })).toBeVisible();
+  const countsRegion = page.getByRole("region", { name: "Platform 消息计数", exact: true });
+  await expect(countsRegion).toContainText("陈旧统计");
+  const rereadCounts = page.waitForResponse(response => new URL(response.url()).pathname === "/api/platform/messages/summary");
+  await page.getByRole("button", { name: "读取 Platform 计数", exact: true }).click();
+  expect((await rereadCounts).status()).toBe(200);
+  await expect(countsRegion).not.toContainText("陈旧统计");
+  await expect(page.getByTestId("message-counts")).toContainText("已隔离0");
   await expect(messageList).toHaveCount(0);
   await page.getByRole("button", { name: "关闭重放面板", exact: true }).click();
   await page.getByLabel("消息状态", { exact: true }).selectOption("");

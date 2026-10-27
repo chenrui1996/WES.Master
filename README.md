@@ -80,6 +80,8 @@ T05最新续片：[Platform受权重放客户端](docs/implementation/129-t05-au
 
 T05筛选续片：[状态与UTC创建时间查询](docs/implementation/131-t05-filtered-message-diagnostics.md)/[证据](docs/implementation/132-t05-filtered-message-diagnostics-tests.md)在owner SQL先筛选后分页，客户端清旧/准备预读保留筛选与精确时间文本，原GET无新参数兼容。前端396/严格构建、HTTP/真实HTTPS浏览器13、MySQL18、架构29通过，Release零警告错误。跨owner/Inbox统计/真实Broker及整包仍未完成。
 
+T05计数续片：[Platform owner消息计数](docs/implementation/133-t05-owner-message-counts.md)/[证据](docs/implementation/134-t05-owner-message-counts-tests.md)新增显式All统计字段授权的Outbox四状态与现存Inbox收据API/页面，失败不转零、重放后标陈旧且手工重读。前端427/严格构建、MySQL38、HTTP/真实HTTPS浏览器21、架构29通过；不表示统一快照/业务效果数/Broker健康，跨owner及整包仍未完成。
+
 | 文档组 | 内容 |
 |---|---|
 | 项目治理 | [业务范围与现状矩阵](docs/01-business-scope-and-status.md)、[系统架构](docs/02-system-architecture.md)、[工程/注释/文档规范](docs/03-engineering-governance.md)、[需求追踪矩阵](docs/04-requirement-design-test-traceability.md)、[ADR](docs/adr/README.md) |

@@ -36,6 +36,8 @@ PAGE-NTF-003 当前局部交付为[Platform消息只读诊断](../implementation
 
 Platform查询现另有[状态与创建时间筛选](../implementation/131-t05-filtered-message-diagnostics.md)/[证据](../implementation/132-t05-filtered-message-diagnostics-tests.md)：有限状态、UTC创建时间半开范围在owner SQL中先筛选再分页，客户端换筛选清旧、准备预读保留筛选。不带新参数兼容既有GET；未知值明确400。跨owner筛选/Inbox统计与真实Broker仍不在已交付范围。
 
+Platform现另有[owner消息计数](../implementation/133-t05-owner-message-counts.md)/[证据](../implementation/134-t05-owner-message-counts-tests.md)：显式All统计字段授权的Outbox四状态与现存Inbox收据数，两次独立SQL读，不是统一快照/业务效果数/Broker健康。统计不受列表筛选影响，重放后旧统计标陈旧，手工重读；其他owner不返回0伪装已接入。跨owner统计/真实Broker及父DTC仍未关闭。
+
 已定默认按[规则基线RULE-14..17](05-approved-rules-and-defaults.md)：普通幂等非物理消息5次退避/15分钟预算，Inbox/完成Outbox在线90天+领域唯一身份长期保护；Job分类、并发/时区/恢复与参数见PAR-06。通知聚合30秒/普通静默15分钟≤60分钟，高危即时不可静默；事实不抑制。公告7天，租户授权∩组织∩（用户∪角色），空受众拒发，PDA渠道显式启用。VAL-06/07为下表必测变体。
 
 ## 3. 详细测试

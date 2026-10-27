@@ -1,6 +1,12 @@
-import { api, isRecord } from "../identity/identity-api";
+import { api, isRecord, sessionState } from "../identity/identity-api";
 
 export const requiredMessageFields = ["EventId", "Owner", "Status", "CreatedAt"] as const;
+export const replayMessageFields = ["EventId", "Status", "Attempts", "Reason"] as const;
+export function allMessageFields(permission: "read" | "replay"): Set<string> {
+  return new Set(sessionState.subject?.grants
+    .filter(grant => grant.permission === `platform.messages.${permission}` && grant.scope === 2)
+    .flatMap(grant => grant.fields) ?? []);
+}
 export const messageStatuses = ["待发布", "发布租约中", "Broker 已确认", "已隔离"] as const;
 const errors = ["BrokerUnavailable", "BrokerTimeout", "InvalidContract", "AuthorizationDenied"];
 const keys = ["eventId", "contractName", "schemaVersion", "owner", "status", "attempts", "createdAt",
@@ -12,6 +18,19 @@ export interface MessageRow {
 }
 export class MessageResponseError extends Error {
   constructor() { super("消息诊断响应无效，已丢弃；请重新读取。"); }
+}
+export function replayableMessage(row: MessageRow): boolean {
+  return row.owner === "Platform" && row.contractName === "platform.audit" && row.schemaVersion === 1
+    && row.status === 3 && row.attempts !== null && Number.isSafeInteger(row.attempts) && row.attempts >= 1;
+}
+export interface MessageReplayRequest { eventId: string; expectedAttempts: number; reason: string; operation: string }
+export async function replayMessage(request: MessageReplayRequest, signal: AbortSignal): Promise<void> {
+  const value: unknown = await api(`/api/platform/messages/${request.eventId}/replay`, {
+    method: "POST", headers: { "Idempotency-Key": request.operation },
+    body: JSON.stringify({ expectedAttempts: request.expectedAttempts, reason: request.reason }), signal,
+  });
+  if (!isRecord(value) || Object.keys(value).length !== 2 || value.decision !== 5
+    || value.attempts !== null && value.attempts !== 0) throw new MessageResponseError();
 }
 function utc(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?(?:Z|\+00:00)$/.test(value)) return false;

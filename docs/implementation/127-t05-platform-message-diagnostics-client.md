@@ -5,6 +5,8 @@
 - 基线：[消息详细设计](../detailed-design/notifications-and-jobs.md)、[既有 owner API](39-t05-platform-message-operations.md)、[就绪台账](readiness-register.md)。
 - 测试：[本片测试](128-t05-platform-message-diagnostics-client-tests.md)。
 
+后续：[受权重放界面](129-t05-authorized-message-replay-client.md)已在独立切片实现；以下“不提供重放按钮”描述仅指本片初始交付，不是当前页面永久限制。只读查询的原字段/分页/权限合同保持不变。
+
 ## 设计与操作
 
 在 `/notifications/messages` 显示明确限定为 Platform 的 Outbox 元数据。沿用 Platform 模块 UI 开关及当前 `platform.messages.read`，不新建 Notifications 假 owner，不跨模块查询内部表，不添加依赖、迁移或默认授权。数据来自既有 `GET /api/platform/messages?offset=N&limit=N`；API 契约不变。选择此增量而非搭建通用聚合器，是因为目前只有 Platform 提供已实现的受权消息查询边界。

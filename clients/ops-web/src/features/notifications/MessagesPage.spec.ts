@@ -156,3 +156,54 @@ it("uses realtime paging and resets page size without retaining previous rows", 
   await wrapper.get('select').setValue("50"); await flushPromises();
   expect(fetch).toHaveBeenLastCalledWith("/api/platform/messages?offset=0&limit=50", expect.anything());
 });
+
+function grantReplay() {
+  sessionState.subject!.grants.push({ permission: "platform.messages.replay", scope: 2, departments: [],
+    fields: ["EventId", "Status", "Attempts", "Reason"] });
+}
+const quarantined = { ...row, status: 3, attempts: 2, lastErrorCategory: "InvalidContract" };
+it("rereads the selected event and freezes its fresh attempt expectation before preview", async () => {
+  grantReplay();
+  vi.mocked(fetch).mockResolvedValueOnce(page([quarantined])).mockResolvedValueOnce(page([{ ...quarantined, attempts: 3 }]));
+  wrapper = mount(MessagesPage); await read();
+  await wrapper.get('[data-test="prepare-replay"]').trigger("click"); await flushPromises();
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(wrapper.findComponent({ name: "MessageReplayPanel" }).exists()).toBe(true);
+  await wrapper.get('textarea').setValue("reviewed and repaired");
+  await wrapper.get('.replay-panel form').trigger("submit"); await flushPromises();
+  expect(wrapper.get('[data-test="replay-preview"]').text()).toContain("Expected attempts3");
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(wrapper.get('.messages-page > form button').attributes("disabled")).toBeDefined();
+});
+it.each([{ rows: [] }, { rows: [{ ...quarantined, status: 0 }] }, { rows: [{ ...quarantined, schemaVersion: 2 }] }])(
+  "does not prepare a vanished or no-longer-replayable event %#", async ({ rows }) => {
+    grantReplay();
+    vi.mocked(fetch).mockResolvedValueOnce(page([quarantined])).mockResolvedValueOnce(page(rows));
+    wrapper = mount(MessagesPage); await read();
+    await wrapper.get('[data-test="prepare-replay"]').trigger("click"); await flushPromises();
+    expect(wrapper.find('textarea').exists()).toBe(false);
+    expect(wrapper.text()).toContain("不能准备重放");
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+it.each(["EventId", "Status", "Attempts", "Reason"])("requires current replay field %s", async field => {
+  grantReplay();
+  sessionState.subject!.grants[1]!.fields = sessionState.subject!.grants[1]!.fields.filter(value => value !== field);
+  vi.mocked(fetch).mockResolvedValueOnce(page([quarantined]));
+  wrapper = mount(MessagesPage); await read();
+  expect(wrapper.find('[data-test="prepare-replay"]').exists()).toBe(false);
+});
+it.each(["ContractName", "SchemaVersion", "Attempts"])("requires current read field %s before replay preparation", async field => {
+  grantReplay();
+  sessionState.subject!.grants[0]!.fields = sessionState.subject!.grants[0]!.fields.filter(value => value !== field);
+  vi.mocked(fetch).mockResolvedValueOnce(page([quarantined]));
+  wrapper = mount(MessagesPage); await read();
+  expect(wrapper.find('[data-test="prepare-replay"]').exists()).toBe(false);
+});
+it("never prepares from a stale row following a transient read failure", async () => {
+  grantReplay();
+  vi.mocked(fetch).mockResolvedValueOnce(page([quarantined]));
+  wrapper = mount(MessagesPage); await read();
+  vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ code: "Unavailable" }), { status: 503 }));
+  await read();
+  expect(wrapper.get('[data-test="prepare-replay"]').attributes("disabled")).toBeDefined();
+});

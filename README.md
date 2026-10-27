@@ -76,6 +76,8 @@ T08创建授权续实施：[默认禁用创建应用边界](docs/implementation/
 
 T05诊断续实施：[Platform消息只读客户端](docs/implementation/127-t05-platform-message-diagnostics-client.md)及[证据](docs/implementation/128-t05-platform-message-diagnostics-client-tests.md)接通现有受权GET，明确仅Platform、Broker确认不代表业务完成，当前All字段门禁/实时分页/撤权清旧/离线不重读。前端346项及严格构建通过，真实HTTPS Chromium+HTTP3项、MySQL查询1项通过。跨owner聚合、真实Broker和重放表单仍未完成，不关闭T05或五个整包。
 
+T05最新续片：[Platform受权重放客户端](docs/implementation/129-t05-authorized-message-replay-client.md)/[证据](docs/implementation/130-t05-authorized-message-replay-client-tests.md)：准备前重读、理由/expected/原operation预览与二次确认，未知结果冻结原键不自动重发；前端379、严格构建、真实HTTPS浏览器/HTTP3和MySQL重放2通过。跨owner/过滤/Inbox计数/真实Broker及整包仍未完成。
+
 | 文档组 | 内容 |
 |---|---|
 | 项目治理 | [业务范围与现状矩阵](docs/01-business-scope-and-status.md)、[系统架构](docs/02-system-architecture.md)、[工程/注释/文档规范](docs/03-engineering-governance.md)、[需求追踪矩阵](docs/04-requirement-design-test-traceability.md)、[ADR](docs/adr/README.md) |

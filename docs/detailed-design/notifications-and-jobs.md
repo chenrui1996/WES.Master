@@ -32,6 +32,8 @@
 
 PAGE-NTF-003 当前局部交付为[Platform消息只读诊断](../implementation/127-t05-platform-message-diagnostics-client.md)，[测试证据](../implementation/128-t05-platform-message-diagnostics-client-tests.md)。页面必显 EventId/Owner/Status/CreatedAt，可选固定字段 ContractName/SchemaVersion/Attempts/NextAttemptAt/PublishedAt/LastErrorCategory，均按当前 All 字段权限；不含payload或业务完成推断。采用固定卡片与实时分页，无可配置列、关联候选或业务写入。跨owner聚合/过滤/Inbox计数/重放表单及父DTC仍未完整实现；仅Platform模块门禁不新增Notifications运行能力开关。
 
+后续已补[Platform受权重放表单](../implementation/129-t05-authorized-message-replay-client.md)/[证据](../implementation/130-t05-authorized-message-replay-client-tests.md)：当前All读/重放字段、准备前重读、理由及expected-attempt预览、二次确认、原operation未知结果显式重试。仅Platform/platform.audit/v1隔离事件，不改变消息正文/身份，不支持物理消息。该局部覆盖UI写入场景，跨owner聚合/过滤/Inbox计数、真实Broker及父DTC仍未关闭。
+
 已定默认按[规则基线RULE-14..17](05-approved-rules-and-defaults.md)：普通幂等非物理消息5次退避/15分钟预算，Inbox/完成Outbox在线90天+领域唯一身份长期保护；Job分类、并发/时区/恢复与参数见PAR-06。通知聚合30秒/普通静默15分钟≤60分钟，高危即时不可静默；事实不抑制。公告7天，租户授权∩组织∩（用户∪角色），空受众拒发，PDA渠道显式启用。VAL-06/07为下表必测变体。
 
 ## 3. 详细测试

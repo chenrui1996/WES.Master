@@ -123,6 +123,43 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
   await page.context().setOffline(false);
   await expect(readMessages).toBeEnabled();
   expect(messageRequests).toEqual(["GET"]);
+  const replayId = process.env.WES_E2E_REPLAY_EVENT;
+  if (!replayId) throw new Error("The isolated owner fixture must provide a quarantined safe event.");
+  const replayRow = messageList.locator("li").filter({ hasText: replayId });
+  await expect(replayRow.getByRole("button", { name: "重新读取并准备此事件重放", exact: true })).toBeDisabled();
+  const onlineReread = page.waitForResponse(response => new URL(response.url()).pathname === "/api/platform/messages");
+  await readMessages.click();
+  expect((await onlineReread).status()).toBe(200);
+  const freshReplayRead = page.waitForResponse(response => new URL(response.url()).pathname === "/api/platform/messages");
+  await replayRow.getByRole("button", { name: "重新读取并准备此事件重放", exact: true }).click();
+  expect((await freshReplayRead).status()).toBe(200);
+  await expect(page.getByRole("heading", { name: "Platform 审计消息重放预览" })).toBeVisible();
+  await page.getByLabel("重放理由", { exact: true }).fill("Browser reviewed contract repair");
+  await page.getByRole("button", { name: "预览原事件重放", exact: true }).click();
+  await expect(page.getByTestId("replay-preview")).toContainText(replayId);
+  const previewOperation = await page.getByTestId("replay-preview").locator("dd").last().innerText();
+  expect(previewOperation).toMatch(/^[a-f0-9-]{36}$/);
+  expect(messageRequests).toEqual(["GET", "GET", "GET"]);
+  for (const width of [375, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  }
+  const replayResponse = page.waitForResponse(response => new URL(response.url()).pathname === `/api/platform/messages/${replayId}/replay`);
+  const confirmReplay = page.getByRole("button", { name: "确认提交此原事件", exact: true });
+  await confirmReplay.focus();
+  await page.keyboard.press("Enter");
+  const replayed = await replayResponse;
+  expect(replayed.status()).toBe(200);
+  expect(replayed.request().headers()["idempotency-key"]).toBe(previewOperation);
+  expect(replayed.request().postDataJSON()).toEqual({ expectedAttempts: 1, reason: "Browser reviewed contract repair" });
+  await expect(page.getByRole("status").filter({ hasText: "已提交或已识别原操作" })).toBeVisible();
+  await expect(messageList).toHaveCount(0);
+  await page.getByRole("button", { name: "关闭重放面板", exact: true }).click();
+  const afterReplay = page.waitForResponse(response => new URL(response.url()).pathname === "/api/platform/messages");
+  await readMessages.click();
+  expect((await afterReplay).status()).toBe(200);
+  await expect(messageList.locator("li").filter({ hasText: replayId })).toContainText("待发布");
+  expect(messageRequests).toEqual(["GET", "GET", "GET", "GET"]);
   await page.setViewportSize({ width: 1440, height: 900 });
   for (const [link, api] of [
     ["用户与部门", "/api/platform/users"], ["角色与权限", "/api/platform/roles"],

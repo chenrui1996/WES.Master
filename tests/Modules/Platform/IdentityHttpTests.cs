@@ -1504,7 +1504,10 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
     {
         await GrantPlatformAsync();
         await GrantAuditExportAsync();
+        await GrantReplayAsync();
         Guid settingId;
+        Guid replayEventId;
+        string replayPayload;
         var auditCorrelation = Guid.NewGuid();
         await using (var seed = Open())
         {
@@ -1515,6 +1518,14 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
                     PlatformAuditAction.RoleChanged, null, Guid.NewGuid().ToString("D"), _clock.GetUtcNow().AddSeconds(index))));
             await seed.SaveChangesAsync();
             settingId = setting.Id;
+            var replay = await seed.OutboxMessages.OrderBy(item => item.CreatedAt).ThenBy(item => item.EventId).FirstAsync();
+            replayEventId = replay.EventId;
+            replayPayload = replay.Payload;
+            var lease = Guid.NewGuid();
+            Assert.True(await new PlatformOutboxLeaseStore(seed).TryLeaseAsync(
+                replayEventId, lease, _clock.GetUtcNow(), TimeSpan.FromSeconds(30)));
+            replay.RecordFailure(lease, _clock.GetUtcNow(), OutboxFailureCategory.InvalidContract);
+            await seed.SaveChangesAsync();
         }
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "WES.slnx"))) root = root.Parent;
@@ -1549,6 +1560,7 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
         start.Environment["WES_E2E_URL"] = address; start.Environment["WES_E2E_TENANT"] = _tenant.ToString("D");
         start.Environment["WES_E2E_AUDIT_CORRELATION"] = auditCorrelation.ToString("D");
         start.Environment["WES_E2E_NOW"] = _clock.GetUtcNow().ToString("O");
+        start.Environment["WES_E2E_REPLAY_EVENT"] = replayEventId.ToString("D");
         using var process = Process.Start(start)!;
         var output = process.StandardOutput.ReadToEndAsync(); var errors = process.StandardError.ReadToEndAsync();
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(3));
@@ -1570,6 +1582,13 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
         Assert.Equal(3, await verify.CommandReceipts.CountAsync());
         Assert.Equal(1, await verify.AuditExportReceipts.CountAsync());
         Assert.Equal(1, await verify.Audit.CountAsync(item => item.Action == PlatformAuditAction.AuditExported));
+        var replayed = await verify.OutboxMessages.SingleAsync(item => item.EventId == replayEventId);
+        Assert.Equal(OutboxMessageStatus.Pending, replayed.Status);
+        Assert.Equal(0, replayed.Attempts);
+        Assert.Equal(replayPayload, replayed.Payload);
+        var replayReceipt = Assert.Single(await verify.OutboxReplayReceipts.ToListAsync());
+        Assert.Equal(replayEventId, replayReceipt.EventId);
+        Assert.Equal("Browser reviewed contract repair", replayReceipt.Reason);
     }
 
     /// <summary>Independent host/provider lifetimes read the same protected key ring and continue a durable refresh family.</summary>

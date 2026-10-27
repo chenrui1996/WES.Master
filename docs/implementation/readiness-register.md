@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+最新T05续片：[Platform受权重放界面](129-t05-authorized-message-replay-client.md)/[证据](130-t05-authorized-message-replay-client-tests.md)已交付，替代下述历史“重放表单未完成”状态。前端379及严格构建、真实HTTPS浏览器/HTTP3、MySQL重放2通过；同事件/原operation/当前字段/expected/理由预览、未知结果显式同键重试，最终owner查证唯一回执与原payload不变。跨owner/过滤/Inbox计数、真实Broker与T04–T08整包仍未完成。
+
 最新T05局部交付：[Platform消息只读客户端](127-t05-platform-message-diagnostics-client.md)及[证据](128-t05-platform-message-diagnostics-client-tests.md)。新增40项客户端/路由/导航，前端全套346通过、严格构建通过；真实HTTPS Chromium与两项消息HTTP共3通过，真实MySQL查询1通过。修复首轮真实浏览器暴露的All范围值映射错误后复验，不放宽权限。跨owner/Inbox聚合、重放表单、真实Broker仍未完成；T04–T08整体不关闭。Broker/容器命令本次探测不可用，未安装服务或连接未知环境。
 
 现有13个设计包64 PAGE/66 FUNC/168父DTC及265原TC映射为开发基线，不将设计用例计作passed。功能开关已纳入SCOPE-OPS-02设计及T02/T06/T30/T32计划；DTC-SYS-008已有配置校验与匿名catalog测试，完整能力组合尚未验收。BoxSort仍预留；冻结/拆合托/补货等未立项示例不自动变现成功能。Seven物料/单据/库存跟踪/角色迁移保留业务意义，脱敏映射、旧密码兼容、在途冻结/回填与对账由T31验证，不直接搬表。

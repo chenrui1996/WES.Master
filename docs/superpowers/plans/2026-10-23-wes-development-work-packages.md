@@ -74,6 +74,8 @@
 
 ### T05：owner事务Outbox/Inbox与可靠投递
 
+- [x] [WMS owner发布器](../../implementation/157-t05-wms-owner-outbox-publisher.md)/[证据](../../implementation/158-t05-wms-owner-outbox-publisher-tests.md)：90秒耐久租约/CAS、claim计attempt、最多6次/15分钟预算、有限抖动退避/隔离、发送前再验及ACK未确认恢复，原九字段四态/三字段PendingCount与客户端同步。新增33owner/3HTTP/4前端，最终238+32含四套HTTPS浏览器+29=299、前端695/严格构建与Release0/0通过。默认无Host worker/实际transport，Inbox/真实Broker/跨owner统一快照和父DTC仍未关闭。
+
 - [x] [WMS创建事件范围统计](../../implementation/149-t05-wms-creation-event-counts.md)/[证据](../../implementation/150-t05-wms-creation-event-counts-tests.md)：独立当前统计字段creator交集、SQL全量LongCount、共享组件两owner联合类型；WMS仅Pending三字段，不伪造Inbox/发布状态、不跨owner求和。新增26owner/12HTTP/23前端，最终205+36+29=270、前端604/严格构建及Release0/0通过。统一快照/发布消费/真实Broker仍未完成，整包不关闭。
 
 - [x] [消息owner选择与WMS事件客户端](../../implementation/143-t05-owner-selected-message-client.md)/[证据](../../implementation/144-t05-owner-selected-message-client-tests.md)：同路由成对模块+permission门禁、切换取消/清旧、重放锁owner、WMS九字段Pending元数据；新增59前端/导航/路由，最终521/严格构建、真实HTTP/三套浏览器16、架构29通过，Release零警告错误。第二owner客户端已接入，但跨owner统计/统一快照/WMS发布消费与真实Broker仍缺，整包不关闭。

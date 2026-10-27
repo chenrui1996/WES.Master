@@ -38,7 +38,7 @@ public sealed class WmsMasterDataScope : IAsyncDisposable
     public Task<MasterDataCatalogResult> QueryLocationsAsync(MasterDataSubject subject, MasterDataQuery query, CancellationToken cancellationToken = default) =>
         _access.QueryLocationsAsync(subject, query, cancellationToken);
 
-    /// <summary>Returns safe pending creation-event metadata after independent current message-field and creator authorization.</summary>
+    /// <summary>Returns safe creation-event metadata and durable delivery state after current message-field and creator authorization.</summary>
     public Task<MasterDataEventPage> QueryCreationEventsAsync(MasterDataSubject subject, MasterDataEventQuery query, CancellationToken cancellationToken = default) =>
         _access.QueryCreationEventsAsync(subject, query, cancellationToken);
 

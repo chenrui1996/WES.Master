@@ -29,13 +29,21 @@ it.each(creationEventFields)("requires current WMS field %s", async field => {
   sessionState.subject!.grants[0]!.fields = creationEventFields.filter(value => value !== field);
   wrapper = mount(WmsCreationEvents); await read(); expect(fetch).not.toHaveBeenCalled();
 });
+it.each([
+  [0, "待发布（Pending）"], [1, "投递中（Leased）"], [2, "已确认投递（Published）"], [3, "已隔离（Quarantined）"],
+])("renders the actual durable delivery state %i without business-completion claims", async (status, label) => {
+  vi.mocked(fetch).mockResolvedValueOnce(page([{ ...row, status }]));
+  wrapper = mount(WmsCreationEvents); await read();
+  expect(wrapper.get('[data-test="wms-events"] h2').text()).toBe(label);
+  expect(wrapper.text()).toContain("不表示业务完成");
+});
 it.each(["platform.messages.read", "wms.warehouses.read"])("cannot borrow %s permission", async permission => {
   sessionState.subject!.grants[0]!.permission = permission;
   wrapper = mount(WmsCreationEvents); await read(); expect(fetch).not.toHaveBeenCalled();
 });
 it.each([
   { ...row, owner: "Platform" }, { ...row, contractName: "other" }, { ...row, schemaVersion: 2 },
-  { ...row, status: 1 }, { ...row, eventId: "bad" }, { ...row, aggregateId: "bad" },
+  { ...row, status: 4 }, { ...row, eventId: "bad" }, { ...row, aggregateId: "bad" },
   { ...row, aggregateVersion: "00000000-0000-0000-0000-000000000000" }, { ...row, correlationId: "" },
   { ...row, occurredAt: "2026-02-30T00:00:00Z" }, { ...row, occurredAt: "2026-10-27T00:00:00+08:00" },
   { ...row, payload: "secret" }, { ...row, attempts: 0 },

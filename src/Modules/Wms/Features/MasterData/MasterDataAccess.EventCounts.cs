@@ -40,13 +40,13 @@ internal sealed partial class MasterDataAccess
                                 select new { messages.Key, Count = messages.LongCount() }).ToListAsync(ct);
             ct.ThrowIfCancellationRequested();
             if (groups.Any(group => group.Key.Owner != "Wms" || group.Key.ContractName != "wms.master-data.created"
-                || group.Key.SchemaVersion != 1 || group.Key.Status != WmsOutboxStatus.Pending || group.Count < 0))
+                || group.Key.SchemaVersion != 1 || !Enum.IsDefined(group.Key.Status) || group.Count < 0))
             {
                 logger.LogError("WMS creation-event counts failed {Code}", "UnsupportedStoredEnvelope");
                 throw new InvalidOperationException("Unsupported WMS creation-event contract or state.");
             }
             return new(MasterDataReadDecision.Success,
-                new("Wms", _clock.GetUtcNow(), groups.SingleOrDefault()?.Count ?? 0));
+                new("Wms", _clock.GetUtcNow(), groups.SingleOrDefault(group => group.Key.Status == WmsOutboxStatus.Pending)?.Count ?? 0));
         }
         catch (DbException error)
         {

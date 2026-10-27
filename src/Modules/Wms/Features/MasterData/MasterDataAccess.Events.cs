@@ -49,9 +49,12 @@ internal sealed partial class MasterDataAccess
                                   message.AggregateId, message.AggregateVersion, message.CorrelationId, message.OccurredAt, message.Status))
                 .Skip(query.Offset).Take(query.Limit).ToListAsync(ct);
             ct.ThrowIfCancellationRequested();
-            if (rows.Any(row => row.Status != WmsOutboxStatus.Pending || row.Owner != "Wms"
+            if (rows.Any(row => !Enum.IsDefined(row.Status) || row.Owner != "Wms"
                 || row.ContractName != "wms.master-data.created" || row.SchemaVersion != 1))
+            {
+                logger.LogError("WMS creation-event diagnostics failed {Code}", "UnsupportedStoredEnvelope");
                 throw new InvalidOperationException("Unsupported WMS creation-event contract or state.");
+            }
             return new(MasterDataReadDecision.Success, rows.ToImmutableArray(), query.Offset, query.Limit);
         }
         catch (DbException error)

@@ -10,6 +10,9 @@ test("real WMS definitions and explicitly enabled warehouse creation retain curr
   const coordination = process.env.WES_E2E_WMS_COORDINATION;
   const creation = process.env.WES_E2E_WMS_CREATE === "true";
   const inventoryId = process.env.WES_E2E_INVENTORY_ID;
+  const delivery = process.env.WES_E2E_WMS_DELIVERY;
+  if (!["pending", "leased", "completed"].includes(delivery ?? "")) throw new Error("Requires explicit durable delivery-state fixture.");
+  const pendingCount = delivery === "pending" ? 3 : delivery === "leased" ? 1 : 0;
   if (!tenant || !warehouse || !location || !coordination) throw new Error("Requires the controlled WMS/MySQL revocation fixture.");
   const failures: string[] = [];
   const methods: string[] = [];
@@ -157,10 +160,10 @@ test("real WMS definitions and explicitly enabled warehouse creation retain curr
   expect(count.status()).toBe(200); expect(count.headers()["cache-control"]).toBe("no-store");
   const summary = await count.json() as { owner: string; observedAt: string; pendingCount: number };
   expect(Object.keys(summary)).toEqual(["owner", "observedAt", "pendingCount"]);
-  expect(summary.owner).toBe("Wms"); expect(summary.pendingCount).toBe(creation ? 3 : 2);
+  expect(summary.owner).toBe("Wms"); expect(summary.pendingCount).toBe(pendingCount);
   const countDetails = page.getByTestId("message-counts");
   await expect(countDetails).toContainText(summary.observedAt);
-  await expect(countDetails).toContainText(`待发布${creation ? 3 : 2}`);
+  await expect(countDetails).toContainText(`待发布${pendingCount}`);
   await expect(countDetails).not.toContainText("Inbox");
   await page.keyboard.press("Tab");
   const eventRead = page.getByRole("button", { name: "读取 WMS 创建事件", exact: true });
@@ -170,14 +173,19 @@ test("real WMS definitions and explicitly enabled warehouse creation retain curr
   await page.keyboard.press("Enter");
   const events = await eventsResponse;
   expect(events.status()).toBe(200); expect(events.headers()["cache-control"]).toBe("no-store");
-  const eventRows = (await events.json() as { rows: { eventId: string; aggregateId: string; occurredAt: string }[] }).rows;
+  const eventRows = (await events.json() as { rows: { eventId: string; aggregateId: string; occurredAt: string; status: number }[] }).rows;
   expect(eventRows).toHaveLength(creation ? 3 : 2);
+  expect(eventRows.map(row => row.status).sort()).toEqual(delivery === "pending" ? [0, 0, 0] : delivery === "leased" ? [0, 1] : [2, 3]);
   const eventList = page.getByTestId("wms-events");
   await expect(eventList).toContainText(warehouse); await expect(eventList).toContainText(location);
   for (const row of eventRows) {
+    expect(Object.keys(row)).toEqual(["eventId", "owner", "contractName", "schemaVersion", "aggregateId", "aggregateVersion", "correlationId", "occurredAt", "status"]);
     await expect(eventList).toContainText(row.eventId);
     await expect(eventList).toContainText(row.occurredAt);
+    await expect(eventList.locator("li").filter({ hasText: row.eventId }).getByRole("heading")).toHaveText(
+      ["待发布（Pending）", "投递中（Leased）", "已确认投递（Published）", "已隔离（Quarantined）"][row.status]!);
   }
+  await expect(page.getByText("状态只反映耐久投递", { exact: false })).toBeVisible();
   for (const width of [375, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

@@ -26,6 +26,14 @@ public sealed partial class IdentityHttpTests
         await GrantCreationEventCountsAsync();
         var balance = inventoryRead ? await SeedInventoryAsync(ids) : null;
         if (inventoryRead) await GrantStockLedgerReadAsync();
+        if (!warehouseCreation)
+        {
+            await using var publisher = new Wes.Wms.WmsPublishingScope(_connection, _tenant,
+                inventoryRead ? new CreationEventTransport(1) : new BrowserCreationEventTransport(ids.Warehouse),
+                _clock, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+            if (inventoryRead) await Assert.ThrowsAsync<InvalidOperationException>(() => publisher.DispatchDueAsync(1));
+            else Assert.Equal(new Wes.Wms.WmsPublishBatchResult(1, 0, 1, 0, 0), await publisher.DispatchDueAsync(2));
+        }
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "WES.slnx"))) root = root.Parent;
         Assert.NotNull(root);
@@ -69,6 +77,7 @@ public sealed partial class IdentityHttpTests
             start.Environment["WES_E2E_LOCATION_ID"] = ids.Location.ToString("D");
             start.Environment["WES_E2E_WMS_COORDINATION"] = coordination;
             start.Environment["WES_E2E_WMS_CREATE"] = warehouseCreation ? "true" : "false";
+            start.Environment["WES_E2E_WMS_DELIVERY"] = warehouseCreation ? "pending" : inventoryRead ? "leased" : "completed";
             start.Environment["WES_E2E_INVENTORY_ID"] = balance?.Id.ToString("D") ?? "";
             using var process = Process.Start(start)!;
             var output = process.StandardOutput.ReadToEndAsync();
@@ -179,5 +188,12 @@ public sealed partial class IdentityHttpTests
             Assert.Equal(created.Id, message.AggregateId);
             Assert.Equal(created.Version, message.AggregateVersion);
         }
+    }
+
+    private sealed class BrowserCreationEventTransport(Guid warehouse) : Wes.Wms.Messaging.IWmsOutboxTransport
+    {
+        public Task<Wes.Wms.Messaging.WmsOutboxTransportOutcome> PublishAsync(Wes.Wms.Messaging.WmsOutboxEnvelope envelope,
+            CancellationToken cancellationToken) => Task.FromResult(envelope.AggregateId == warehouse
+                ? Wes.Wms.Messaging.WmsOutboxTransportOutcome.Acknowledged : Wes.Wms.Messaging.WmsOutboxTransportOutcome.PermanentFailure);
     }
 }

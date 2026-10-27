@@ -42,7 +42,7 @@ async function load() {
     <p v-if="owner === 'Platform'" class="hint">覆盖当前租户完整 Platform，不受消息列表筛选影响；两次独立读取，不是统一快照或 Broker 健康检查。
       Inbox 是现存 consumer/event 收据数，不是唯一业务效果数或待消费数；保留清理后可能下降。</p>
     <p v-else class="hint">仅统计当前完整统计字段 creator 交集内的 WMS 创建事件；独立于事件列表分页。
-      不与 Platform 相加，不是统一快照或 Broker 健康检查；发布器、Inbox 与其他状态未接入，不显示虚构零值。</p>
+      不与 Platform 相加，不是统一快照或 Broker 健康检查；仅计 Pending，不包含投递中、已投递或隔离数，Inbox 尚未接入，不显示虚构零值。</p>
     <p v-if="!readable" role="status">缺少完整统计字段权限；消息行读取权限不自动授予计数。</p>
     <p v-if="!online" role="status">当前离线，已读统计是陈旧参考；恢复不自动重读。</p>
     <button type="button" data-test="read-counts" :disabled="!readable || !online || busy" @click="load">读取 {{ owner }} 计数</button>

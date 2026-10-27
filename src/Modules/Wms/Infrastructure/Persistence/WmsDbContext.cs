@@ -90,7 +90,7 @@ public sealed partial class WmsDbContext : DbContext
                     property.SetColumnType("varchar(36)");
                     property.SetMaxLength(36);
                 }
-                if (property.ClrType == typeof(DateTimeOffset))
+                if (property.ClrType == typeof(DateTimeOffset) || property.ClrType == typeof(DateTimeOffset?))
                 {
                     property.SetValueConverter(utc);
                     property.SetColumnType("datetime(6)");

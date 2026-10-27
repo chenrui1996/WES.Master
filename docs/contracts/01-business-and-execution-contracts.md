@@ -47,13 +47,13 @@
 
 对应[实时客户端](../implementation/147-t08-inventory-query-client.md)只解析精确页/行字段及数量字符串，以BigInt校验等式和单位精度；独立Wms模块+permission路由、All完整字段按钮，当前403清旧，输入/身份变动取消，无业务缓存或重连自动请求。不把实时分页代替固定核对快照/授权流水/导出。
 
-WMS创建事件[范围计数](../implementation/149-t05-wms-creation-event-counts.md)：GET `/api/wms/master-data-events/summary`在当前`wms.messages.read`独立Owner/ObservedAt/PendingCount字段creator交集内SQL全量统计，精确三字段响应，不受列表分页影响；不足403、不借其他owner权限，不构造不存在的Inbox/投递状态或跨owner总和。ObservedAt不是共同水位；默认关闭装配/当前身份/取消/安全错误沿现有WMS读取合同。
+WMS创建事件[范围计数](../implementation/149-t05-wms-creation-event-counts.md)：GET `/api/wms/master-data-events/summary`在当前`wms.messages.read`独立Owner/ObservedAt/PendingCount字段creator交集内SQL全量统计，精确三字段响应，不受列表分页影响；不足403、不借其他owner权限。PendingCount仅统计Pending，不计Leased/Published/Quarantined，不构造不存在的Inbox或跨owner总和。ObservedAt不是共同水位；默认关闭装配/当前身份/取消/安全错误沿现有WMS读取合同。
 
 已实施只读增量：GET `/api/wms/master-data-events`在既有显式主数据读装配下提供独立当前`wms.messages.read`/creator授权的九字段创建事件元数据与offset/limit，无payload/Inbox/虚构投递状态；[精确合同](../implementation/141-t05-wms-creation-event-diagnostics.md)。这不是业务transport事件、跨owner统计或Broker健康。
 
 已实施路径增量：POST `/api/wms/warehouses`只在单独默认关闭创建装配下开放，精确`{code,name}`和可信身份/永久key，201+Location或200精确重放；安全拒绝及版本兼容见[仓库HTTP合同](../implementation/137-t08-authorized-warehouse-creation-http.md)。不将既有未版本化路径自行迁移到规划v1，不新增位置/启停或运输实现。
 
-局部实现事件 `wms.master-data.created`/schemaVersion=1，Owner=`Wms`；仅默认禁用仓/位新创建事实，非启用/库存/物理控制命令。envelope与安全payload、tenant/operation事件身份、不可变/回放及迁移兼容详见[WMS创建Outbox](../implementation/135-t05-t08-wms-creation-outbox.md)。该切片仅owner事务Pending暂存，无publisher/consumer/历史回填，不能将下表运输合同标作已实现。
+局部实现事件 `wms.master-data.created`/schemaVersion=1，Owner=`Wms`；仅默认禁用仓/位新创建事实，非启用/库存/物理控制命令。envelope与安全payload、tenant/operation事件身份、不可变/回放及迁移兼容详见[WMS创建Outbox](../implementation/135-t05-t08-wms-creation-outbox.md)。后续[owner发布器](../implementation/157-t05-wms-owner-outbox-publisher.md)不改envelope，只扩展耐久delivery及九字段Status=0..3；旧Pending由原EventId/OccurredAt初始化CAS/到期，不生成历史事实。新客户端须先与四态合同同步，再显式启用未来托管/transport；当前默认不外发，无consumer/Inbox或历史事实回填，不能将下表运输合同标作已实现。
 
 | 契约/路径规划 | 请求必填（另含适用context） | 输出/owner与不变量 |
 |---|---|---|

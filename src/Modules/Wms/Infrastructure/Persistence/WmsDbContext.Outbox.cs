@@ -5,7 +5,12 @@ namespace Wes.Wms.Infrastructure.Persistence;
 
 public sealed partial class WmsDbContext
 {
-    /// <summary>WMS-owned pending events, never another owner's transaction store.</summary>
+    private bool _savingOutboxDelivery;
+    private static readonly HashSet<string> DeliveryFields =
+        [nameof(WmsOutboxMessage.Status), nameof(WmsOutboxMessage.DeliveryVersion), nameof(WmsOutboxMessage.Attempts),
+        nameof(WmsOutboxMessage.FirstFailureAt), nameof(WmsOutboxMessage.LeaseId), nameof(WmsOutboxMessage.LeaseUntil),
+        nameof(WmsOutboxMessage.NextAttemptAt), nameof(WmsOutboxMessage.PublishedAt), nameof(WmsOutboxMessage.LastErrorCategory)];
+    /// <summary>WMS-owned durable creation envelopes and delivery state, never another owner's transaction store.</summary>
     public DbSet<WmsOutboxMessage> OutboxMessages => Set<WmsOutboxMessage>();
 
     private void ConfigureOutbox(ModelBuilder builder)
@@ -19,9 +24,22 @@ public sealed partial class WmsDbContext
         outbox.Property(message => message.AggregateVersion).HasColumnType("varchar(36)").HasMaxLength(36);
         outbox.Property(message => message.Payload).HasColumnType("longtext").IsRequired();
         outbox.Property(message => message.Status).HasConversion<string>().HasColumnType("varchar(16)").HasMaxLength(16);
+        outbox.Property(message => message.DeliveryVersion).IsConcurrencyToken();
+        outbox.Property(message => message.LastErrorCategory).HasColumnType("varchar(32)").HasMaxLength(32);
         outbox.HasIndex(message => new { message.TenantId, message.Status, message.OccurredAt, message.EventId });
+        outbox.HasIndex(message => new { message.TenantId, message.Status, message.NextAttemptAt, message.EventId });
         outbox.HasOne<MasterDataChange>().WithOne().HasForeignKey<WmsOutboxMessage>(
             message => new { message.TenantId, OperationId = message.EventId }).OnDelete(DeleteBehavior.Restrict);
+    }
+
+    internal async Task SaveOutboxDeliveryAsync(CancellationToken ct)
+    {
+        if (ChangeTracker.Entries().Any(entry => entry.State is not (EntityState.Unchanged or EntityState.Detached)
+            && (entry.Entity is not WmsOutboxMessage || entry.State != EntityState.Modified)))
+            throw new InvalidOperationException("WMS delivery cannot persist other business effects.");
+        _savingOutboxDelivery = true;
+        try { await SaveChangesAsync(ct); }
+        finally { _savingOutboxDelivery = false; }
     }
 
     private void StageMasterDataOutbox()
@@ -30,7 +48,14 @@ public sealed partial class WmsDbContext
             .Where(entry => entry.State == EntityState.Added).Select(entry => entry.Entity).ToArray();
         foreach (var entry in ChangeTracker.Entries<WmsOutboxMessage>().Where(entry =>
             entry.State is EntityState.Modified or EntityState.Deleted))
-            throw new InvalidOperationException("WMS staged event identity and payload are immutable.");
+        {
+            if (!_savingOutboxDelivery || entry.State != EntityState.Modified
+                || entry.Properties.Any(property => property.IsModified && !DeliveryFields.Contains(property.Metadata.Name))
+                || !entry.Property(message => message.DeliveryVersion).IsModified
+                || entry.Entity.DeliveryVersion == entry.Property(message => message.DeliveryVersion).OriginalValue)
+                throw new InvalidOperationException("WMS staged event identity and payload are immutable.");
+            entry.Entity.ValidateDelivery();
+        }
 
         var added = ChangeTracker.Entries<WmsOutboxMessage>()
             .Where(entry => entry.State == EntityState.Added).Select(entry => entry.Entity).ToList();

@@ -20,6 +20,8 @@
 
 ## 2. 功能与契约
 
+后续[WMS owner发布器](../implementation/157-t05-wms-owner-outbox-publisher.md)/[证据](../implementation/158-t05-wms-owner-outbox-publisher-tests.md)替代下述历史Pending-only/publisher未实现部分：耐久90秒lease、claim计数最多6次/15分钟预算、有限退避与隔离、提交后发送前复验、原event未确认恢复。原列表九字段扩展真实四态，统计仍三字段且只计Pending，客户端同步标签，不将Published当业务完成。新增33owner/3HTTP/4前端，最终238+32含四套真实浏览器+29=299、前端695和严格构建通过，Release0/0；默认无Host worker/transport外发，Inbox/真实Broker/统一快照/父DTC未关闭。
+
 后续[WMS创建事件范围统计](../implementation/149-t05-wms-creation-event-counts.md)/[证据](../implementation/150-t05-wms-creation-event-counts-tests.md)已接通独立统计字段当前creator交集、SQL全量LongCount与共享计数组件；替代下述历史“WMS统计未接入”。WMS只返回Owner/ObservedAt/PendingCount，不伪造Inbox/投递状态，不与Platform相加；两owner仍独立观察，不构成统一快照。前端604、主数据205+HTTP/三套浏览器36+架构29=270及严格构建通过，WMS发布/消费和真实Broker仍未完成。
 
 现有[消息owner选择与WMS事件客户端](../implementation/143-t05-owner-selected-message-client.md)/[证据](../implementation/144-t05-owner-selected-message-client-tests.md)替代历史“仅Platform页面/第二owner客户端缺失”：原路由通过Platform/Wms各自模块+当前permission成对OR，选择后只查该owner公共API。切换卸载取消/清旧，Platform重放面板打开锁owner；WMS只显示九字段创建事件，无虚构attempt/Inbox0/统计。前端521、真实HTTP/三套浏览器16、架构29通过；跨owner统一快照/统计、WMS发布消费与真实Broker仍未关闭。

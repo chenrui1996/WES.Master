@@ -2,15 +2,21 @@ using System.Text.Json;
 
 namespace Wes.Wms.Domain;
 
-/// <summary>Initial owner-local staging state; no transport or publisher transitions are implemented by this slice.</summary>
+/// <summary>Durable nonphysical delivery state, never a downstream business-completion claim.</summary>
 public enum WmsOutboxStatus
 {
-    /// <summary>The source fact committed and still requires a separately approved publisher.</summary>
-    Pending
+    /// <summary>The source fact committed and is waiting for its due delivery attempt.</summary>
+    Pending,
+    /// <summary>A bounded, durable delivery attempt owns a time-limited lease.</summary>
+    Leased,
+    /// <summary>The current lease received a transport acknowledgement and committed it.</summary>
+    Published,
+    /// <summary>Automatic delivery stopped; the permanent event remains available for diagnosis.</summary>
+    Quarantined
 }
 
 /// <summary>Immutable safe event staged atomically with a new WMS master-data creation fact.</summary>
-public sealed class WmsOutboxMessage
+public sealed partial class WmsOutboxMessage
 {
     private static readonly JsonSerializerOptions PayloadOptions = new(JsonSerializerDefaults.Web);
     private WmsOutboxMessage() { }
@@ -24,6 +30,8 @@ public sealed class WmsOutboxMessage
         Payload = JsonSerializer.Serialize(new CreationPayload(change.LocationId.HasValue ? "Location" : "Warehouse",
             change.WarehouseId, change.LocationId, change.PackId, change.SchemaVersion, change.Code, false), PayloadOptions);
         Status = WmsOutboxStatus.Pending;
+        NextAttemptAt = OccurredAt;
+        DeliveryVersion = Guid.NewGuid();
     }
 
     /// <summary>Trusted WMS tenant.</summary>
@@ -48,17 +56,21 @@ public sealed class WmsOutboxMessage
     public DateTimeOffset OccurredAt { get; private set; }
     /// <summary>Fixed safe identity/schema/code projection without actor, session, name or device instructions.</summary>
     public string Payload { get; private set; } = "";
-    /// <summary>Pending only until a future owner publisher is separately implemented.</summary>
+    /// <summary>Current durable delivery state; not a resource enablement or business-result grant.</summary>
     public WmsOutboxStatus Status { get; private set; }
 
-    internal bool Matches(MasterDataChange change)
+    internal bool Matches(MasterDataChange change) => MatchesEnvelope(change)
+        && Status == WmsOutboxStatus.Pending && Attempts == 0 && DeliveryVersion != Guid.Empty
+        && NextAttemptAt == OccurredAt && LeaseId is null && LeaseUntil is null && PublishedAt is null
+        && FirstFailureAt is null && LastErrorCategory is null;
+
+    internal bool MatchesEnvelope(MasterDataChange change)
     {
         var expected = new WmsOutboxMessage(change);
         return TenantId == expected.TenantId && EventId == expected.EventId && ContractName == expected.ContractName
             && SchemaVersion == expected.SchemaVersion && Owner == expected.Owner && AggregateId == expected.AggregateId
             && AggregateVersion == expected.AggregateVersion && CorrelationId == expected.CorrelationId
-            && CausationId is null && OccurredAt == expected.OccurredAt && Payload == expected.Payload
-            && Status == WmsOutboxStatus.Pending;
+            && CausationId is null && OccurredAt == expected.OccurredAt && Payload == expected.Payload;
     }
 
     private sealed record CreationPayload(string Kind, Guid WarehouseId, Guid? LocationId, Guid? PackId,

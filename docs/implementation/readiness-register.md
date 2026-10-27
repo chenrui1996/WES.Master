@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+最新T05：[WMS owner发布器](157-t05-wms-owner-outbox-publisher.md)/[证据](158-t05-wms-owner-outbox-publisher-tests.md)已交付独立scope/transport合同、90秒耐久lease/CAS、认领即计attempt防崩溃无限重试、5次退避/15分钟预算/隔离及ACK未确认恢复。提交跨过lease/预算的两项行为RED已修正为发送前复验；旧Pending真实迁移，原列表九字段扩展四态、PendingCount只计Pending，客户端同步真实标签。新增33owner/3HTTP/4前端，最终238+32含四套HTTPS浏览器+29=299，前端695/严格构建、Release0/0。历史“WMS无publisher”仅托管/实际transport接线仍适用；Inbox、统一快照与整包缺口不关闭。
+
 最新T08/T06：[当前授权库存流水](153-t08-authorized-stock-ledger-query.md)/[证据](154-t08-authorized-stock-ledger-query-tests.md)已交付独立All完整19字段、当前tenant SQL过滤/稳定时间分页、正负固定六位字符串与历史前后余额/来源、不修改事实。客户端显式查询/微秒UTC/撤权清旧，真实375px叠加200%文字定位并修复共享body最小宽度640px问题。关联[T04新建用户加载门禁](155-t04-user-create-loading-gate.md)/[证据](156-t04-user-create-loading-gate-tests.md)修复当前目录未就绪时可点却无动作。最终前端691/严格构建、owner106+HTTP46+四套HTTPS浏览器4+架构29=185通过、Release0/0。历史“授权流水无owner/API/客户端”已由本片替代；固定核对快照/导出、来源业务跳转与完整生命周期仍缺，不代签所有页面/PDA或整包关闭。
 
 最新T04字典：[数字稳定码](151-t04-numeric-dictionary-code.md)/[证据](152-t04-numeric-dictionary-code-tests.md)已修复DTC-PLAT-014 code0被拒绝：仅字典业务码允许数字起始/保持string，不放宽角色/部门/分类/语言键。新增18领域/9真实HTTP/1真实owner，相关28+23+真实HTTPS浏览器1+架构29=81通过，Release0/0；真实改译/请求-默认-key回退/引用删除409及原全页面浏览器流程通过。T04父DTC适用矩阵和其他软件/运维门禁仍缺，整包不关闭。
@@ -16,7 +18,7 @@
 | 工作包 | 尚未交付的软件/完整验证 | 需要外部真实证据 |
 |---|---|---|
 | T04 | 父DTC全变体/页面与命令适用矩阵及剩余集成验收，日志→Outbox→job全链路 | 生产最小权限/保留容量与运维验收 |
-| T05 | WMS publisher/Inbox、跨owner统一快照与完整聚合、完整投递恢复接线 | 批准隔离Broker、ACK丢失/崩溃窗口实测 |
+| T05 | WMS托管发布接线/Inbox、跨owner统一快照与完整聚合、完整投递恢复接线 | 批准隔离Broker、ACK丢失/崩溃窗口实测 |
 | T06 | 全具名页面DTC矩阵、其他owner固定核对快照与相关客户端 | 真实PDA/OS/扫码枪矩阵 |
 | T07 | 业务实体授权附件、绑定/解绑及完整业务文件目录 | 真实ClamAV/病毒库/识别/健康、部署ACL |
 | T08 | 完整主数据启停/层级/容器、固定核对快照/导出、流水来源业务跳转及运输完成闭环 | 实际Pack schema/资源归属及相应现场门禁 |

@@ -42,6 +42,8 @@
 
 ## 2. 功能/契约
 
+创建事件后续[owner发布器](../implementation/157-t05-wms-owner-outbox-publisher.md)/[证据](../implementation/158-t05-wms-owner-outbox-publisher-tests.md)已接通WMS自己的耐久租约/CAS、最多6次实际认领/15分钟预算、有限隔离与未确认恢复，不改变原禁用资源或envelope/来源事实。九字段诊断显示真实四态、三字段计数仅Pending，真实浏览器覆盖四态与当前撤权；默认不运行、不含Broker/Inbox/运输消费或资源启用，T08完整生命周期门禁不关闭。
+
 PAGE-WMS-008已交付[当前授权不可变流水子集](../implementation/153-t08-authorized-stock-ledger-query.md)/[证据](../implementation/154-t08-authorized-stock-ledger-query-tests.md)：独立`wms.ledger.read`当前All完整19字段，可信tenant精确维度/来源/UTC微秒半开筛选后OccurredAt/Id升序分页；正负Quantity和历史Before/After固定六位字符串、真实posting来源，无actor/私有对象/改账端点。客户端按有符号BigInt和微秒规范串核对，当前403清旧，离线/迟到取消；真实375/768/1440各宽200%字体及原Platform/WMS回归通过。固定核对快照、授权导出、来源业务页/补偿跳转及完整父DTC仍未交付；历史“授权流水完全未实现”仅剩这些范围适用。
 
 PAGE-WMS-002已增加[当前受权库存owner/API](../implementation/145-t08-authorized-inventory-query.md)/[证据](../implementation/146-t08-authorized-inventory-query-tests.md)：All完整字段、tenant维度精确SQL过滤后分页，WMS同一RepeatableRead内复用保护量并集，数量为固定六位字符串，15字段均当前授权；Own/部门未有库存资源归属合同前拒绝，不取最后posting actor冒充库存所有者。无改账/实物位置推断。后续[实时客户端](../implementation/147-t08-inventory-query-client.md)/[证据](../implementation/148-t08-inventory-query-client-tests.md)已交付独立权限入口、精确筛选/数量、分页及撤权清旧；前端581、真实HTTP/三套HTTPS浏览器21、架构29与严格构建通过。固定核对快照/授权流水/导出与完整DTC仍未交付。

@@ -522,6 +522,9 @@ namespace Wes.Wms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(36)
                         .HasColumnType("varchar(36)");
 
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
                     b.Property<string>("CausationId")
                         .HasMaxLength(36)
                         .HasColumnType("varchar(36)");
@@ -536,6 +539,29 @@ namespace Wes.Wms.Infrastructure.Persistence.Migrations
                         .HasMaxLength(36)
                         .HasColumnType("varchar(36)");
 
+                    b.Property<string>("DeliveryVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<DateTime?>("FirstFailureAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("LastErrorCategory")
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("LeaseId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<DateTime?>("LeaseUntil")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("NextAttemptAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<DateTime>("OccurredAt")
                         .HasColumnType("datetime(6)");
 
@@ -548,6 +574,9 @@ namespace Wes.Wms.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<int>("SchemaVersion")
                         .HasColumnType("int");
 
@@ -557,6 +586,8 @@ namespace Wes.Wms.Infrastructure.Persistence.Migrations
                         .HasColumnType("varchar(16)");
 
                     b.HasKey("TenantId", "EventId");
+
+                    b.HasIndex("TenantId", "Status", "NextAttemptAt", "EventId");
 
                     b.HasIndex("TenantId", "Status", "OccurredAt", "EventId");
 

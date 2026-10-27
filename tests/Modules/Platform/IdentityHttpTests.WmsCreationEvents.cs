@@ -10,6 +10,49 @@ namespace Wes.Modules.Tests.Platform;
 
 public sealed partial class IdentityHttpTests
 {
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task WmsCreationEventsExposeDurablePublisherStatesWithoutChangingNineFieldsOrPendingCount(int status)
+    {
+        await WmsHostAsync();
+        await GrantCreationEventReadAsync();
+        await GrantCreationEventCountsAsync();
+        await using (var publisher = new Wes.Wms.WmsPublishingScope(_connection, _tenant,
+            new CreationEventTransport(status), _clock, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance))
+        {
+            if (status == 1) await Assert.ThrowsAsync<InvalidOperationException>(() => publisher.DispatchDueAsync(1));
+            else
+            {
+                var delivered = await publisher.DispatchDueAsync(1);
+                Assert.Equal(status == 2 ? 1 : 0, delivered.Published);
+                Assert.Equal(status == 3 ? 1 : 0, delivered.Quarantined);
+            }
+        }
+        using var response = await _client.GetAsync("/api/wms/master-data-events");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var rows = json.GetProperty("rows").EnumerateArray().ToArray();
+        Assert.Equal(2, rows.Length);
+        Assert.Equal(new[] { 0, status }, rows.Select(row => row.GetProperty("status").GetInt32()).Order());
+        Assert.All(rows, row => Assert.Equal(9, row.EnumerateObject().Count()));
+        using var summary = await _client.GetAsync("/api/wms/master-data-events/summary");
+        Assert.Equal(HttpStatusCode.OK, summary.StatusCode);
+        var counts = await summary.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(3, counts.EnumerateObject().Count());
+        Assert.Equal(1, counts.GetProperty("pendingCount").GetInt32());
+    }
+
+    private sealed class CreationEventTransport(int status) : Wes.Wms.Messaging.IWmsOutboxTransport
+    {
+        public Task<Wes.Wms.Messaging.WmsOutboxTransportOutcome> PublishAsync(Wes.Wms.Messaging.WmsOutboxEnvelope envelope,
+            CancellationToken cancellationToken) => status == 1
+                ? throw new InvalidOperationException("Controlled send interruption.")
+                : Task.FromResult(status == 2 ? Wes.Wms.Messaging.WmsOutboxTransportOutcome.Acknowledged
+                    : Wes.Wms.Messaging.WmsOutboxTransportOutcome.PermanentFailure);
+    }
+
     [Fact]
     public async Task WmsCreationEventsRequireExplicitReadAssembly()
     {

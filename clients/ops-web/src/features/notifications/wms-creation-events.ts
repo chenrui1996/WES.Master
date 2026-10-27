@@ -20,9 +20,10 @@ export async function queryCreationEventSummary(signal: AbortSignal): Promise<Cr
 
 export const creationEventFields = ["EventId", "Owner", "ContractName", "SchemaVersion", "AggregateId",
   "AggregateVersion", "CorrelationId", "OccurredAt", "Status"] as const;
+export const creationEventStatuses = ["待发布（Pending）", "投递中（Leased）", "已确认投递（Published）", "已隔离（Quarantined）"] as const;
 export interface CreationEvent {
   eventId: string; owner: "Wms"; contractName: "wms.master-data.created"; schemaVersion: 1;
-  aggregateId: string; aggregateVersion: string; correlationId: string; occurredAt: string; status: 0;
+  aggregateId: string; aggregateVersion: string; correlationId: string; occurredAt: string; status: 0 | 1 | 2 | 3;
 }
 export class CreationEventResponseError extends Error {
   constructor() { super("WMS 创建事件响应无效，已丢弃；请重新读取。"); }
@@ -36,7 +37,8 @@ function parseEvent(value: unknown): CreationEvent {
   if (!isRecord(value) || Object.keys(value).length !== keys.length || !keys.every(key => key in value)
     || !validIdentity(value.eventId) || !validIdentity(value.aggregateId) || !validIdentity(value.aggregateVersion)
     || !validIdentity(value.correlationId) || !validUtc(value.occurredAt)
-    || value.owner !== "Wms" || value.contractName !== "wms.master-data.created" || value.schemaVersion !== 1 || value.status !== 0)
+    || value.owner !== "Wms" || value.contractName !== "wms.master-data.created" || value.schemaVersion !== 1
+    || value.status !== 0 && value.status !== 1 && value.status !== 2 && value.status !== 3)
     throw new CreationEventResponseError();
   return { eventId: value.eventId, owner: value.owner, contractName: value.contractName, schemaVersion: value.schemaVersion,
     aggregateId: value.aggregateId, aggregateVersion: value.aggregateVersion, correlationId: value.correlationId,

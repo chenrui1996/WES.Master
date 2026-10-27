@@ -69,8 +69,16 @@ internal sealed class InboundOrder
     internal string Code { get; }
     internal string Version { get; private set; } = Guid.NewGuid().ToString("D");
     internal InboundOrderState State { get; private set; }
-    internal IReadOnlyList<InboundPlanLine> Lines { get; }
+    internal IReadOnlyList<InboundPlanLine> Lines { get; private set; }
     internal IReadOnlyList<InboundReceipt> Receipts { get; }
+
+    internal void Revise(IReadOnlyList<InboundPlanLine> lines)
+    {
+        if (State != InboundOrderState.Draft)
+            throw new InvalidOperationException("Only a draft inbound order can be revised.");
+        Lines = new InboundOrder(TenantId, WarehouseId, Code, lines).Lines;
+        Touch();
+    }
 
     internal void Approve()
     {

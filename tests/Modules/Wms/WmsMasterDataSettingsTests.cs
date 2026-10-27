@@ -103,6 +103,34 @@ public sealed class WmsMasterDataSettingsTests
         Assert.Throws<InvalidOperationException>(() => WmsMasterDataSettings.Load(configuration));
     }
 
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("false", false)]
+    [InlineData("true", true)]
+    public void InboundDraftRevisionIsIndependentDefaultDisabled(string? revision, bool expected)
+    {
+        var configuration = CreationConfiguration("false", "true", "true");
+        configuration["Wes:WmsMasterData:InboundDraftRevisionEnabled"] = revision;
+        var settings = WmsMasterDataSettings.Load(configuration);
+        Assert.Equal(expected, settings.InboundDraftRevisionEnabled);
+        Assert.False(settings.InboundDraftCreationEnabled);
+        Assert.False(settings.LocationCreationEnabled);
+        Assert.False(settings.WarehouseCreationEnabled);
+    }
+
+    [Theory]
+    [InlineData("yes", "true", "true")]
+    [InlineData("", "true", "true")]
+    [InlineData("1", "true", "true")]
+    [InlineData("true", "false", "true")]
+    [InlineData("true", "true", "false")]
+    public void InvalidOrUnassembledInboundDraftRevisionIsRejected(string revision, string reads, string identity)
+    {
+        var configuration = CreationConfiguration("false", reads, identity);
+        configuration["Wes:WmsMasterData:InboundDraftRevisionEnabled"] = revision;
+        Assert.Throws<InvalidOperationException>(() => WmsMasterDataSettings.Load(configuration));
+    }
+
     private static IConfiguration Configuration(string enabled, string identity) =>
         new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {

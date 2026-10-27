@@ -19,6 +19,8 @@ T09 [当前受权入库目录](173-t09-inbound-basic-flow.md)已补齐：当前�
 
 T09 [当前受权草稿创建](173-t09-inbound-basic-flow.md)已接通独立owner/默认关闭POST与具名多行表单，替代上片“无草稿创建写入口”的部分。当前完整写/真实父仓读取核验、保存后撤权/取消回滚，永久回执仅原Id、版本另读，预览确认/原tuple未知恢复和实际父子组合已验证。新增46owner/33HTTP/8配置/41前端；最终owner213、相关Modules188（57入库HTTP/126 WMS领域与配置/5真实浏览器）、前端897/严格构建、架构29及Release0/0通过，替代167/147/856，不重复累计。无迁移/库存/运输/主数据启用效果；草稿修订/来源深化、受权审核/收货、运营主数据生命周期与最终到达持久移账仍未完成，不关闭T09。
 
+T09 [当前受权草稿修订](173-t09-inbound-basic-flow.md)已补齐独立owner/默认关闭PUT与具名多行计划表单，原创建Plan和revision/原版本回执永久保留、Draft/父单版本并发守卫、当前真实creator完整写/read及保存后复验回滚。新增39owner/34HTTP/8配置/25前端；最终owner252、相关Modules230（91入库HTTP/134WMS领域与配置/5真实浏览器）、前端922/严格构建、架构29、Release0/0及模型无漂移通过，替代213/188/897、不重复累计。真实创建→修订→另读及Unknown原tuple恢复已验证；无新迁移/库存/运输/主数据启用效果。开始产生Revised事实后不可回退到不认识该kind的旧应用。来源深化、运营主数据生命周期、公开审核/收货与最终到达持久移账仍待实施，不关闭T09。
+
 最新T07目录：[当前实体附件目录](169-t07-current-entity-attachment-catalog.md)/[证据](170-t07-current-entity-attachment-catalog-tests.md)已验证固定仓/位集合GET、实际精确引用/计数、当前实体两时点和逐字段文件scope SQL过滤后分页，暂存仍拒绝绑定。新增30真实owner/28 HTTP，相关166+138含既有HTTPS文件浏览器+29架构=333；随后精确最终新API28/架构29及Release0/0通过，不重复累计。历史“无目录API”已替代；客户端、真实扫描/病毒库/ACL及T07整包仍缺。
 
 最新T07写：[永久具名绑定/解绑](167-t07-durable-business-file-bindings.md)/[证据](168-t07-durable-business-file-bindings-tests.md)实现当前双owner Attach/Detach和全部既有来源实体read、精确引用/计数/版本/审计/永久操作回执单事务、锁后复验与严格PUT/DELETE。新增30真实owner/32 HTTP，首轮620项、来源RED修正后最终282项含六套既有HTTPS浏览器、Release0/0通过，不重复累计。MySQL1213通过先锁父文件根治；来源撤权/未登记owner不允许另绑，恢复只返回原提交事实。历史“无绑定/解绑应用入口”已由本片替代；仍无完整业务附件目录/客户端或真实病毒库/ACL，不关闭T07。

@@ -12,7 +12,7 @@ internal enum InboundWriteDecision { Committed, Replayed, Invalid, NotFound, Con
 internal sealed record InboundWriteResult(InboundWriteDecision Decision, Guid? Id = null, string? Version = null);
 
 /// <summary>Internal WMS transaction primitive; public callers must first establish current field/resource and operational authority.</summary>
-internal sealed class InboundWriter(WmsDbContext database, TimeProvider clock)
+internal sealed partial class InboundWriter(WmsDbContext database, TimeProvider clock)
 {
     internal async Task<InboundWriteResult> CreateAsync(Guid operation, Guid actor, Guid warehouse, string code,
         IReadOnlyList<InboundPlanLine> lines, CancellationToken ct = default,
@@ -49,28 +49,9 @@ internal sealed class InboundWriter(WmsDbContext database, TimeProvider clock)
         catch (DbUpdateException error) when (error.InnerException is DbException failure) { throw WmsDatabaseFailures.Safe(failure); }
     }
 
-    internal async Task<InboundWriteResult> ApproveAsync(Guid orderId, Guid operation, Guid actor, Guid correlation,
-        string version, CancellationToken ct = default)
-    {
-        Clean(ct);
-        var existing = await database.InboundFacts.AsNoTracking().SingleOrDefaultAsync(item => item.OperationId == operation, ct);
-        if (existing is not null) return existing.OrderId == orderId && existing.ActorId == actor && existing.Kind == InboundFactKind.Approved
-            ? new(InboundWriteDecision.Replayed, orderId, existing.AfterVersion) : new(InboundWriteDecision.Conflict);
-        var document = await database.InboundDocuments.SingleOrDefaultAsync(item => item.Id == orderId, ct);
-        if (document is null) return new(InboundWriteDecision.NotFound);
-        if (document.Version != version) return new(InboundWriteDecision.VersionConflict);
-        var history = await HistoryAsync(orderId, ct);
-        if (!SameFence(document, history)) return new(InboundWriteDecision.VersionConflict);
-        var domain = document.Restore(history);
-        if (domain.State != InboundOrderState.Draft) return new(InboundWriteDecision.Conflict);
-        domain.Approve(); document.Advance(domain.State);
-        database.InboundFacts.Add(new(document, operation, actor, correlation, InboundFactKind.Approved, clock.GetUtcNow()));
-        try { await database.SaveChangesAsync(ct); return new(InboundWriteDecision.Committed, orderId, document.Version); }
-        catch (DbUpdateConcurrencyException) { database.ChangeTracker.Clear(); return new(InboundWriteDecision.VersionConflict); }
-        catch (DbUpdateException error) when (error.InnerException is MySqlException { Number: 1062 })
-        { database.ChangeTracker.Clear(); return new(InboundWriteDecision.Conflict); }
-        catch (DbUpdateException error) when (error.InnerException is DbException failure) { throw WmsDatabaseFailures.Safe(failure); }
-    }
+    internal Task<InboundWriteResult> ApproveAsync(Guid orderId, Guid operation, Guid actor, Guid correlation,
+        string version, CancellationToken ct = default) =>
+        UpdateDraftAsync(orderId, operation, actor, correlation, version, null, ct, null);
 
     internal async Task<InboundWriteResult> ReceiveAsync(Guid orderId, InboundReceiptCommand command,
         Guid correlation, string version, Guid balanceId, string balanceVersion, CancellationToken ct = default)

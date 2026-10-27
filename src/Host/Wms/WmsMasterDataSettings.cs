@@ -2,7 +2,7 @@ namespace Wes.Host.Wms;
 
 /// <summary>Deployment-only, default-disabled assembly; each creation boundary is separately enabled and never implies operational capability.</summary>
 public sealed record WmsMasterDataSettings(bool Enabled, bool WarehouseCreationEnabled = false, bool LocationCreationEnabled = false,
-    bool InboundDraftCreationEnabled = false)
+    bool InboundDraftCreationEnabled = false, bool InboundDraftRevisionEnabled = false)
 {
     /// <summary>Rejects malformed supplied toggles and requires authenticated identity when explicitly enabled.</summary>
     public static WmsMasterDataSettings Load(IConfiguration configuration)
@@ -31,6 +31,12 @@ public sealed record WmsMasterDataSettings(bool Enabled, bool WarehouseCreationE
             throw new InvalidOperationException("WMS inbound draft creation deployment configuration is invalid.");
         if (inboundEnabled && !enabled)
             throw new InvalidOperationException("WMS inbound draft creation requires master-data and identity deployment.");
-        return new(enabled, creationEnabled, locationEnabled, inboundEnabled);
+        var revisionValue = configuration["Wes:WmsMasterData:InboundDraftRevisionEnabled"];
+        var revisionEnabled = false;
+        if (revisionValue is not null && !bool.TryParse(revisionValue, out revisionEnabled))
+            throw new InvalidOperationException("WMS inbound draft revision deployment configuration is invalid.");
+        if (revisionEnabled && !enabled)
+            throw new InvalidOperationException("WMS inbound draft revision requires master-data and identity deployment.");
+        return new(enabled, creationEnabled, locationEnabled, inboundEnabled, revisionEnabled);
     }
 }

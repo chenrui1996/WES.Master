@@ -197,6 +197,8 @@
 - [x] [当前受权实时入库目录](../../implementation/173-t09-inbound-basic-flow.md)：完整八字段creator交集在SQL分页前过滤、读后复验、精确筛选与稳定分页；真实父页选择后重新GET及双侧403清旧。新增24owner/10HTTP/32前端；最终owner167、Modules147（24HTTP/118领域/5真实HTTPS浏览器）、前端856/严格构建、架构29/Release0/0通过，替代上一片相关回归而不重复累计。无新迁移/写入口，运营主数据、草稿/审核/收货写与最终运输仍待实施，不关闭本包。
 - [x] [当前受权草稿创建owner/HTTP/多行表单](../../implementation/173-t09-inbound-basic-flow.md)：完整写字段/真实父仓读取与保存后复验回滚、永久原Id-only回执，独立默认关闭POST、严格decimal string、预览确认/同tuple同键Unknown恢复和手工读回。新增46owner/33HTTP/8配置/41前端；最终owner213、相关Modules188含5真实HTTPS浏览器、前端897/严格构建、架构29/Release0/0通过，替代167/147/856而不重复累计。无新迁移/库存/运输效果；修订及来源深化、受权审核/收货、运营主数据与最终运输仍待实施，不关闭本包。
 
+- [x] [当前受权草稿修订owner/HTTP/多行表单](../../implementation/173-t09-inbound-basic-flow.md)：保留原创建Plan、append-only修订历史及原版本回执，真实creator完整写/read及保存后复验回滚；Draft/父单版本守卫与审核串行化、独立默认关闭PUT、严格ExpectedVersion/完整计划，真实创建→修订→另读及Unknown原tuple恢复。新增39owner/34HTTP/8配置/25前端；最终owner252、相关Modules230含5真实HTTPS浏览器、前端922/严格构建、架构29、Release0/0/模型无漂移通过，替代213/188/897、不重复累计。来源深化、运营主数据、受权审核/收货和最终运输仍待实施，不关闭本包。
+
 **Files:** `src\Modules\Wms\Features\Inbound\{SaveInbound.cs,ApproveInbound.cs,ReceiveGoods.cs,RequestPutaway.cs,ApplyArrival.cs}`；`clients\ops-web\src\features\wms\InboundPage.vue`；`tests\Modules\Wms\InboundTests.cs`。
 
 **Interfaces:** 消费WMS事务、transport intent与最终到达合同；产出FUNC-WMS-002/PAGE-WMS-003、一次收货账与唯一上架意图。T15未接入前仅测试合同，生产不回假运输成功。

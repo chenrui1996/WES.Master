@@ -64,9 +64,20 @@ public sealed partial class WmsDbContext
             if (fact.Kind == InboundFactKind.Approved)
             {
                 if (document.Property(item => item.State).OriginalValue != InboundOrderState.Draft
-                    || document.Entity.State != InboundOrderState.Approved || document.Entity.Sequence != 1
+                    || document.Entity.State != InboundOrderState.Approved
                     || fact.Payload != "" || fact.ExecutionId is not null || fact.PostingId is not null)
                     throw new InvalidOperationException("An approval must only approve a draft without receipt effects.");
+                continue;
+            }
+            if (fact.Kind == InboundFactKind.Revised)
+            {
+                var revision = fact.Revision();
+                if (document.Property(item => item.State).OriginalValue != InboundOrderState.Draft
+                    || document.Entity.State != InboundOrderState.Draft
+                    || revision.ExpectedVersion != document.Property(item => item.Version).OriginalValue
+                    || ChangeTracker.Entries<StockPosting>().Any(entry => entry.State == EntityState.Added))
+                    throw new InvalidOperationException("A plan revision requires its original draft version and no inventory posting.");
+                _ = new InboundOrder(document.Entity.TenantId, document.Entity.WarehouseId, document.Entity.Code, revision.Lines);
                 continue;
             }
             if (fact.Kind != InboundFactKind.Received

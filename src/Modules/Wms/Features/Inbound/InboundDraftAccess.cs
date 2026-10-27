@@ -11,7 +11,7 @@ namespace Wes.Wms.Features.Inbound;
 internal sealed class InboundDraftAccess(WmsDbContext database, IInboundDraftAuthorization authorization,
     TimeProvider clock, ILogger<InboundDraftAccess> logger)
 {
-    private static readonly string[] WriteFields = ["Code", "WarehouseId", "Lines"];
+    internal static readonly string[] WriteFields = ["Code", "WarehouseId", "Lines"];
     private static readonly string[] WarehouseFields = ["Id", "Code", "Name", "Enabled", "Version", "CreatedAt"];
 
     internal async Task<InboundDraftResult> CreateAsync(InboundSubject subject, InboundDraftCreation request,
@@ -88,9 +88,15 @@ internal sealed class InboundDraftAccess(WmsDbContext database, IInboundDraftAut
         if (request.OperationId == Guid.Empty || request.WarehouseId == Guid.Empty || !MasterDataValue.IsCode(request.Code)
             || request.Lines is null || request.Lines.Count is < 1 or > 100)
             return null;
+        return ParseLines(request.Lines);
+    }
+
+    internal static InboundPlanLine[]? ParseLines(IReadOnlyList<InboundDraftLine>? lines)
+    {
+        if (lines is null || lines.Count is < 1 or > 100) return null;
         var plan = new List<InboundPlanLine>();
         var ids = new HashSet<Guid>();
-        foreach (var line in request.Lines)
+        foreach (var line in lines)
         {
             if (line is null || line.Id == Guid.Empty || !ids.Add(line.Id) || line.ItemId == Guid.Empty || line.UnitId == Guid.Empty
                 || line.Precision is < 0 or > 6 || line.Batch is not { Length: <= 128 }

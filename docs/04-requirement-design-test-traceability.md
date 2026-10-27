@@ -9,6 +9,7 @@
 
 | 切片 | 范围/设计 | 测试/证据状态 |
 |---|---|---|
+| T09 当前受权草稿修订 | FUNC-WMS-002/PAGE-WMS-003，DTC-WMS-002/003草稿保存子集，TC-T09-REV-01..06；[设计及证据](implementation/173-t09-inbound-basic-flow.md) | 新增39owner/34HTTP/8配置/25前端；最终owner252、相关Modules230含91HTTP/134领域与配置/5真实浏览器、前端922/严格构建、架构29/Release0/0/模型无漂移通过。不可变原Plan+revision事实、永久原版本回执、真实creator当前完整写/read和提交前复验、Draft/父单并发守卫、独立默认关闭PUT、实际创建→修订→另读及原tupleUnknown恢复；不关闭来源深化/运营主数据/审核收货/最终运输或T09 |
 | T09 当前受权草稿创建 | FUNC-WMS-002/PAGE-WMS-003，DTC-WMS-002/003创建子集，TC-T09-DRAFT-01..06；[设计及证据](implementation/173-t09-inbound-basic-flow.md) | 新增46owner/33HTTP/8配置/41前端；最终owner213、相关Modules188含57HTTP/126领域与配置/5真实浏览器、前端897/严格构建、架构29/Release0/0通过。当前写/真实父仓与提交前复验、原Id-only回执、严格默认关闭POST、多行预览确认/原操作未知恢复；不关闭修订/来源深化、审核/收货、运营主数据、运输或T09 |
 | T09 当前受权入库目录 | FUNC-WMS-002/PAGE-WMS-003，DTC-WMS-002/003读取子集，TC-T09-CAT-01..05；[设计及证据](implementation/173-t09-inbound-basic-flow.md) | 新增24owner/10HTTP/32前端；最终owner167、Modules147含24HTTP/118领域/5真实浏览器、前端856/严格构建、架构29/Release0/0通过。SQL分页前creator逐字段交集、精确筛选、读后范围复验、实际选择重读及双侧403清旧；替代上一片相关回归但不重复累计，不关闭公开写/运营主数据/运输或T09 |
 | T09 当前授权只读入库详情 | FUNC-WMS-002/PAGE-WMS-003，DTC-WMS-002/003及UI读取适用子集；[设计及证据](implementation/173-t09-inbound-basic-flow.md) | 新增23owner/14HTTP/54前端及1真实HTTPS浏览器；最终owner143、Modules137含领域118及五WMS浏览器、前端824/严格构建通过。独立字段/真实creator与部门、读后核验、完整一致快照/精确数量及待运输；已知UUID详情不等于目录/公开写/运营主数据或完整T09 |

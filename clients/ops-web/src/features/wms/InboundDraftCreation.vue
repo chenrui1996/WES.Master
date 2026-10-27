@@ -1,18 +1,24 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, shallowRef, useId, watch } from "vue";
 import { ApiError, sessionState } from "../identity/identity-api";
-import { createInboundDraft, inboundDraftError, mayCreateInboundDraft,
-  type InboundDraftCommand, type InboundDraftLine, type InboundDraftReceipt } from "./inbound-drafts";
+import { createInboundDraft, reviseInboundDraft, inboundDraftError, mayCreateInboundDraft, mayReviseInboundDraft,
+  type InboundDraftCommand, type InboundDraftLine, type InboundDraftReceipt,
+  type InboundRevisionCommand, type InboundRevisionReceipt } from "./inbound-drafts";
+import type { InboundDetail } from "./inbound";
 
+const props = defineProps<{ draft?: InboundDetail }>();
 const emit = defineEmits<{ attempted: []; read: [id: string]; close: [] }>();
+const action = computed(() => props.draft ? "修订" : "创建");
 const id = useId();
 const phase = ref<"draft" | "preview" | "submitting" | "unknown" | "confirmed" | "rejected" | "invalidated">("draft");
-const code = ref(""); const warehouse = ref(""); const error = ref(""); const uncertain = ref(false);
+const code = ref(props.draft?.code ?? ""); const warehouse = ref(props.draft?.warehouseId ?? ""); const error = ref(""); const uncertain = ref(false);
 const online = ref(navigator.onLine);
-const lines = ref<InboundDraftLine[]>([newLine()]);
-const command = shallowRef<InboundDraftCommand>();
-const receipt = shallowRef<InboundDraftReceipt>();
-const authorized = computed(mayCreateInboundDraft);
+const lines = ref<InboundDraftLine[]>(props.draft ? props.draft.lines.map(line => ({
+  id: line.id, itemId: line.itemId, unitId: line.unitId, batch: line.batch, precision: line.precision, planned: line.planned,
+})) : [newLine()]);
+const command = shallowRef<InboundDraftCommand | InboundRevisionCommand>();
+const receipt = shallowRef<InboundDraftReceipt | InboundRevisionReceipt>();
+const authorized = computed(() => props.draft ? props.draft.state === 0 && mayReviseInboundDraft() : mayCreateInboundDraft());
 const fingerprint = computed(() => JSON.stringify(sessionState.subject));
 let controller = new AbortController(); let sequence = 0;
 let deadline: ReturnType<typeof setTimeout> | undefined;
@@ -21,7 +27,7 @@ function cancel() {
   if (deadline !== undefined) clearTimeout(deadline);
   deadline = undefined; ++sequence; controller.abort(); controller = new AbortController();
 }
-watch(fingerprint, () => {
+watch([fingerprint, () => props.draft?.id, () => props.draft?.version], () => {
   cancel(); command.value = undefined; receipt.value = undefined; code.value = ""; warehouse.value = ""; lines.value = [];
   phase.value = "invalidated"; error.value = "";
 }, { flush: "sync" });
@@ -29,7 +35,7 @@ function connection() {
   online.value = navigator.onLine;
   if (!online.value && phase.value === "submitting") {
     cancel(); uncertain.value = true; phase.value = "unknown";
-    error.value = "连接中断，创建结果不明；恢复后只可手工恢复原操作。";
+    error.value = `连接中断，${action.value}结果不明；恢复后只可手工恢复原操作。`;
   }
 }
 onMounted(() => { addEventListener("online", connection); addEventListener("offline", connection); });
@@ -44,7 +50,9 @@ function preview() {
   const body = { code: code.value.toUpperCase(), warehouseId: warehouse.value, lines: lines.value.map(line => ({ ...line })) };
   error.value = inboundDraftError(body);
   if (error.value) return;
-  command.value = { ...body, operation: crypto.randomUUID() }; phase.value = "preview";
+  const operation = crypto.randomUUID();
+  command.value = props.draft ? { ...body, operation, id: props.draft.id, expectedVersion: props.draft.version } : { ...body, operation };
+  phase.value = "preview";
 }
 async function submit() {
   if (!authorized.value || !online.value || !command.value || !["preview", "unknown"].includes(phase.value)) return;
@@ -54,10 +62,10 @@ async function submit() {
   deadline = setTimeout(() => {
     if (!current()) return;
     cancel(); uncertain.value = true; phase.value = "unknown";
-    error.value = "10 秒内未取得创建确认，结果不明；请保留原操作，不能换键盲发。";
+    error.value = `10 秒内未取得${action.value}确认，结果不明；请保留原操作，不能换键盲发。`;
   }, 10000);
   try {
-    const result = await createInboundDraft(request, signal);
+    const result = "expectedVersion" in request ? await reviseInboundDraft(request, signal) : await createInboundDraft(request, signal);
     if (current()) { receipt.value = result; phase.value = "confirmed"; }
   } catch (failure) {
     if (!current()) return;
@@ -65,8 +73,8 @@ async function submit() {
     if (!definite) uncertain.value = true;
     phase.value = definite ? "rejected" : "unknown";
     error.value = failure instanceof ApiError && [404, 405].includes(failure.status)
-      ? "草稿入口未开放或父仓未找到，请核对独立写开关及当前父仓权限；不会自动重试。"
-      : failure instanceof Error ? failure.message : "创建结果未确认，请核对原操作。";
+      ? props.draft ? "草稿修订入口未开放或原单未找到；不会自动重试。" : "草稿入口未开放或父仓未找到，请核对独立写开关及当前父仓权限；不会自动重试。"
+      : failure instanceof Error ? failure.message : `${action.value}结果未确认，请核对原操作。`;
   } finally {
     if (ticket === sequence && deadline !== undefined) { clearTimeout(deadline); deadline = undefined; }
   }
@@ -75,16 +83,17 @@ async function submit() {
 
 <template>
   <section class="inbound-creation" :aria-labelledby="`${id}-title`" :aria-busy="phase === 'submitting'">
-    <h2 :id="`${id}-title`">创建入库草稿</h2>
+    <h2 :id="`${id}-title`">{{ action }}入库草稿</h2>
     <p class="notice">仅保存计划，不审核、不收货、不启用仓位，不产生库存或运输。
       未确认不可换键盲发；关闭、导航或刷新会丢失内存上下文，请先记录操作 UUID 和全部原输入。</p>
     <p v-if="!online" role="status">当前离线，禁止提交、不排队，恢复后不会自动重试。</p>
+    <p v-if="draft">修订仅全量替换行计划，单号与仓库不可改；审核后禁止修改。原期望版本：{{ draft.version }}</p>
     <p v-if="phase === 'invalidated' || !authorized" role="alert">当前主体或字段权限已改变，请关闭并重新准备。</p>
     <form v-else-if="phase === 'draft'" @submit.prevent="preview">
-      <label :for="`${id}-code`">新入库单号</label>
-      <input :id="`${id}-code`" v-model="code" name="draftCode" maxlength="64" autocomplete="off" :disabled="!online" />
+      <label :for="`${id}-code`">{{ draft ? "原入库单号" : "新入库单号" }}</label>
+      <input :id="`${id}-code`" v-model="code" name="draftCode" maxlength="64" autocomplete="off" :disabled="!online || !!draft" />
       <label :for="`${id}-warehouse`">计划仓库 UUID</label>
-      <input :id="`${id}-warehouse`" v-model="warehouse" name="draftWarehouse" maxlength="36" autocomplete="off" :disabled="!online" />
+      <input :id="`${id}-warehouse`" v-model="warehouse" name="draftWarehouse" maxlength="36" autocomplete="off" :disabled="!online || !!draft" />
       <fieldset v-for="(line, index) in lines" :key="line.id" :disabled="!online">
         <legend>计划行 {{ index + 1 }}</legend><p>稳定行 UUID：{{ line.id }}</p>
         <label :for="`${id}-${line.id}-item`">物料 UUID</label>
@@ -107,6 +116,7 @@ async function submit() {
     <div v-if="command" data-test="inbound-draft-preview">
       <dl><dt>规范单号</dt><dd>{{ command.code }}</dd><dt>计划仓库 UUID</dt><dd>{{ command.warehouseId }}</dd>
         <dt>操作 UUID</dt><dd>{{ command.operation }}</dd></dl>
+      <dl v-if="'expectedVersion' in command"><dt>原单 UUID</dt><dd>{{ command.id }}</dd><dt>期望版本</dt><dd>{{ command.expectedVersion }}</dd></dl>
       <ol><li v-for="line in command.lines" :key="line.id">
         行 {{ line.id }}；物料 {{ line.itemId }}；基础单位 {{ line.unitId }}；批次 {{ line.batch || "无批次" }}；
         精度 {{ line.precision }}；计划 {{ line.planned }}
@@ -115,10 +125,11 @@ async function submit() {
       <button v-if="phase === 'unknown'" type="button" data-test="retry-inbound-draft" :disabled="!online || !authorized" @click="submit">手工恢复原操作</button>
     </div>
     <p v-if="error" role="alert">{{ error }}</p>
-    <p v-if="phase === 'unknown'" role="status">结果不明，不代表未创建。</p>
-    <p v-if="phase === 'rejected'" role="status">本次请求被拒绝。{{ uncertain ? "先前不明结果仍需查证，禁止换键盲发。" : "未取得创建确认。" }}</p>
+    <p v-if="phase === 'unknown'" role="status">结果不明，不代表未{{ action }}。</p>
+    <p v-if="phase === 'rejected'" role="status">本次请求被拒绝。{{ uncertain ? "先前不明结果仍需查证，禁止换键盲发。" : `未取得${action}确认。` }}</p>
     <p v-if="receipt" role="status">已确认入库草稿身份：{{ receipt.id }}。这不是当前版本、审核或收货确认。</p>
-    <button v-if="receipt" type="button" data-test="read-created-inbound" :disabled="!online || !authorized" @click="emit('read', receipt.id)">读取已创建入库单当前详情</button>
+    <p v-if="receipt && 'version' in receipt" role="status">原修订版本：{{ receipt.version }}；后续可能已变化，须另读当前详情。</p>
+    <button v-if="receipt" type="button" data-test="read-created-inbound" :disabled="!online || !authorized" @click="emit('read', receipt.id)">{{ draft ? "读取已修订入库单当前详情" : "读取已创建入库单当前详情" }}</button>
     <button type="button" :disabled="phase === 'submitting'" @click="emit('close')">关闭草稿面板</button>
   </section>
 </template>

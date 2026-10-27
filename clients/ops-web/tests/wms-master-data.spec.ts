@@ -69,6 +69,36 @@ test("real WMS definitions and explicitly enabled creation retain current author
     await expect(draftPage.getByTestId("inbound-detail")).toContainText("BROWSER-IN");
     await expect(draftPage.getByTestId("inbound-detail")).toContainText("0.000001");
     expect(draftMethods).toEqual(["POST", "GET"]);
+    await draftPage.getByRole("button", { name: "关闭草稿面板", exact: true }).click();
+    await draftPage.getByRole("button", { name: "准备修订入库草稿", exact: true }).click();
+    const revisionFirst = draftPage.getByRole("group", { name: "计划行 1", exact: true });
+    await revisionFirst.getByLabel("计划数量", { exact: true }).fill("7");
+    await draftPage.getByRole("button", { name: "预览入库草稿", exact: true }).click();
+    await expect(draftPage.getByTestId("inbound-draft-preview")).toContainText(draftReceipt.id);
+    expect(draftMethods).toEqual(["POST", "GET"]);
+    for (const width of [375, 768, 1440]) {
+      await draftPage.setViewportSize({ width, height: 900 });
+      expect(await draftPage.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    }
+    await draftPage.setViewportSize({ width: 375, height: 900 });
+    await draftPage.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+    expect(await draftPage.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await draftPage.evaluate(() => { document.documentElement.style.fontSize = ""; });
+    const revisionResponse = draftPage.waitForResponse(response => new URL(response.url()).pathname === `/api/wms/inbound/${draftReceipt.id}/draft`
+      && response.request().method() === "PUT");
+    await draftPage.getByTestId("confirm-inbound-draft").focus(); await draftPage.keyboard.press("Enter");
+    const revision = await revisionResponse;
+    expect(revision.status()).toBe(200);
+    const revisionReceipt = await revision.json();
+    expect(Object.keys(revisionReceipt)).toEqual(["decision", "id", "version"]);
+    expect(revisionReceipt.id).toBe(draftReceipt.id);
+    await expect(draftPage.getByText(`原修订版本：${revisionReceipt.version}`, { exact: false })).toBeVisible();
+    const revisionRead = draftPage.waitForResponse(response => new URL(response.url()).pathname === `/api/wms/inbound/${draftReceipt.id}`
+      && response.request().method() === "GET");
+    await draftPage.getByTestId("read-created-inbound").click(); expect((await revisionRead).status()).toBe(200);
+    await expect(draftPage.getByTestId("inbound-detail")).toContainText("7.000000");
+    await expect(draftPage.getByTestId("inbound-detail")).toContainText("0.000001");
+    expect(draftMethods).toEqual(["POST", "GET", "PUT", "GET"]);
     const draftStored = await draftPage.evaluate(() => JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage)]));
     expect(draftStored).not.toContain("BROWSER-IN"); expect(draftStored).not.toContain(draftReceipt.id);
     await draftPage.close();

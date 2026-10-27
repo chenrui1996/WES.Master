@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref, shallowRef, useId, watch } from 
 import QueryState from "../../components/QueryState.vue";
 import InboundCatalog from "./InboundCatalog.vue";
 import InboundDraftCreation from "./InboundDraftCreation.vue";
-import { mayCreateInboundDraft } from "./inbound-drafts";
+import { mayCreateInboundDraft, mayReviseInboundDraft } from "./inbound-drafts";
 import { ApiError, sessionState } from "../identity/identity-api";
 import { InboundResponseError, mayReadInbound, readInbound, type InboundDetail } from "./inbound";
 
@@ -13,6 +13,8 @@ const orderId = ref(props.id ?? "");
 const readable = computed(mayReadInbound);
 const creatable = computed(mayCreateInboundDraft);
 const creating = ref(false);
+const editing = shallowRef<InboundDetail>();
+const revisable = computed(mayReviseInboundDraft);
 const scope = computed(() => JSON.stringify(sessionState.subject));
 const record = shallowRef<InboundDetail>();
 const busy = ref(false); const fresh = ref(false); const error = ref(""); const loadedAt = ref("");
@@ -26,6 +28,7 @@ function cancel() { ++sequence; controller.abort(); controller = new AbortContro
 function clear() { cancel(); record.value = undefined; error.value = ""; loadedAt.value = ""; }
 watch(() => props.id, value => { orderId.value = value ?? ""; clear(); });
 watch([scope, orderId], clear, { flush: "sync" });
+watch([scope, orderId], () => { editing.value = undefined; }, { flush: "sync" });
 function connection() { online.value = navigator.onLine; if (!online.value) cancel(); }
 onMounted(() => { addEventListener("online", connection); addEventListener("offline", connection); });
 onUnmounted(() => { cancel(); removeEventListener("online", connection); removeEventListener("offline", connection); });
@@ -58,8 +61,9 @@ function attempted() { clear(); ++catalogKey.value; }
     <h1 id="inbound-title">入库收货详情</h1>
     <p class="notice">目录与详情数量按各行基础单位精确显示，不跨单位求和。
       收货成功不等于目标到位；异址未关联运输时仍待运输，不显示假上架完成。草稿另需当前写权限及部署开关；审核与收货入口尚未开放。</p>
-    <button v-if="creatable && !creating" type="button" :disabled="!online || busy" @click="creating = true">准备入库草稿</button>
+    <button v-if="creatable && !creating && !editing" type="button" :disabled="!online || busy" @click="creating = true">准备入库草稿</button>
     <InboundDraftCreation v-if="creating" @attempted="attempted" @read="select" @close="creating = false" />
+    <InboundDraftCreation v-if="editing" :draft="editing" @attempted="attempted" @read="select" @close="editing = undefined" />
     <p v-if="!readable" role="alert">缺少入库完整字段读取权限，不能查询。</p>
     <p v-if="!online" class="notice" role="status">当前离线，已加载详情仅为陈旧参考；恢复连接后请手工重新读取。</p>
     <form class="inbound-query" @submit.prevent="load">
@@ -74,6 +78,8 @@ function attempted() { clear(); ++catalogKey.value; }
       <template #empty><p>尚未查询；请显式读取当前授权的入库单。未找到不代表空单，也不代表收货完成。</p></template>
       <article v-if="record" data-test="inbound-detail">
         <h2>{{ record.code }}</h2>
+        <button v-if="revisable && record.state === 0 && !creating && !editing" type="button"
+          :disabled="!online || busy || !fresh" @click="editing = record">准备修订入库草稿</button>
         <dl><dt>入库单 UUID</dt><dd>{{ record.id }}</dd>
           <dt>仓库 UUID</dt><dd>{{ record.warehouseId }}</dd>
           <dt>状态</dt><dd>{{ states[record.state] }}</dd>

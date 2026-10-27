@@ -1,6 +1,6 @@
 # T09 入库基本流程
 
-- 状态：实施中；领域、内部持久收货事务、当前受权目录/详情和草稿创建 owner/HTTP/多行表单已验证。运营主数据依赖、公开审核/收货与最终运输持久接线未完成；草稿创建不等于完整单据生命周期。
+- 状态：实施中；领域、内部持久收货事务、当前受权目录/详情和草稿创建/修订 owner/HTTP/多行表单已验证。运营主数据依赖、来源深化、公开审核/收货与最终运输持久接线未完成；草稿保存不等于完整单据生命周期。
 - 需求：FUNC-WMS-002 / PAGE-WMS-003；DTC-WMS-002/003，VAL-01。
 - 基线：[WMS 规格](../modules/wms-and-ledger.md)、[规则](../detailed-design/05-approved-rules-and-defaults.md)、[交付顺序](TodoList.md)。
 
@@ -104,7 +104,36 @@ HTTP续接：`POST /api/wms/inbound`受独立默认false的 `Wes:WmsMasterData:I
 
 数量输入按语义规范成固定六位再存有序计划，`5`/`5.000`或规范单号大小写恢复同一请求，不因JSON decimal scale不同制造假冲突；不改变行顺序、单位、批次或数量。新增草稿不需要库位/容器/Pack，因为不运营执行；当前物料/单位仍为明确身份与精度计划，不宣称已完成完整主数据生命周期，审核/收货接线必须另核合法当前主数据。
 
+## 当前受权草稿修订续片设计
+
+按FUNC-WMS-002/PAGE-WMS-003的草稿保存补齐行计划修订。已创建单号/仓库/creator及原创建Plan永不覆盖；需要换单号/仓库时另建业务单，不能以修订绕过原创建operation。仅Draft允许全量替换1..100有序计划行；稳定行Id可保留或显式新增/删除，原历史保留。revision事实包含原期望版本与完整规范计划、可信actor/operation/correlation、原AfterVersion；header仅推进Sequence/Version且状态仍Draft。恢复先读原计划，再按序应用revision与审核/收货事实。审核不再假定sequence=1，但仍必须来自Draft；修订不能跨审核、库存或运输边界。
+
+复用创建的严格计划数量校验/规范化，创建原operation的body比较仍使用不可变原Plan，不随修订变化。修订原operation须匹配order/actor/ExpectedVersion/完整规范计划，重放即使后续已审核仍返回原AfterVersion（但复验当前完整权限）；不同tuple冲突。新修订用父单FOR UPDATE/CAS串行化，与审核/收货共用header版本，过期版本不写入；fact/header同次保存、提交前再次复验，撤权/取消/故障回滚。当前WMS从header真实CreatorId取独立`wms.inbound.write`完整Code/WarehouseId/Lines，当前read需完整八字段；不以actor替代creator、不让只读用户写。
+
+公开owner独立于创建/只读scope；HTTP为独立默认关闭`Wes:WmsMasterData:InboundDraftRevisionEnabled`控制的 `PUT /api/wms/inbound/{id}/draft`。开关依赖WMS/Identity读装配，与创建互不隐式开启；原key/client/HTTPS认证沿用创建协议，body严格为ExpectedVersion/Lines，必填/未知成员拒绝。成功200回原decision/id/version；非法400、无权403、缺单404、过期或非草稿/换tuple409。无模型/迁移变化，新增kind仍存varchar(16)，旧读应用不支持新kind，因此开始修订后回退应用须停用revision并保留支持恢复新kind的版本，不能宣称任意旧版可安全读取。
+
+客户端从新鲜Draft详情显式准备修订，只改计划行，冻结目标Id/原版本与全部原tuple；预览→二次确认，10秒Unknown及在线手工同key/body恢复，导航/换主体清旧取消，不自动写/排队或缓存。修订后显式重读当前详情，不将原修订AfterVersion当最新版本；面板不受详情刷新/离线卸载影响。真实MySQL验证多次修订后审核/收货使用新计划、旧计划与回执不变、并发修订/审核、保存后故障与当前撤权；HTTP/实际父子组合与真实浏览器验证具名路径。
+
+| Case ID | 输入/步骤 | 预期及自动化映射 |
+|---|---|---|
+| TC-T09-REV-01 | 原计划5→7→9，随后审核/实收9；恢复第一修订/创建原键 | 原Plan与原修订AfterVersion不变，当前恢复9并仅一次收货；`InboundRevisionHistoryDrivesReceiptAndDoesNotChangeOriginalCreationIdentity` |
+| TC-T09-REV-02 | 逐写三字段/read八字段缺失、真实creator非actor、后续角色/成员撤销 | 当前403/无回执；不以actor替代creator或借用仓库权；owner逐字段和`WmsInboundRevisionRechecksEveryCurrentFieldAndMembershipOnReplay` |
+| TC-T09-REV-03 | 保存后撤权/取消/抛异常；同版本双修订/审核竞争；同原键相同/不同body竞争 | header/fact原子回滚；仅一笔新事实；同tuple恢复原回执、换tuple冲突；`InboundRevisionSavedThenFailureOrCancellationRollsBack`及三个并发测试 |
+| TC-T09-REV-04 | 过期/非草稿、全量增删/顺序、最大/最小精确量、持久事实错误原版本/状态/覆盖Plan | 409或保存守卫拒绝，历史与库存不变；严格输入/跨租户/故障清洗与`InboundRevisionPersistenceGuardRejectsWrongFenceStateOrOverwrittenCreationPlan` |
+| TC-T09-REV-05 | 新鲜详情准备修订、冻结原id/version、503手工原键恢复、实际父页清详情、换所选单据 | 不自动PUT/排队/缓存；Unknown面板保持挂载、迟到不落入新单；`InboundDraftRevision.spec.ts`和既有共享表单超时/离线/身份失效测试 |
+| TC-T09-REV-06 | HTTPS Chromium双行创建后显式修订第一行5→7、键盘确认和GET读回 | PUT200三字段原回执；两行精确7/0.000001、原Plan仍5、仅一新revision且无新posting；375/768/1440及200%文字无横溢、无业务存储缓存 |
+
 ## 已执行证据
+
+### 当前受权草稿修订续片结果
+
+- 缺失`InboundWriter.ReviseAsync`编译RED已实际执行。原创建Plan保持不可变，新增Revised事实恢复完整修订计划；审核与修订同用父单锁/版本，审核仍只能由Draft开始，不再假定是第一条事实。
+- 新增39项真实MySQL owner；最终完整`WmsLedgerTests`252通过、0失败/跳过。多次修订后审核实收9而非原计划5、永久原修订版本、创建原tuple恢复、真实creator/全部当前字段、两时点核权、保存后故障/取消回滚、并发修订/审核、同原键相同/不同tuple、最大/最小精确量/全量增删/顺序、跨租户/错误上下文、安全数据库故障及持久守卫均有证据。
+- 新增34项HTTP与8项配置；定向71通过（34修订HTTP与37完整配置），最终相关Modules230通过（91入库HTTP、134WMS领域与配置、5真实HTTPS浏览器）。独立默认关闭PUT与创建互不隐式开启；严格ExpectedVersion/Lines和逐行必填字段、真实creator的完整写/read、原操作当前撤权、HTTPS/会话/client/key、过期/非草稿及安全拒绝均已核验。
+- 新增25项前端；完整40文件/922通过，vue-tsc与Vite生产构建通过。复用具名草稿多行组件和既有Unknown/超时/离线状态机，实际父页attempted清旧详情不会卸载修订；新单选择取消旧修订，原id/version/key/body冻结，额外字段/错误单据/无效或未推进版本的成功响应不被确认，成功后另读当前详情。
+- 真实HTTPS Kestrel/MySQL/Chromium在原入库变体中新增创建→显式修订第一行5到7→另读完整两行7/0.000001、键盘确认、375/768/1440及200%文字无横溢、无业务存储缓存。持久验证原Plan仍为5，仅一条Revised且没有新增posting；另外原入库执行单的审核/收货事实不变。最终客户端追加更严版本校验后重建，并再次以Release执行全部五浏览器变体，5通过；与上述230重叠，不重复累计。
+- 完整Release构建0警告/0错误，架构29通过、相关C# whitespace verify通过。模型无漂移、无新迁移。EF检查首选Host启动项目因未引用Design包拒绝；改用仓库已有WMS design-time factory/启动项目后通过，未添加依赖或更改Host配置。
+- 以上252/230/922替代上一片213/188/897的相关回归结果而不重复累计。未运行完整全仓库测试、Route全套、SQL Server/PostgreSQL或真实Pack/Broker/设备验证；本片无运输或物理控制变更。来源深化、运营主数据生命周期、公开审核/收货及最终运输持久移账仍为主体待办，T09未关闭。
 
 ### 领域首片结果
 

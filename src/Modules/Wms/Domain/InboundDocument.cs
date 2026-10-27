@@ -34,12 +34,19 @@ internal sealed class InboundDocument
             ?? throw new InvalidOperationException("The persisted inbound plan is missing.");
         var order = new InboundOrder(TenantId, WarehouseId, Code, lines);
         var expected = 0;
+        string? precedingVersion = null;
         foreach (var fact in facts)
         {
             if (fact.OrderId != Id || fact.TenantId != TenantId || fact.Sequence != ++expected)
                 throw new InvalidOperationException("Inbound history is incomplete or belongs to another order.");
             switch (fact.Kind)
             {
+                case InboundFactKind.Revised:
+                    var revision = fact.Revision();
+                    if (precedingVersion is not null && revision.ExpectedVersion != precedingVersion)
+                        throw new InvalidOperationException("Inbound revision does not follow its original version.");
+                    order.Revise(revision.Lines);
+                    break;
                 case InboundFactKind.Approved:
                     order.Approve();
                     break;
@@ -49,6 +56,7 @@ internal sealed class InboundDocument
                 default:
                     throw new InvalidOperationException("Unsupported inbound history fact.");
             }
+            precedingVersion = fact.AfterVersion;
         }
         if (expected != Sequence || order.State != State || (facts.Count > 0 && facts[^1].AfterVersion != Version))
             throw new InvalidOperationException("Inbound progress does not match its immutable history.");
@@ -62,27 +70,35 @@ internal sealed class InboundDocument
     }
 }
 
-internal enum InboundFactKind { Approved, Received }
+internal enum InboundFactKind { Approved, Received, Revised }
+
+internal sealed record InboundPlanRevision(string ExpectedVersion, IReadOnlyList<InboundPlanLine> Lines);
 
 /// <summary>Permanent actor/operation receipt; a received fact also retains the unique pending putaway tuple.</summary>
 internal sealed class InboundFact
 {
     private InboundFact() { }
     internal InboundFact(InboundDocument document, Guid operation, Guid actor, Guid correlation,
-        InboundFactKind kind, DateTimeOffset now, InboundReceiptCommand? receipt = null, Guid? posting = null)
+        InboundFactKind kind, DateTimeOffset now, InboundReceiptCommand? receipt = null, Guid? posting = null,
+        InboundPlanRevision? revision = null)
     {
         if (new[] { operation, actor, correlation }.Contains(Guid.Empty))
             throw new ArgumentException("Inbound facts require complete trusted operation identities.");
-        if (kind is not (InboundFactKind.Approved or InboundFactKind.Received)
+        if (kind is not (InboundFactKind.Approved or InboundFactKind.Received or InboundFactKind.Revised)
             || (kind == InboundFactKind.Approved && (receipt is not null || posting is not null
-                || document.State != InboundOrderState.Approved || document.Sequence != 1)))
-            throw new ArgumentException("An approval requires the first approved transition without a receipt or posting.");
+                || document.State != InboundOrderState.Approved || document.Sequence < 1)))
+            throw new ArgumentException("An approval requires an approved transition without a receipt or posting.");
+        if (kind == InboundFactKind.Revised
+            ? revision is null || receipt is not null || posting is not null || document.State != InboundOrderState.Draft
+                || document.Sequence < 1 || !Guid.TryParseExact(revision.ExpectedVersion, "D", out var version) || version == Guid.Empty
+            : revision is not null)
+            throw new ArgumentException("A revision requires an exact original version and draft-only plan.");
         if (kind == InboundFactKind.Received && (receipt is null || posting is null
             || receipt.OperationId != operation || receipt.ActorId != actor))
             throw new ArgumentException("Receipt fact must match its original command and ledger posting.");
         TenantId = document.TenantId; OrderId = document.Id; Sequence = document.Sequence;
         OperationId = operation; ActorId = actor; CorrelationId = correlation; Kind = kind; OccurredAt = now;
-        Payload = receipt is null ? "" : JsonSerializer.Serialize(receipt);
+        Payload = revision is not null ? JsonSerializer.Serialize(revision) : receipt is null ? "" : JsonSerializer.Serialize(receipt);
         ExecutionId = receipt?.ExecutionId; PostingId = posting; AfterVersion = document.Version;
     }
 
@@ -98,6 +114,17 @@ internal sealed class InboundFact
     public Guid? PostingId { get; private set; }
     public string AfterVersion { get; private set; } = "";
     public DateTimeOffset OccurredAt { get; private set; }
+
+    internal InboundPlanRevision Revision()
+    {
+        if (Kind != InboundFactKind.Revised || ExecutionId is not null || PostingId is not null)
+            throw new InvalidOperationException("This fact is not a plan-only revision.");
+        var revision = JsonSerializer.Deserialize<InboundPlanRevision>(Payload)
+            ?? throw new InvalidOperationException("The persisted inbound revision is missing.");
+        if (!Guid.TryParseExact(revision.ExpectedVersion, "D", out var version) || version == Guid.Empty || revision.Lines is null)
+            throw new InvalidOperationException("The persisted inbound revision is invalid.");
+        return revision;
+    }
 
     internal InboundReceiptCommand Receipt()
     {

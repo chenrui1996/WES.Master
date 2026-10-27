@@ -24,6 +24,7 @@ public static partial class WmsMasterDataEndpoints
         services.AddSingleton<InboundAuthority>();
         services.AddSingleton<InboundDatabase>();
         services.AddSingleton<InboundDraftAuthority>();
+        services.AddSingleton<InboundRevisionAuthority>();
         return services;
     }
 
@@ -48,6 +49,8 @@ public static partial class WmsMasterDataEndpoints
         group.MapGet("/inbound", QueryInboundAsync);
         if (app.Services.GetRequiredService<WmsMasterDataSettings>().InboundDraftCreationEnabled)
             group.MapPost("/inbound", CreateInboundDraftAsync);
+        if (app.Services.GetRequiredService<WmsMasterDataSettings>().InboundDraftRevisionEnabled)
+            group.MapPut("/inbound/{id:guid}/draft", ReviseInboundDraftAsync);
         group.MapGet("/master-data-events", (int? offset, int? limit, HttpContext http, MasterDataDatabase database, CancellationToken ct) =>
             ReadCreationEventsAsync(new(offset ?? 0, limit ?? 25), http, database, ct));
         group.MapGet("/master-data-events/summary", ReadCreationEventSummaryAsync);

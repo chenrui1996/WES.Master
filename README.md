@@ -9,6 +9,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 ## 文档工作区
 
+T05客户端续片：[消息owner选择与WMS事件客户端](docs/implementation/143-t05-owner-selected-message-client.md)/[证据](docs/implementation/144-t05-owner-selected-message-client-tests.md)接通同一路由Platform/Wms成对模块+权限门禁、切换清旧/取消与独立九字段Pending读取，保留Platform筛选/统计/受权重放并锁操作期间owner切换。前端521/严格构建、真实HTTP及三套HTTPS浏览器16、架构29通过，Release零警告错误；跨owner统计/统一快照、WMS发布消费与真实Broker仍缺。
+
 T05第二owner续片：[WMS创建事件只读诊断](docs/implementation/141-t05-wms-creation-event-diagnostics.md)/[证据](docs/implementation/142-t05-wms-creation-event-diagnostics-tests.md)增加独立当前消息字段/creator授权、SQL前过滤与精确九字段API，无payload/虚构投递状态；新增38真实owner/13HTTP，相关367通过、Release零警告错误、无模型漂移。第二owner客户端/聚合、WMS发布消费与真实Broker仍未完成。
 
 T08客户端续片：[禁用仓库创建表单](docs/implementation/139-t08-disabled-warehouse-creation-client.md)/[证据](docs/implementation/140-t08-disabled-warehouse-creation-client-tests.md)接通当前write字段、预览/二次确认、冻结原键未知恢复及显式GET。前端462/严格构建通过，WMS领域/HTTP/两套真实HTTPS浏览器146+架构29通过、Release零警告错误；默认不开放后端写装配，无库位创建/启停或完整生命周期。

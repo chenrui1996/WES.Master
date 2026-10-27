@@ -12,6 +12,8 @@ const readable = computed(() => requiredMessageFields.every(field => fields.valu
 const canPrepare = computed(() => readable.value && ["ContractName", "SchemaVersion", "Attempts"].every(field => fields.value.has(field))
   && replayMessageFields.every(field => allMessageFields("replay").has(field)));
 const selected = shallowRef<MessageRow | null>(null);
+const emit = defineEmits<{ replayOpen: [open: boolean] }>();
+watch(selected, value => emit("replayOpen", value !== null), { flush: "sync" });
 const countRevision = ref(0);
 const filterId = useId();
 const status = ref(""); const createdFrom = ref(""); const createdBefore = ref("");

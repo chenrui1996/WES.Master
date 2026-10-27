@@ -1,4 +1,5 @@
 import type { ModuleCode } from "./module-catalog";
+import { availableMessageOwners } from "./notifications/message-owners";
 
 const entries = [
   { path: "/account/sessions", name: "会话与安全", short: "会" },
@@ -8,7 +9,7 @@ const entries = [
   { path: "/admin/configuration", name: "配置与语言", short: "配", module: "Platform", permission: ["platform.settings.read", "platform.dictionary.read"] },
   { path: "/admin/audit", name: "审计与登录事件", short: "审", module: "Platform", permission: ["platform.audit.read"] },
   { path: "/files", name: "暂存文件", short: "文", module: "Platform", permission: ["platform.files.read"] },
-  { path: "/notifications/messages", name: "Platform 消息诊断", short: "消", module: "Platform", permission: ["platform.messages.read"] },
+  { path: "/notifications/messages", name: "消息诊断", short: "消", messageOwners: true },
   { path: "/wms/locations", name: "仓库与库位详情", short: "仓", module: "Wms", permission: ["wms.warehouses.read", "wms.locations.read"] },
 ] as const;
 
@@ -17,6 +18,7 @@ export function getNavigation(
   canRead: (permission: string) => boolean,
 ) {
   return entries.filter(entry => {
+    if ("messageOwners" in entry) return availableMessageOwners(isModuleEnabled, canRead).length > 0;
     if (!("module" in entry)) return true;
     if (!isModuleEnabled(entry.module)) return false;
     return entry.permission.some(canRead);

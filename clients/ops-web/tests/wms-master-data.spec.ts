@@ -141,10 +141,54 @@ test("real WMS definitions and explicitly enabled warehouse creation retain curr
   await expect(details).toHaveCount(0);
   await expect(page.getByTestId("master-data-catalog")).toHaveCount(0);
   await expect(page.getByRole("region", { name: "主数据详情", exact: true })).toContainText("PermissionDenied");
+  await page.getByTestId("navigation-toggle").click();
+  await page.getByRole("navigation", { name: "管理导航" }).getByRole("link", { name: "消息诊断", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "消息诊断 · WMS 创建事件", exact: true })).toBeVisible();
+  const owner = page.getByLabel("消息 owner", { exact: true });
+  await expect(owner).toHaveValue("Wms");
+  await expect(owner.locator("option")).toHaveCount(1);
+  await owner.focus(); await page.keyboard.press("Tab");
+  const eventRead = page.getByRole("button", { name: "读取 WMS 创建事件", exact: true });
+  await expect(eventRead).toBeFocused();
+  expect(await eventRead.evaluate(element => element.matches(":focus-visible"))).toBe(true);
+  const eventsResponse = page.waitForResponse(response => new URL(response.url()).pathname === "/api/wms/master-data-events");
+  await page.keyboard.press("Enter");
+  const events = await eventsResponse;
+  expect(events.status()).toBe(200); expect(events.headers()["cache-control"]).toBe("no-store");
+  const eventRows = (await events.json() as { rows: { eventId: string; aggregateId: string; occurredAt: string }[] }).rows;
+  expect(eventRows).toHaveLength(creation ? 3 : 2);
+  const eventList = page.getByTestId("wms-events");
+  await expect(eventList).toContainText(warehouse); await expect(eventList).toContainText(location);
+  for (const row of eventRows) {
+    await expect(eventList).toContainText(row.eventId);
+    await expect(eventList).toContainText(row.occurredAt);
+  }
+  for (const width of [375, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  }
+  await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
+  await context.setOffline(true); await expect(eventRead).toBeDisabled();
+  const beforeEventsReconnect = methods.length;
+  await context.setOffline(false); await expect(eventRead).toBeEnabled();
+  expect(methods.length).toBe(beforeEventsReconnect);
+  await expect(page.getByRole("region", { name: "WMS 创建事件", exact: true })).toContainText("陈旧");
+  await writeFile(join(coordination, "events-revoke.request"), "revoke");
+  await expect.poll(async () => readFile(join(coordination, "events-revoke.confirmed"), "utf8").catch((error: NodeJS.ErrnoException) => {
+    if (error.code === "ENOENT") return "pending";
+    throw error;
+  })).toBe("revoked");
+  const deniedEvents = page.waitForResponse(response => new URL(response.url()).pathname === "/api/wms/master-data-events");
+  await eventRead.click(); expect((await deniedEvents).status()).toBe(403);
+  await expect(eventList).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "WMS 创建事件", exact: true })).toContainText("PermissionDenied");
   const stored = await page.evaluate(() => JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage)]));
   for (const secret of [warehouse, location, locationDefinition.packId, "HTTP location", "BROWSER-WH", "Browser warehouse", "accessToken"])
     expect(stored).not.toContain(secret);
-  expect(methods.length).toBe(creation ? 8 : 5);
+  for (const row of eventRows) expect(stored).not.toContain(row.eventId);
+  expect(methods.length).toBe(creation ? 10 : 7);
   expect(methods.filter(method => method === "POST")).toHaveLength(creation ? 1 : 0);
   expect(methods.every(method => method === "GET" || creation && method === "POST")).toBe(true);
   expect(failures).toEqual([]);

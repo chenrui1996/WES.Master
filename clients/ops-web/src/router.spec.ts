@@ -9,6 +9,32 @@ afterEach(() => {
 });
 
 describe("module-aware routes", () => {
+  it.each([false, true])("fails closed for the multi-owner message route when catalog ready=%s but no owner is enabled", async ready => {
+    sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false,
+      credentialVersion: "version", grants: [{ permission: "wms.messages.read", scope: 0, departments: [], fields: ["EventId"] }] };
+    vi.spyOn(moduleCatalog, "load").mockResolvedValue(ready);
+    const enabled = vi.spyOn(moduleCatalog, "isEnabled").mockReturnValue(false);
+    await router.push("/account/sessions"); await router.push("/notifications/messages");
+    expect(router.currentRoute.value.path).toBe("/module-unavailable");
+    expect(router.currentRoute.value.query.reason).toBe(ready ? "disabled" : "catalog");
+    if (ready) expect(router.currentRoute.value.query.module).toBe("Wms");
+    else expect(enabled).not.toHaveBeenCalled();
+    await router.push("/account/sessions");
+  });
+  it.each([
+    ["wms.messages.read", "Wms", "/notifications/messages"],
+    ["wms.messages.read", "Platform", "/account/sessions"],
+    ["platform.messages.read", "Wms", "/account/sessions"],
+  ])("pairs message permission %s with enabled owner %s", async (permission, module, expected) => {
+    sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false,
+      credentialVersion: "version", grants: [{ permission, scope: 0, departments: [], fields: ["EventId"] }] };
+    vi.spyOn(moduleCatalog, "load").mockResolvedValue(true);
+    vi.spyOn(moduleCatalog, "isEnabled").mockImplementation(code => code === module);
+    await router.push("/account/sessions");
+    await router.push("/notifications/messages");
+    expect(router.currentRoute.value.path).toBe(expected);
+    await router.push("/account/sessions");
+  });
   it.each([true, false])("gates direct Platform message navigation with read permission %s", async allowed => {
     sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false,
       credentialVersion: "version", grants: allowed ? [{ permission: "platform.messages.read", scope: 2, departments: [], fields: ["EventId"] }] : [] };

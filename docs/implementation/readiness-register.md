@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+最新T05双owner客户端：[设计](143-t05-owner-selected-message-client.md)/[证据](144-t05-owner-selected-message-client-tests.md)已将WMS创建事件接入原消息路由，Platform/Wms模块+permission成对OR、owner切换清旧/取消、Platform重放锁选择、独立当前WMS九字段读取及真实当前撤EventId后403。新增59前端/导航/路由，最终521/严格构建、HTTP/三套真实HTTPS浏览器16+架构29通过，Release零警告错误。历史“第二owner客户端缺失”已由本片替代；跨owner统计/统一快照、WMS publisher/Inbox与真实Broker仍未实现，T04–T08整包保持未关闭。
+
 最新T05第二owner：[WMS创建事件诊断](141-t05-wms-creation-event-diagnostics.md)/[证据](142-t05-wms-creation-event-diagnostics-tests.md)已交付WMS owner/API九字段pending创建事件、独立`wms.messages.read`全字段、当前creator交集SQL前过滤与有界页，复用WMS目录过滤而不跨私表。新增38owner/13HTTP，最终179+WMS领域/HTTP/既有两套真实浏览器159+架构29=367通过，Release零警告错误/无模型漂移；客户端第二owner与统计/发布消费/真实Broker仍缺，T05整包不关闭。
 
 最新T08客户端：[仓库创建表单](139-t08-disabled-warehouse-creation-client.md)/[证据](140-t08-disabled-warehouse-creation-client-tests.md)已交付当前write字段可见、精确预览/二次确认、10秒确认未知原键手工恢复、创建/查询互锁与显式读取回执。新增35客户端，全套462/严格构建通过，相关WMS领域/HTTP/真实HTTPS Chromium只读+写两变体146、架构29通过，Release零警告错误。此前“仓库表单未完成”已被本片替代；位置创建/真实Pack/树层巷/编辑启停/容器库存闭环与T08整包仍缺，其余T04–T07也不虚关闭。

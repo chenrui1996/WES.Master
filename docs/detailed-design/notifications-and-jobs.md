@@ -20,6 +20,8 @@
 
 ## 2. 功能与契约
 
+现有[消息owner选择与WMS事件客户端](../implementation/143-t05-owner-selected-message-client.md)/[证据](../implementation/144-t05-owner-selected-message-client-tests.md)替代历史“仅Platform页面/第二owner客户端缺失”：原路由通过Platform/Wms各自模块+当前permission成对OR，选择后只查该owner公共API。切换卸载取消/清旧，Platform重放面板打开锁owner；WMS只显示九字段创建事件，无虚构attempt/Inbox0/统计。前端521、真实HTTP/三套浏览器16、架构29通过；跨owner统一快照/统计、WMS发布消费与真实Broker仍未关闭。
+
 第二owner只读基础现有[WMS创建事件API](../implementation/141-t05-wms-creation-event-diagnostics.md)/[证据](../implementation/142-t05-wms-creation-event-diagnostics-tests.md)：当前`wms.messages.read`九字段完整creator范围交集，tenant/creator在SQL先过滤后分页；仅现有Pending创建事实，不显示payload/虚构attempt/Inbox0。独立公共owner读取，无第二owner客户端/跨owner统一快照/统计或真实Broker验收。
 
 T05/T08现增加[WMS创建原子Outbox](../implementation/135-t05-t08-wms-creation-outbox.md)/[证据](../implementation/136-t05-t08-wms-creation-outbox-tests.md)：仅新禁用仓/位创建事实在WMS owner事务派生`wms.master-data.created`/v1安全事件，operation重放不追加，旧事实不自动回填。不含WMS publisher/Inbox或跨owner诊断统计，Pending不是已投递/已启用/可分配；不代签DTC-NTF-001/002真实Broker窗口。

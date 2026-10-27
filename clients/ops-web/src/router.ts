@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from "vue-router";
 import { canRead, sessionState } from "./features/identity/identity-api";
 import { moduleCatalog, type ModuleCode } from "./features/module-catalog";
 import LoginPage from "./features/identity/LoginPage.vue";
+import { messageOwners, type OwnerPermission } from "./features/notifications/message-owners";
 
 declare module "vue-router" {
   interface RouteMeta {
@@ -9,6 +10,7 @@ declare module "vue-router" {
     permission?: string;
     anyPermission?: readonly string[];
     configuration?: boolean;
+    ownerPermissions?: readonly OwnerPermission[];
   }
 }
 
@@ -25,8 +27,8 @@ export const router = createRouter({
     { path: "/admin/configuration", component: () => import("./features/platform/SettingsPage.vue"), meta: { moduleCode: "Platform", configuration: true } },
     { path: "/admin/audit", component: () => import("./features/platform/AuditPage.vue"), meta: { moduleCode: "Platform", permission: "platform.audit.read" } },
     { path: "/files", component: () => import("./features/platform/FilesPage.vue"), meta: { moduleCode: "Platform", permission: "platform.files.read" } },
-    { path: "/notifications/messages", component: () => import("./features/notifications/MessagesPage.vue"),
-      meta: { moduleCode: "Platform", permission: "platform.messages.read" } },
+    { path: "/notifications/messages", component: () => import("./features/notifications/MessageDiagnosticsPage.vue"),
+      meta: { ownerPermissions: messageOwners } },
     { path: "/wms/locations", component: () => import("./features/wms/MasterDataPage.vue"),
       meta: { moduleCode: "Wms", anyPermission: ["wms.warehouses.read", "wms.locations.read"] } },
     { path: "/:pathMatch(.*)*", redirect: "/account/sessions" },
@@ -35,6 +37,16 @@ export const router = createRouter({
 router.beforeEach(async to => {
   if (!sessionState.subject && to.path !== "/login") return { path: "/login", query: { returnUrl: to.path } };
   if (sessionState.subject && to.path === "/login") return "/account/sessions";
+  if (to.meta.ownerPermissions) {
+    const owners = to.meta.ownerPermissions;
+    if (!await moduleCatalog.load())
+      return { path: "/module-unavailable", query: { module: owners[0]?.moduleCode, reason: "catalog", returnUrl: to.fullPath } };
+    const enabled = owners.filter(owner => moduleCatalog.isEnabled(owner.moduleCode));
+    if (!enabled.length)
+      return { path: "/module-unavailable", query: { module: owners.find(owner => canRead(owner.permission))?.moduleCode ?? owners[0]?.moduleCode,
+        reason: "disabled", returnUrl: to.fullPath } };
+    if (!enabled.some(owner => canRead(owner.permission))) return "/account/sessions";
+  }
   if (to.meta.moduleCode) {
     const moduleCode = to.meta.moduleCode;
     if (!await moduleCatalog.load())

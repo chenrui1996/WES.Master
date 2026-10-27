@@ -21,6 +21,7 @@ public sealed partial class IdentityHttpTests
     {
         var ids = await WmsHostAsync(warehouseCreation);
         if (warehouseCreation) await GrantWarehouseCreationAsync();
+        await GrantCreationEventReadAsync();
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "WES.slnx"))) root = root.Parent;
         Assert.NotNull(root);
@@ -83,6 +84,7 @@ public sealed partial class IdentityHttpTests
             }
             Assert.True(process.ExitCode == 0, await output + Environment.NewLine + await errors);
             Assert.True(File.Exists(Path.Combine(coordination, "revoke.confirmed")), "The real current role must have been revoked.");
+            Assert.True(File.Exists(Path.Combine(coordination, "events-revoke.confirmed")), "The real message-field role must have been revoked.");
 
             async Task RevokeWhenRequestedAsync()
             {
@@ -96,12 +98,23 @@ public sealed partial class IdentityHttpTests
                 role.Change(role.Version, true, role.Rules.Select(rule => rule with { Fields = rule.Fields.Remove("Name") }));
                 await writer.SaveChangesAsync(deadline.Token);
                 await File.WriteAllTextAsync(Path.Combine(coordination, "revoke.confirmed"), "revoked", deadline.Token);
+                while (!File.Exists(Path.Combine(coordination, "events-revoke.request")))
+                {
+                    if (process.HasExited) return;
+                    await Task.Delay(50, deadline.Token);
+                }
+                var eventRole = await writer.Roles.SingleAsync(item => item.Code == "WMS-EVENT-READ", deadline.Token);
+                eventRole.Change(eventRole.Version, true, eventRole.Rules.Select(rule => rule with { Fields = rule.Fields.Remove("EventId") }));
+                await writer.SaveChangesAsync(deadline.Token);
+                await File.WriteAllTextAsync(Path.Combine(coordination, "events-revoke.confirmed"), "revoked", deadline.Token);
             }
         }
         finally
         {
             File.Delete(Path.Combine(coordination, "revoke.request"));
             File.Delete(Path.Combine(coordination, "revoke.confirmed"));
+            File.Delete(Path.Combine(coordination, "events-revoke.request"));
+            File.Delete(Path.Combine(coordination, "events-revoke.confirmed"));
             Directory.Delete(coordination);
         }
         await using var verify = OpenWmsMasterData();

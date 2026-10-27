@@ -87,7 +87,7 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
   }
   const messageRequests: string[] = [];
   page.on("request", request => { if (new URL(request.url()).pathname === "/api/platform/messages") messageRequests.push(request.method()); });
-  await nav.getByRole("link", { name: "Platform 消息诊断", exact: true }).click();
+  await nav.getByRole("link", { name: "消息诊断", exact: true }).click();
   await expect(page.getByRole("heading", { name: "消息诊断 · 仅 Platform" })).toBeVisible();
   expect(messageRequests).toEqual([]);
   const firstCounts = page.waitForResponse(response => new URL(response.url()).pathname === "/api/platform/messages/summary");

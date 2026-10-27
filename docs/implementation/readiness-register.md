@@ -13,6 +13,8 @@
 
 T09 [入库持久事务续片](173-t09-inbound-basic-flow.md)已验证单据/事实/ledger 原子提交、永久原回执、不同 balance 的同单防超收及故障/取消全回滚。最终真实账本120、领域118、架构29通过，Release0/0、EF无模型漂移；较早联合主数据353通过，不重复合计。迁移仅在批准的 wes_test 应用；内部 primitive 未核运营启停/容器/schema、未开放 HTTP/页面或投递运输，不构成 T09 整包关闭或现场许可。
 
+T09 后续[当前授权只读详情](173-t09-inbound-basic-flow.md)已接通公开owner/GET与具名页面，替代上片“无HTTP/页面”的只读部分：真实creator/部门、完整独立字段、读后复验、一致快照与精确string数量/待运输均验证。新增23owner/14HTTP/54前端及1真实浏览器变体；最终owner143、Modules137含五WMS浏览器、前端824/严格构建通过。当前为已知UUID只读，不开放运营写、不具备目录/草稿/收货表单；主数据启停/容器和最终运输仍是主体依赖。
+
 最新T07目录：[当前实体附件目录](169-t07-current-entity-attachment-catalog.md)/[证据](170-t07-current-entity-attachment-catalog-tests.md)已验证固定仓/位集合GET、实际精确引用/计数、当前实体两时点和逐字段文件scope SQL过滤后分页，暂存仍拒绝绑定。新增30真实owner/28 HTTP，相关166+138含既有HTTPS文件浏览器+29架构=333；随后精确最终新API28/架构29及Release0/0通过，不重复累计。历史“无目录API”已替代；客户端、真实扫描/病毒库/ACL及T07整包仍缺。
 
 最新T07写：[永久具名绑定/解绑](167-t07-durable-business-file-bindings.md)/[证据](168-t07-durable-business-file-bindings-tests.md)实现当前双owner Attach/Detach和全部既有来源实体read、精确引用/计数/版本/审计/永久操作回执单事务、锁后复验与严格PUT/DELETE。新增30真实owner/32 HTTP，首轮620项、来源RED修正后最终282项含六套既有HTTPS浏览器、Release0/0通过，不重复累计。MySQL1213通过先锁父文件根治；来源撤权/未登记owner不允许另绑，恢复只返回原提交事实。历史“无绑定/解绑应用入口”已由本片替代；仍无完整业务附件目录/客户端或真实病毒库/ACL，不关闭T07。

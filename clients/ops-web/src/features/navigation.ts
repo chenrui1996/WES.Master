@@ -13,6 +13,7 @@ const entries = [
   { path: "/wms/locations", name: "仓库与库位详情", short: "仓", module: "Wms", permission: ["wms.warehouses.read", "wms.locations.read"] },
   { path: "/wms/inventory", name: "库存与保护量", short: "存", module: "Wms", permission: ["wms.inventory.read"] },
   { path: "/wms/ledger", name: "库存流水", short: "流", module: "Wms", permission: ["wms.ledger.read"] },
+  { path: "/wms/inbound", name: "入库收货详情", short: "入", module: "Wms", permission: ["wms.inbound.read"] },
 ] as const;
 
 export function getNavigation(

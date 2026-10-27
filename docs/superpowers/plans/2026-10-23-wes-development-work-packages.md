@@ -193,6 +193,7 @@
 
 - [x] [入库领域首片](../../implementation/173-t09-inbound-basic-flow.md)：多行计划/审核/部分收货、原操作/执行身份去重、同址无运输、异址精确最终到达；新增6项，领域118/架构29/Release0/0通过。该片为内部状态机，持久事务、当前授权 HTTP 与具名页面仍待实施，不关闭本包。
 - [x] [内部持久收货事务](../../implementation/173-t09-inbound-basic-flow.md)：header/append-only事实/ledger同次提交，永久回执、父单锁+版本防不同balance并发超收，保存后故障/取消全回滚。最终真实账本120、领域118/架构29、Release0/0及模型无漂移；较早联合主数据353通过，重叠不累计。仅内部primitive；仓/位启停/容器/账维度、当前授权HTTP/页面、Outbox运输及精确最终到达持久移账仍待实施，不关闭本包。
+- [x] [当前授权只读HTTP/入库详情页](../../implementation/173-t09-inbound-basic-flow.md)：真实creator/部门及完整八字段、读后核验、一致快照/精确数量和待运输；新增23owner/14HTTP/54前端及1真实HTTPS浏览器。最终owner143、Modules137含领域118与五WMS浏览器、前端824/严格构建通过。已知UUID只读不等于目录/多行草稿/审核/收货表单；运营主数据、公开写及最终运输仍待实施，不关闭本包。
 
 **Files:** `src\Modules\Wms\Features\Inbound\{SaveInbound.cs,ApproveInbound.cs,ReceiveGoods.cs,RequestPutaway.cs,ApplyArrival.cs}`；`clients\ops-web\src\features\wms\InboundPage.vue`；`tests\Modules\Wms\InboundTests.cs`。
 

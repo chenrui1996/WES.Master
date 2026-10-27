@@ -1,6 +1,6 @@
 # T09 入库基本流程
 
-- 状态：实施中；领域与内部持久收货事务已验证，当前授权 HTTP/页面及最终运输持久接线未完成。
+- 状态：实施中；领域、内部持久收货事务及当前授权只读 HTTP/详情页面已验证，运营主数据依赖、公开写与最终运输持久接线未完成。
 - 需求：FUNC-WMS-002 / PAGE-WMS-003；DTC-WMS-002/003，VAL-01。
 - 基线：[WMS 规格](../modules/wms-and-ledger.md)、[规则](../detailed-design/05-approved-rules-and-defaults.md)、[交付顺序](TodoList.md)。
 
@@ -43,7 +43,19 @@
 
 本片是内部事务 primitive，不注册公开写入口。尚未核验仓/位启用、真实容器及现场位置 schema；测试专用禁用仓/已有 balance 只验证原子事务，不代表允许运营收货。公开业务前必须补齐这些主体校验和当前字段/资源/会话权限，不能默认启用或拿任意 UUID 代替主数据。当前只接受已存在目标 balance；创建合法账维度仍待接线。
 
-异址收货事实耐久保留唯一原 tuple，库存仍在收货位，状态 Executing、运输未关联；它不是已投递 Outbox 或已创建运输的证明。本片未扩展发布器、未实现最终到达的持久移账；这些与授权 HTTP、具名页面仍属 T09 主体待办，不能归为外部验收关闭。
+异址收货事实耐久保留唯一原 tuple，库存仍在收货位，状态 Executing、运输未关联；它不是已投递 Outbox 或已创建运输的证明。持久事务片未扩展发布器、未实现最终到达的持久移账；当前授权只读 HTTP/具名详情由下述续片补齐，公开写与运输仍属 T09 主体待办，不能归为外部验收关闭。
+
+## 当前受权详情续片设计
+
+按 PAGE-WMS-003 接入一个只读具名 `GET /api/wms/inbound/{id}`，复用现有默认关闭 WMS/Identity 部署门禁，不创建默认角色或写入口。公开 WMS owner 私有持有 DbContext；Host 仅通过 Platform 公开 owned-resource authority 核验 `wms.inbound.read`，真实 creator 来自 WMS header，客户端不能提供 creator/部门/权限。
+
+完整详情字段固定为 Id/Code/WarehouseId/State/Version/CreatedAt/Lines/Receipts；需完整当前字段集合，大小写精确，不借用仓库、库存或流水权限。Lines 为最多100计划行及已收/待收数量；Receipts 为原单元、行/容器/收货位/目标位、精确数量和 RequiresTransport/Arrived/TransportId。公共状态为独立枚举，数量统一固定六位 decimal string；不返回租户/creator/actor/operation、JSON存储、账本内部实现或假运输状态。
+
+先读取header定位真实creator并核权，再以独立 RepeatableRead 事务读取header与完整事实、恢复领域不变量并投影；释放读事务后再次核验当前完整字段权限，取消或撤权不返回先前投影。该详情返回单据完整事实而非跨页固定快照；后续大单历史分页独立扩展，不静默截断。缺失/跨租户返回404、无权403、空ID400；数据库错误按既有安全WMS异常记录无敏感细节，坏历史显式失败而非空成功。无库存、事实、审计或Outbox写效果。
+
+验证门槛：真实 MySQL 精确2+3/剩余、异址待运输、真实creator/逐字段/租户隔离、两时点撤权/取消、快照一致、异常清洗；真实HTTPS/当前Platform角色和会话、严格响应shape/数量string、默认不装配及无写路由。此片不替代运营启停/容器及收货写授权。
+
+具名只读客户端同时接通 `/wms/inbound` 与 `/:id`：Wms模块/独立read入口门禁、完整八字段客户端提示、已知UUID显式读取（无目录/无自动提交）。计划与收货卡片精确显示string数量，使用BigInt验证计划=已收+待收及收货逐行合计/状态一致，不用Number计算数量。严格拒绝额外字段/重复身份/错误目标/非法精度或假运输状态。换ID/会话/字段权限清旧并取消请求，迟到丢弃；离线/503只保留明确陈旧的同单详情，401/403/404/合同错误清空；重连不自动查询。只读无预览确认/写动作，不把查不到当空单或提供假创建入口。该UUID详情不是完整目录或写表单。
 
 ## 已执行证据
 
@@ -64,3 +76,15 @@
 - 完整 Release 构建 0 警告/0 错误；相关 C# whitespace 格式化通过；EF `has-pending-model-changes` 无漂移。
 - EF 生成迁移 WmsInboundReceipts 已在批准的 wes_test 真库验证。Up 仅新增入库单/事实两表、tenant 复合外键/唯一索引，Down 仅删除本片两表；不自动迁移生产。
 - 本片没有 HTTP/前端变更，未重跑 HTTP、浏览器、前端或 Route 套件；未验证 SQL Server/PostgreSQL、真实 Pack/Broker/设备。保留明确待办，不宣称 T09 整包完成。
+
+### 当前授权只读 HTTP/详情客户端续片结果
+
+- 缺失 InboundSubject/IInboundAuthorization 的编译 RED 已实际执行，随后接通公开只读 owner、Host 当前 Platform authority 与具名页面，不开放内部 writer。
+- 新增23项真实 MySQL 读取用例；最终账本/入库读联合143通过、0失败/跳过。逐字段及真实 creator、跨租户/无效上下文、读后撤权/取消、脏owner/已有事务拒绝、数据库异常清洗与损坏JSON显式失败均已验证。
+- 确定性拦截在读事务header已读取后提交新收货：首个返回同一旧快照，下一显式读取返回新事实；不会把旧header拼接新history。读请求无新库存/事实/Outbox效果。
+- 新增14项HTTP，覆盖精确公开shape/六位string/0.000001、默认不装配、无写路由、HTTPS/登录/当前会话、独立八字段、Own真实creator、实际creator部门迁移后拒绝、跨租户与伪造header不越权。
+- 新增54前端用例（含入口/路由），全前端37文件/824通过，vue-tsc与Vite生产构建通过。包含超出JS整数精度的22位计划数、BigInt逐行核对、同址完成/异址待运输、非法响应清旧、迟到/离线/撤权及陈旧重试。
+- 真实HTTPS Kestrel/MySQL/Chromium新增入库变体：实际导航、键盘焦点/Enter、精确DOM数量、375/768/1440宽度与375叠加200%文字无横溢、离线不自动刷新、独立Platform owner移除Lines字段后403清旧、无业务存储缓存。首轮17通过/1失败定位为测试整页goto丢失刻意驻内存的登录态，改为真实SPA导航后全部通过，未改认证政策。
+- 最终Modules相关137通过，包含14 HTTP、118 WMS领域、5个真实WMS浏览器变体；与143 owner/824前端不混算独立需求覆盖。既有四个浏览器变体全部重跑。
+- 最终架构29项通过；完整Release构建0警告/0错误，相关C# whitespace与git diff检查通过，EF模型无漂移。
+- 当前页是已知UUID只读详情，不是完整目录或草稿/审核/收货表单；未重跑无关Route/附件专用浏览器/全部Platform套件，未验证其他Provider或真实Pack/Broker/设备。无新迁移，不宣称T09整包完成。

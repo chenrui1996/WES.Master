@@ -9,6 +9,7 @@
 
 | 切片 | 范围/设计 | 测试/证据状态 |
 |---|---|---|
+| T09 当前授权只读入库详情 | FUNC-WMS-002/PAGE-WMS-003，DTC-WMS-002/003及UI读取适用子集；[设计及证据](implementation/173-t09-inbound-basic-flow.md) | 新增23owner/14HTTP/54前端及1真实HTTPS浏览器；最终owner143、Modules137含领域118及五WMS浏览器、前端824/严格构建通过。独立字段/真实creator与部门、读后核验、完整一致快照/精确数量及待运输；已知UUID详情不等于目录/公开写/运营主数据或完整T09 |
 | T09 入库持久事务续片 | FUNC-WMS-002/PAGE-WMS-003，DTC-WMS-002/003、VAL-01 事务子集；[设计及证据](implementation/173-t09-inbound-basic-flow.md) | 最终真实MySQL账本120、WMS领域118/架构29、Release0/0及模型无漂移；较早联合主数据353通过，重叠不累计。单据/事实/ledger同事务、原回执、同单不同balance并发与故障/取消回滚；仅内部primitive，运营主数据/当前授权HTTP/页面/Outbox运输及最终到达持久移账仍待实施 |
 | T09 入库领域首片 | FUNC-WMS-002/PAGE-WMS-003，DTC-WMS-002/003、VAL-01 领域子集；[设计及证据](implementation/173-t09-inbound-basic-flow.md) | 新增6项，WMS领域118/架构29通过、Release0/0；多行/部分收货/超收拒绝/同址无运输/异址待确认及精确到达。尚无持久 owner、当前授权 HTTP 或页面，不宣称 T09 基本链路已完成 |
 | T07 当前实体附件客户端基本软件 | PAGE-PLAT-007/FUNC-PLAT-005，DTC-UI 与引用写适用子集；[设计](implementation/171-t07-current-entity-attachment-client.md) | [证据](implementation/172-t07-current-entity-attachment-client-tests.md)：新增40前端，全前端770及严格构建、真实MySQL owner482、HTTP/既有浏览器/WMS领域178、架构29通过，重叠不累加；原元组二次确认/未知恢复及实际父子组合验证，专用组合浏览器和外部证据按[TodoList](implementation/TodoList.md)后置 |

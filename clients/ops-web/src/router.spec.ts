@@ -9,6 +9,26 @@ afterEach(() => {
 });
 
 describe("module-aware routes", () => {
+  it("preserves the approved known-ID inbound detail route behind its own authority", async () => {
+    sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false,
+      credentialVersion: "version", grants: [{ permission: "wms.inbound.read", scope: 0, departments: [], fields: ["Id"] }] };
+    vi.spyOn(moduleCatalog, "load").mockResolvedValue(true); vi.spyOn(moduleCatalog, "isEnabled").mockReturnValue(true);
+    const id = "77966ccd-f1dd-412d-8e45-adb475608842";
+    await router.push(`/wms/inbound/${id}`);
+    expect(router.currentRoute.value.params.id).toBe(id);
+    expect(router.currentRoute.value.path).toBe(`/wms/inbound/${id}`);
+    await router.push("/account/sessions");
+  });
+  it.each([
+    [true, "wms.inbound.read", "/wms/inbound"], [true, "wms.inventory.read", "/account/sessions"],
+    [false, "wms.inbound.read", "/module-unavailable"],
+  ])("gates inbound navigation with enabled=%s permission=%s", async (enabled, permission, expected) => {
+    sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false,
+      credentialVersion: "version", grants: [{ permission, scope: 0, departments: [], fields: ["Id"] }] };
+    vi.spyOn(moduleCatalog, "load").mockResolvedValue(true); vi.spyOn(moduleCatalog, "isEnabled").mockReturnValue(enabled);
+    await router.push("/account/sessions"); await router.push("/wms/inbound");
+    expect(router.currentRoute.value.path).toBe(expected); await router.push("/account/sessions");
+  });
   it.each([
     [true, "wms.ledger.read", "/wms/ledger"], [true, "wms.inventory.read", "/account/sessions"],
     [false, "wms.ledger.read", "/module-unavailable"],

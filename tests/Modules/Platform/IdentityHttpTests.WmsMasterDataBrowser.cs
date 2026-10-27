@@ -14,12 +14,13 @@ namespace Wes.Modules.Tests.Platform;
 public sealed partial class IdentityHttpTests
 {
     [Theory]
-    [InlineData(false, false, false)]
-    [InlineData(true, false, false)]
-    [InlineData(false, true, false)]
-    [InlineData(false, false, true)]
+    [InlineData(false, false, false, false)]
+    [InlineData(true, false, false, false)]
+    [InlineData(false, true, false, false)]
+    [InlineData(false, false, true, false)]
+    [InlineData(false, false, false, true)]
     [Trait("CaseId", "WMS-CLIENT-06")]
-    public async Task RealBrowserReadsWarehouseAndLocationAndClearsDetailsAfterCurrentRevocation(bool warehouseCreation, bool inventoryRead, bool locationCreation)
+    public async Task RealBrowserReadsWarehouseAndLocationAndClearsDetailsAfterCurrentRevocation(bool warehouseCreation, bool inventoryRead, bool locationCreation, bool inboundRead)
     {
         var schema = new LocationHttpSchema();
         var ids = await WmsHostAsync(warehouseCreation, locationCreation, locationCreation
@@ -29,6 +30,7 @@ public sealed partial class IdentityHttpTests
         await GrantCreationEventReadAsync();
         await GrantCreationEventCountsAsync();
         var balance = inventoryRead ? await SeedInventoryAsync(ids) : null;
+        var inbound = inboundRead ? await SeedInboundAsync(ids, receive: true) : (Guid?)null;
         if (inventoryRead) await GrantStockLedgerReadAsync();
         if (!warehouseCreation && !locationCreation)
         {
@@ -86,6 +88,7 @@ public sealed partial class IdentityHttpTests
             start.Environment["WES_E2E_WMS_LOCATION_PACK"] = locationCreation ? LocationHttpSchema.Pack.ToString("D") : "";
             start.Environment["WES_E2E_WMS_DELIVERY"] = warehouseCreation || locationCreation ? "pending" : inventoryRead ? "leased" : "completed";
             start.Environment["WES_E2E_INVENTORY_ID"] = balance?.Id.ToString("D") ?? "";
+            start.Environment["WES_E2E_INBOUND_ID"] = inbound?.ToString("D") ?? "";
             using var process = Process.Start(start)!;
             var output = process.StandardOutput.ReadToEndAsync();
             var errors = process.StandardError.ReadToEndAsync();
@@ -110,6 +113,8 @@ public sealed partial class IdentityHttpTests
             Assert.True(process.ExitCode == 0, await output + Environment.NewLine + await errors);
             Assert.True(File.Exists(Path.Combine(coordination, "revoke.confirmed")), "The real current role must have been revoked.");
             Assert.True(File.Exists(Path.Combine(coordination, "events-revoke.confirmed")), "The real message-field role must have been revoked.");
+            if (inboundRead)
+                Assert.True(File.Exists(Path.Combine(coordination, "inbound-revoke.confirmed")), "The real inbound-field role must have been revoked.");
             if (inventoryRead)
             {
                 Assert.True(File.Exists(Path.Combine(coordination, "inventory-revoke.confirmed")), "The real inventory-field role must have been revoked.");
@@ -139,6 +144,19 @@ public sealed partial class IdentityHttpTests
                 countRole.Change(countRole.Version, true, countRole.Rules.Select(rule => rule with { Fields = rule.Fields.Remove("PendingCount") }));
                 await writer.SaveChangesAsync(deadline.Token);
                 await File.WriteAllTextAsync(Path.Combine(coordination, "events-revoke.confirmed"), "revoked", deadline.Token);
+                if (inboundRead)
+                {
+                    while (!File.Exists(Path.Combine(coordination, "inbound-revoke.request")))
+                    {
+                        if (process.HasExited) return;
+                        await Task.Delay(50, deadline.Token);
+                    }
+                    var inboundRole = await writer.Roles.SingleAsync(item => item.Code == "INBOUND-READ", deadline.Token);
+                    inboundRole.Change(inboundRole.Version, true,
+                        inboundRole.Rules.Select(rule => rule with { Fields = rule.Fields.Remove("Lines") }));
+                    await writer.SaveChangesAsync(deadline.Token);
+                    await File.WriteAllTextAsync(Path.Combine(coordination, "inbound-revoke.confirmed"), "revoked", deadline.Token);
+                }
                 if (!inventoryRead) return;
                 while (!File.Exists(Path.Combine(coordination, "inventory-revoke.request")))
                 {
@@ -172,12 +190,20 @@ public sealed partial class IdentityHttpTests
             File.Delete(Path.Combine(coordination, "inventory-revoke.confirmed"));
             File.Delete(Path.Combine(coordination, "ledger-revoke.request"));
             File.Delete(Path.Combine(coordination, "ledger-revoke.confirmed"));
+            File.Delete(Path.Combine(coordination, "inbound-revoke.request"));
+            File.Delete(Path.Combine(coordination, "inbound-revoke.confirmed"));
             Directory.Delete(coordination);
         }
         await using var verify = OpenWmsMasterData();
         Assert.Equal(warehouseCreation || locationCreation ? 3 : 2, await verify.MasterDataChanges.CountAsync());
         Assert.Equal(warehouseCreation || locationCreation ? 3 : 2, await verify.OutboxMessages.CountAsync());
-        Assert.Equal(inventoryRead ? 1 : 0, await verify.Entries.CountAsync());
+        Assert.Equal(inventoryRead || inboundRead ? 1 : 0, await verify.Entries.CountAsync());
+        if (inboundRead)
+        {
+            Assert.Equal(0.000001m, (await verify.Balances.SingleAsync()).Quantity);
+            Assert.Equal(2, await verify.InboundFacts.CountAsync());
+            Assert.Equal(Wes.Wms.Domain.InboundOrderState.Executing, (await verify.InboundDocuments.SingleAsync()).State);
+        }
         if (inventoryRead)
         {
             Assert.Equal(Wes.Wms.Domain.StockMovementQuantity.MaximumValue, (await verify.Balances.SingleAsync()).Quantity);

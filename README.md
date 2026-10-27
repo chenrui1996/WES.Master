@@ -13,6 +13,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 T09 [入库领域与内部持久收货事务](docs/implementation/173-t09-inbound-basic-flow.md)已接通单据/事实/唯一账本同事务、永久原回执、父单版本防并发超收与故障/取消回滚；最终真实账本120、领域118、架构29通过，Release0/0及EF无漂移，较早联合主数据353通过（不重复累计）。当前为内部primitive，运营启停/容器、当前授权HTTP/页面和运输最终持久移账仍待实施，异址保留真实收货并明确待运输。
 
+T09 后续[当前授权只读入库详情](docs/implementation/173-t09-inbound-basic-flow.md)已交付独立owner/GET/具名页面，真实creator/部门与完整字段、读后核验、完整一致快照、精确计划/实收/待收及待运输。新增23owner/14HTTP/54前端和1真实浏览器变体；最终owner143、Modules137含五WMS浏览器、前端824/严格构建通过。替代上片无HTTP/页面的只读部分，目录/草稿/审核/收货写表单、运营主数据与最终运输仍待实施。
+
 T07目录续片：[当前实体附件目录](docs/implementation/169-t07-current-entity-attachment-catalog.md)/[证据](docs/implementation/170-t07-current-entity-attachment-catalog-tests.md)实现仓/位固定集合GET、当前实体两时点核验、精确实际引用及九字段scope在SQL分页前交集，复用暂存查询且不触碰物理存储/扫描。新增30真实owner/28 HTTP，相关333项含既有HTTPS文件浏览器、精确最终28项新API/架构29及Release0/0通过，不重复累计。历史“无业务附件目录API”由本片替代；附件客户端、真实病毒库/ACL及T04–T08整包仍缺。
 
 T07写续片：[永久具名附件绑定/解绑](docs/implementation/167-t07-durable-business-file-bindings.md)/[证据](docs/implementation/168-t07-durable-business-file-bindings-tests.md)实现当前双owner明确Attach/Detach、全部持久来源实体read、引用/计数/版本/审计/永久回执原子提交及严格PUT/DELETE。新增30真实owner/32 HTTP，首轮620项、来源权限RED修正后的最终相关282项含六套既有HTTPS浏览器及Release0/0通过（不重复累计）。真实MySQL1213由父文件锁顺序根治；来源撤权/未登记旧owner不允许另绑绕权，同键恢复只返回原事实。复用两个默认关闭开关；业务附件目录/客户端、真实病毒库/ACL及T04–T08整包仍缺。

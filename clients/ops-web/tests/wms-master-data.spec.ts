@@ -12,6 +12,7 @@ test("real WMS definitions and explicitly enabled creation retain current author
   const locationCreation = process.env.WES_E2E_WMS_LOCATION_CREATE === "true";
   const locationPack = process.env.WES_E2E_WMS_LOCATION_PACK;
   const inventoryId = process.env.WES_E2E_INVENTORY_ID;
+  const inboundId = process.env.WES_E2E_INBOUND_ID;
   const delivery = process.env.WES_E2E_WMS_DELIVERY;
   if (!["pending", "leased", "completed"].includes(delivery ?? "")) throw new Error("Requires explicit durable delivery-state fixture.");
   const pendingCount = delivery === "pending" ? 3 : delivery === "leased" ? 1 : 0;
@@ -356,12 +357,54 @@ test("real WMS definitions and explicitly enabled creation retain current author
     for (const key of ["id", "postingId", "sourceDocumentId", "sourceLineId", "executionUnitId", "correlationId"])
       expect(saved).not.toContain(String(fact[key]));
   }
+  if (inboundId) {
+    const navigation = page.getByRole("navigation", { name: "管理导航" });
+    if (!await navigation.isVisible()) await page.getByTestId("navigation-toggle").click();
+    await navigation.getByRole("link", { name: "入库收货详情", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "入库收货详情", exact: true })).toBeVisible();
+    await page.getByLabel("入库单 UUID", { exact: true }).fill(inboundId);
+    await expect(page.getByLabel("入库单 UUID", { exact: true })).toHaveValue(inboundId);
+    const read = page.getByRole("button", { name: "读取当前入库单", exact: true });
+    await page.getByLabel("入库单 UUID", { exact: true }).click(); await page.keyboard.press("Tab");
+    await expect(read).toBeFocused();
+    expect(await read.evaluate(element => element.matches(":focus-visible"))).toBe(true);
+    const readResponse = page.waitForResponse(response => new URL(response.url()).pathname === `/api/wms/inbound/${inboundId}`);
+    await page.keyboard.press("Enter");
+    const actual = await readResponse;
+    expect(actual.status()).toBe(200);
+    expect(actual.headers()["cache-control"]).toBe("no-store");
+    const inbound = page.getByTestId("inbound-detail");
+    for (const text of ["IN-HTTP", "999999999.999999", "0.000001", "999999999.999998", "尚未关联，待运输", "不能视为已到位"])
+      await expect(inbound).toContainText(text);
+    for (const width of [375, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    }
+    await page.setViewportSize({ width: 375, height: 900 });
+    await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
+    await context.setOffline(true); await expect(read).toBeDisabled();
+    await expect(page.getByRole("region", { name: "入库详情", exact: true })).toContainText("陈旧");
+    const before = methods.length;
+    await context.setOffline(false); await expect(read).toBeEnabled(); expect(methods.length).toBe(before);
+    await writeFile(join(coordination, "inbound-revoke.request"), "revoke");
+    await expect.poll(async () => readFile(join(coordination, "inbound-revoke.confirmed"), "utf8").catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return "pending";
+      throw error;
+    })).toBe("revoked");
+    const denied = page.waitForResponse(response => new URL(response.url()).pathname === `/api/wms/inbound/${inboundId}`);
+    await read.click(); expect((await denied).status()).toBe(403);
+    await expect(inbound).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "入库详情", exact: true })).toContainText("PermissionDenied");
+  }
   const stored = await page.evaluate(() => JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage)]));
   for (const secret of [warehouse, location, locationDefinition.packId, "HTTP location", "BROWSER-WH", "Browser warehouse", "accessToken"])
     expect(stored).not.toContain(secret);
   for (const row of eventRows) expect(stored).not.toContain(row.eventId);
   if (inventoryId) expect(stored).not.toContain(inventoryId);
-  expect(methods.length).toBe(creation || locationCreation ? 12 : inventoryId ? 13 : 9);
+  if (inboundId) expect(stored).not.toContain(inboundId);
+  expect(methods.length).toBe(creation || locationCreation ? 12 : inventoryId ? 13 : inboundId ? 11 : 9);
   expect(methods.filter(method => method === "POST")).toHaveLength(creation || locationCreation ? 1 : 0);
   expect(methods.every(method => method === "GET" || (creation || locationCreation) && method === "POST")).toBe(true);
   expect(failures).toEqual([]);

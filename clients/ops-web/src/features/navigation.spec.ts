@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { getNavigation } from "./navigation";
 
 describe("management navigation", () => {
+  it("exposes inbound only with the Wms module and independent read permission", () => {
+    expect(getNavigation(module => module === "Wms", permission => permission === "wms.inbound.read").map(item => item.path))
+      .toEqual(["/account/sessions", "/wms/inbound"]);
+    expect(getNavigation(module => module === "Platform", permission => permission === "wms.inbound.read").map(item => item.path))
+      .toEqual(["/account/sessions"]);
+  });
   it("exposes stock history only with the Wms module and independent ledger permission", () => {
     expect(getNavigation(module => module === "Wms", permission => permission === "wms.ledger.read").map(item => item.path))
       .toEqual(["/account/sessions", "/wms/ledger"]);

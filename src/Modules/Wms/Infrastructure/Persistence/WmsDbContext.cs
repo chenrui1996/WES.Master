@@ -29,6 +29,7 @@ public sealed partial class WmsDbContext : DbContext
         ConfigureReservations(modelBuilder);
         ConfigureMasterData(modelBuilder);
         ConfigureOutbox(modelBuilder);
+        ConfigureInbound(modelBuilder);
         var balance = modelBuilder.Entity<StockBalance>();
         balance.ToTable("wms_stock_balances");
         balance.HasKey(item => new { item.TenantId, item.Id });
@@ -117,6 +118,7 @@ public sealed partial class WmsDbContext : DbContext
     private void ValidateWrites()
     {
         ValidateLedgerEffects();
+        ValidateInboundWrites();
         ValidateReservationEffects();
         ValidateMasterDataWrites();
         StageMasterDataOutbox();

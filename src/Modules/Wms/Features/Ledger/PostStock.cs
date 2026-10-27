@@ -27,7 +27,19 @@ public sealed class WmsDatabaseException(bool transient) : Exception("WMS databa
 
 internal sealed class PostStock(WmsDbContext database, TimeProvider clock)
 {
-    internal async Task<StockPostingResult> ExecuteAsync(StockPostingCommand command, CancellationToken cancellationToken = default)
+    internal Task<StockPostingResult> ExecuteAsync(StockPostingCommand command, CancellationToken cancellationToken = default) =>
+        ExecuteCoreAsync(command, null, cancellationToken);
+
+    // Only WMS application slices may stage their facts inside the ledger transaction; replay never stages twice.
+    internal Task<StockPostingResult> ExecuteComposedAsync(StockPostingCommand command,
+        Func<CancellationToken, Task> stage, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(stage);
+        return ExecuteCoreAsync(command, stage, cancellationToken);
+    }
+
+    private async Task<StockPostingResult> ExecuteCoreAsync(StockPostingCommand command,
+        Func<CancellationToken, Task>? stage, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
         cancellationToken.ThrowIfCancellationRequested();
@@ -100,6 +112,7 @@ internal sealed class PostStock(WmsDbContext database, TimeProvider clock)
                     var change = target.Credit(quantity);
                     database.Entries.Add(new StockEntry(posting, target, change.Before, change.After));
                 }
+                if (stage is not null) await stage(cancellationToken);
                 await database.SaveChangesAsync(cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
                 await transaction.CommitAsync(cancellationToken);

@@ -11,7 +11,7 @@ internal sealed record InboundReceiptCommand(Guid OperationId, Guid ActorId, Gui
 /// <summary>Owner-local received unit; this domain fact must commit with its ledger entry, never before it.</summary>
 internal sealed class InboundReceipt(InboundReceiptCommand command)
 {
-    internal Guid Id { get; } = Guid.NewGuid();
+    internal Guid Id { get; } = command.ExecutionId;
     internal InboundReceiptCommand Original { get; } = command;
     internal Guid ContainerId => Original.ContainerId;
     internal bool RequiresTransport => Original.ReceiptLocationId != Original.TargetLocationId;

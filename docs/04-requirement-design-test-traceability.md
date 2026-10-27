@@ -9,6 +9,7 @@
 
 | 切片 | 范围/设计 | 测试/证据状态 |
 |---|---|---|
+| T04 数字字典码与真实回退 | DTC-PLAT-006/012/014、FUNC-PLAT-004、PAGE-PLAT-006；[设计](implementation/151-t04-numeric-dictionary-code.md) | [证据](implementation/152-t04-numeric-dictionary-code-tests.md)：新增18领域/9HTTP/1真实owner，相关81.NET含真实HTTPS code0/改译/请求-默认-key回退/引用删除409/原全页面流程通过，Release0/0；不是完整父DTC或整包验收 |
 | T05 WMS创建事件范围统计 | REQ-NTF-004..008、PAGE-NTF-003；[设计](implementation/149-t05-wms-creation-event-counts.md) | [证据](implementation/150-t05-wms-creation-event-counts-tests.md)：新增26真实owner/12HTTP/23前端，主数据205+HTTP/三套HTTPS浏览器36+架构29=270、全前端604/严格构建、Release0/0通过；独立三字段Pending，非跨owner统一快照/Inbox/投递窗口或整包验收 |
 | T08 实时库存客户端 | PAGE-WMS-002、RULE-01..08、UI-001..004/007/008/011/012；[设计](implementation/147-t08-inventory-query-client.md) | [证据](implementation/148-t08-inventory-query-client-tests.md)：新增60前端、全套581/严格构建通过，真实HTTP/三套HTTPS浏览器21、架构29通过、Release0/0；不是固定核对快照/授权流水/导出或父DTC整体验收 |
 | T08 当前库存owner/API | PAGE-WMS-002、库存账本不变量/RULE-01..08；[设计](implementation/145-t08-authorized-inventory-query.md) | [证据](implementation/146-t08-authorized-inventory-query-tests.md)：新增26真实owner/18HTTP，74+18+架构29=121通过；一致读/无损六位数/All逐字段、当前撤权；不是固定核对快照/导出/客户端或父DTC整体验收 |

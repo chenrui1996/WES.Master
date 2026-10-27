@@ -169,13 +169,15 @@ public sealed class DirectoryUser
 public sealed class DictionaryEntry
 {
     private DictionaryEntry() { }
-    /// <summary>Creates an immutable category/code identity; translation changes do not mutate codes.</summary>
+    /// <summary>Creates an immutable category/code identity; numeric business codes remain exact strings, independent of translations.</summary>
     public DictionaryEntry(Guid tenantId, string category, string code, string languageKey)
     {
         if (tenantId == Guid.Empty) throw new ArgumentException("Tenant identity is required.");
         TenantId = tenantId;
         Category = DirectoryValue.Code(category);
-        Code = DirectoryValue.Code(code);
+        if (!Regex.IsMatch(code ?? "", @"\A[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}\z", RegexOptions.CultureInvariant))
+            throw new ArgumentException("Dictionary business code must contain 1..128 stable ASCII identifier characters.");
+        Code = code!;
         LanguageKey = DirectoryValue.Code(languageKey);
     }
     /// <summary>Stable reference.</summary>

@@ -7,6 +7,20 @@
 
 ## 1. 范围与角色
 
+最新T04字典：[数字稳定码](151-t04-numeric-dictionary-code.md)/[证据](152-t04-numeric-dictionary-code-tests.md)已修复DTC-PLAT-014 code0被拒绝：仅字典业务码允许数字起始/保持string，不放宽角色/部门/分类/语言键。新增18领域/9真实HTTP/1真实owner，相关28+23+真实HTTPS浏览器1+架构29=81通过，Release0/0；真实改译/请求-默认-key回退/引用删除409及原全页面浏览器流程通过。T04父DTC适用矩阵和其他软件/运维门禁仍缺，整包不关闭。
+
+当前整包未关闭原因（不把“软件未实现”伪装成仅等现场）：
+
+| 工作包 | 尚未交付的软件/完整验证 | 需要外部真实证据 |
+|---|---|---|
+| T04 | 父DTC全变体/页面与命令适用矩阵及剩余集成验收，日志→Outbox→job全链路 | 生产最小权限/保留容量与运维验收 |
+| T05 | WMS publisher/Inbox、跨owner统一快照与完整聚合、完整投递恢复接线 | 批准隔离Broker、ACK丢失/崩溃窗口实测 |
+| T06 | 全具名页面DTC矩阵、其他owner固定核对快照与相关客户端 | 真实PDA/OS/扫码枪矩阵 |
+| T07 | 业务实体授权附件、绑定/解绑及完整业务文件目录 | 真实ClamAV/病毒库/识别/健康、部署ACL |
+| T08 | 完整主数据启停/层级/容器、固定核对快照/授权流水/导出、运输完成闭环 | 实际Pack schema/资源归属及相应现场门禁 |
+
+上述缺口不能由现有自动化测试数量或本轮切片完成代签；当前实现可继续按依赖推进，但T04–T08整体仍为partial。
+
 最新T05统计：[WMS创建事件计数](149-t05-wms-creation-event-counts.md)/[证据](150-t05-wms-creation-event-counts-tests.md)已交付第二owner独立统计字段/当前creator交集、SQL全量LongCount及共享owner计数UI。新增26真实owner/12HTTP/23前端，最终主数据205+HTTP/三套真实HTTPS浏览器36+架构29=270通过、前端604/严格构建、Release0/0。历史“WMS无统计”由本片替代；不伪造不存在的Inbox/投递状态、不跨owner求和；统一快照、发布/消费、真实Broker及其他四包缺口不变。
 
 最新T08客户端：[设计](147-t08-inventory-query-client.md)/[证据](148-t08-inventory-query-client-tests.md)已交付实时库存入口、完整All字段/精确维度筛选、六位数量字符串与BigInt校验、撤权/取消/离线清旧；新增60前端，最终581/严格构建、真实HTTP18+HTTPS Chromium三变体3=21、架构29通过，Release0/0。历史“库存客户端未交付”仅固定核对快照/授权流水/导出部分仍适用；真实Pack、完整生命周期、其余T04–T07缺口不变，不关闭整包。

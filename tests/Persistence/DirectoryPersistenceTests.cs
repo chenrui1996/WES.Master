@@ -61,6 +61,43 @@ public sealed class DirectoryPersistenceTests : IAsyncLifetime
         }
     }
 
+    [Fact]
+    public async Task NumericDictionaryCodeSurvivesTranslationFallbackAndReferencedDeletion()
+    {
+        var (context, _, _) = await SeedAsync();
+        DirectoryWriteResult created;
+        await using (var owner = Open())
+            created = await Service(owner).CreateDictionaryAsync(context, "task", "0", "task.zero", Guid.NewGuid());
+        Assert.Equal(DirectoryDecision.Changed, created.Decision);
+
+        DirectoryWriteResult translated;
+        await using (var owner = Open())
+            translated = await Service(owner).ChangeTranslationAsync(context, created.Id!.Value, created.Version,
+                "en", "Zero state", Guid.NewGuid());
+        Assert.Equal(DirectoryDecision.Changed, translated.Decision);
+        await using (var owner = Open())
+        {
+            var row = Assert.Single((await Service(owner).ReadDictionaryAsync(context, "task", "de-DE")).Rows);
+            Assert.Equal(("0", "Zero state", "en", false), (row.Code, row.Label, row.ResolvedLanguage, row.MissingTranslation));
+        }
+        DirectoryWriteResult referenced;
+        await using (var owner = Open())
+            referenced = await Service(owner).ChangeDictionaryReferenceAsync(context, created.Id!.Value, translated.Version,
+                Guid.NewGuid(), true, Guid.NewGuid());
+        Assert.Equal(DirectoryDecision.Changed, referenced.Decision);
+        await using (var owner = Open())
+        {
+            var deleted = await Service(owner).DeleteDictionaryAsync(context, created.Id!.Value, referenced.Version, Guid.NewGuid());
+            Assert.Equal(DirectoryDecision.Referenced, deleted.Decision);
+        }
+        await using var verify = Open();
+        Assert.Equal("0", (await verify.DictionaryEntries.SingleAsync()).Code);
+        Assert.Single(await verify.DictionaryTranslations.ToListAsync());
+        Assert.Single(await verify.DictionaryReferences.ToListAsync());
+        Assert.Equal(3, await verify.Audit.CountAsync(item => item.Action == PlatformAuditAction.DictionaryChanged));
+        Assert.Equal(3, await verify.OutboxMessages.CountAsync());
+    }
+
     private async Task<(TenantContext Context, Guid Department, Guid OtherDepartment)> SeedAsync(
         IEnumerable<PermissionGrant>? grants = null)
     {

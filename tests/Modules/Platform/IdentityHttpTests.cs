@@ -1514,6 +1514,11 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
         {
             var setting = new VersionedSetting(_tenant, "query.snapshotTtlSeconds");
             seed.Settings.Add(setting);
+            var readyDictionary = new DictionaryEntry(_tenant, "task", "Ready", "task.ready");
+            seed.DictionaryEntries.AddRange(readyDictionary, new DictionaryEntry(_tenant, "task", "Missing", "task.missing"));
+            seed.DictionaryTranslations.AddRange(new DictionaryTranslation(_tenant, readyDictionary.Id, "zh-CN", "就绪"),
+                new DictionaryTranslation(_tenant, readyDictionary.Id, "en", "Ready"));
+            seed.DictionaryReferences.Add(new DictionaryReference(_tenant, readyDictionary.Id, Guid.NewGuid()));
             seed.Audit.AddRange(Enumerable.Range(0, 60).Select(index =>
                 new PlatformAudit(_tenant, _user, Guid.NewGuid(), auditCorrelation,
                     PlatformAuditAction.RoleChanged, null, Guid.NewGuid().ToString("D"), _clock.GetUtcNow().AddSeconds(index))));
@@ -1580,7 +1585,16 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
         Assert.False((await verify.PasswordCredentials.SingleAsync(item => item.UserId == created.Id)).Enabled);
         var role = await verify.Roles.SingleAsync(item => item.Code == "fixture-owner");
         Assert.Equal(role.Id, (await verify.Memberships.SingleAsync(item => item.UserId == created.Id)).RoleId);
-        Assert.Equal(3, await verify.CommandReceipts.CountAsync());
+        Assert.Equal(6, await verify.CommandReceipts.CountAsync());
+        var zero = await verify.DictionaryEntries.SingleAsync(item => item.Code == "0");
+        Assert.Equal("task", zero.Category);
+        Assert.Equal("task.zero", zero.LanguageKey);
+        Assert.Equal("零状态", (await verify.DictionaryTranslations.SingleAsync(item => item.EntryId == zero.Id)).Value);
+        Assert.Equal(3, await verify.DictionaryEntries.CountAsync());
+        var ready = await verify.DictionaryEntries.SingleAsync(item => item.Code == "Ready");
+        Assert.Single(await verify.DictionaryReferences.Where(item => item.EntryId == ready.Id).ToListAsync());
+        Assert.Equal(2, await verify.DictionaryTranslations.CountAsync(item => item.EntryId == ready.Id));
+        Assert.Equal(3, await verify.Audit.CountAsync(item => item.Action == PlatformAuditAction.DictionaryChanged));
         Assert.Equal(1, await verify.AuditExportReceipts.CountAsync());
         Assert.Equal(1, await verify.Audit.CountAsync(item => item.Action == PlatformAuditAction.AuditExported));
         var replayed = await verify.OutboxMessages.SingleAsync(item => item.EventId == replayEventId);

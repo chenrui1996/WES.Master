@@ -9,6 +9,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 ## 文档工作区
 
+T04字典续片：[数字稳定码与语言回退](docs/implementation/151-t04-numeric-dictionary-code.md)/[证据](docs/implementation/152-t04-numeric-dictionary-code-tests.md)修复已批准code`0`被技术标识校验拒绝的问题，仅放宽字典业务码，不改角色/部门/分类/语言键。新增18领域/9HTTP/1真实owner，相关81.NET含真实HTTPS键盘创建/改译/回退/引用删除409通过，Release0/0；完整父DTC及T04–T08整包仍未关闭。
+
 T05第二owner统计：[WMS创建事件范围计数](docs/implementation/149-t05-wms-creation-event-counts.md)/[证据](docs/implementation/150-t05-wms-creation-event-counts-tests.md)接通当前完整统计字段creator交集、SQL全量计数与共享owner计数组件。WMS只返回Pending三字段，不虚构Inbox/发布状态、不跨owner求和；前端604/严格构建、主数据205+HTTP/三套浏览器36+架构29=270通过，Release0/0。统一快照、WMS发布消费与真实Broker仍缺，整包不关闭。
 
 T08库存客户端：[设计](docs/implementation/147-t08-inventory-query-client.md)/[证据](docs/implementation/148-t08-inventory-query-client-tests.md)已交付独立Wms库存入口、All完整字段、精确筛选/数量字符串与取消清旧；全前端581/严格构建、真实HTTP及三套HTTPS浏览器21、架构29通过，Release零警告错误。历史“库存客户端缺失”已由本片替代；固定核对快照/授权流水/导出及完整生命周期仍缺，T04–T08整包不虚关闭。

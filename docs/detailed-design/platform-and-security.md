@@ -32,6 +32,8 @@
 
 ## 2. 功能规则与契约
 
+已实施[数字字典稳定码子集](../implementation/151-t04-numeric-dictionary-code.md)/[证据](../implementation/152-t04-numeric-dictionary-code-tests.md)：DictionaryEntry.Code允许ASCII字母或数字起始、后续字母/数字/点/下划线/横线，总长1..128且全串匹配；`0`/`01`保留string原值，不改变分类/语言键/角色/部门技术标识。真实HTTPS键盘创建、两次改译、请求/默认/诊断key回退、纯文本及引用删除409/原全页面流程通过；相关81.NET、Release0/0。这里只覆盖DTC-PLAT-006/012/014相应变体，页首designed/未执行对其他未验收变体仍有效。
+
 | FUNC定义 | PAGE/需求关联 | 编号流程、状态、拒绝 |
 |---|---|---|
 | FUNC-PLAT-001 | 001/002；REQ-PLAT-001..003；PLAT-TC-001..004/009 | 1校验账号/密码/验证码/风险；2签发最小claims和受保护refresh记录；3刷新事务消费旧令牌签发新记录；4登出/改密/禁用撤销。重放按原规则撤销关联会话；并发刷新失败不得继续用不确定会话写业务 |

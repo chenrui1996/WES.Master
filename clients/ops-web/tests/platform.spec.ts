@@ -385,6 +385,64 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
       expect(tableOverflow).toBe(true);
       await largeText.evaluate(element => element.parentNode?.removeChild(element));
       await page.setViewportSize({ width: 1440, height: 900 });
+      const dictionary = page.getByRole("region", { name: "字典与语言回退", exact: true });
+      const dictionaryTable = dictionary.getByRole("table", { name: "当前分类的稳定业务码", exact: true });
+      const dictionaryCode = (code: string) => dictionaryTable.getByRole("row")
+        .filter({ has: page.getByRole("cell", { name: code, exact: true }) });
+      const readDictionary = async (language: string) => {
+        await dictionary.getByLabel("请求语言", { exact: true }).fill(language);
+        const result = page.waitForResponse(response => new URL(response.url()).pathname === "/api/platform/dictionary"
+          && response.request().method() === "GET");
+        await dictionary.getByRole("button", { name: "查询分类", exact: true }).click();
+        const response = await result;
+        expect(response.status()).toBe(200); expect(response.headers()["cache-control"]).toContain("no-store");
+      };
+      await dictionary.getByLabel("业务码", { exact: true }).fill("0");
+      await dictionary.getByRole("textbox", { name: "语言键", exact: true }).fill("task.zero");
+      await page.keyboard.press("Tab");
+      const createCode = dictionary.getByRole("button", { name: "创建稳定码", exact: true });
+      await expect(createCode).toBeFocused();
+      const createZero = page.waitForResponse(response => new URL(response.url()).pathname === "/api/platform/dictionary"
+        && response.request().method() === "POST");
+      await page.keyboard.press("Enter"); expect((await createZero).status()).toBe(200);
+      await expect(dictionaryCode("0")).toContainText("[task.zero]");
+      await dictionaryCode("0").getByRole("button", { name: "选择字典项", exact: true }).click();
+      await dictionary.getByLabel("纯文本显示值", { exact: true }).fill("<b>Zero state</b>");
+      const firstTranslation = page.waitForResponse(response => response.url().includes("/translation") && response.request().method() === "PUT");
+      await dictionary.getByRole("button", { name: "提交翻译", exact: true }).click();
+      expect((await firstTranslation).status()).toBe(200);
+      await expect(dictionaryCode("0")).toContainText("<b>Zero state</b>");
+      await expect(dictionaryCode("0").locator("b")).toHaveCount(0);
+      await dictionaryCode("0").getByRole("button", { name: "选择字典项", exact: true }).click();
+      await dictionary.getByLabel("纯文本显示值", { exact: true }).fill("零状态");
+      const secondTranslation = page.waitForResponse(response => response.url().includes("/translation") && response.request().method() === "PUT");
+      await dictionary.getByRole("button", { name: "提交翻译", exact: true }).click();
+      expect((await secondTranslation).status()).toBe(200);
+      await expect(dictionaryCode("0")).toContainText("零状态");
+      await readDictionary("en");
+      await expect(dictionaryCode("Ready")).toContainText("Ready");
+      await expect(dictionaryCode("0")).toContainText("零状态");
+      await expect(dictionaryCode("0")).toContainText("zh-CN");
+      await readDictionary("de-DE");
+      await expect(dictionaryCode("Ready")).toContainText("就绪");
+      await expect(dictionaryCode("0")).toContainText("零状态");
+      await expect(dictionaryCode("Missing")).toContainText("[task.missing]");
+      await expect(dictionaryCode("Missing")).toContainText("缺失：显示诊断键");
+      await dictionaryCode("Ready").getByRole("button", { name: "选择字典项", exact: true }).click();
+      await dictionary.getByRole("button", { name: "申请删除稳定码", exact: true }).click();
+      await expect(dictionary.getByRole("region", { name: "删除稳定码确认", exact: true })).toContainText("不提供强制解除引用");
+      const referencedDelete = page.waitForResponse(response => new URL(response.url()).pathname.startsWith("/api/platform/dictionary/")
+        && response.request().method() === "DELETE");
+      await dictionary.getByRole("button", { name: "确认删除此版本", exact: true }).click();
+      expect((await referencedDelete).status()).toBe(409);
+      await expect(page.getByRole("alert").filter({ hasText: "ResourceConflict" })).toBeVisible();
+      await expect(dictionaryTable).toHaveCount(0);
+      await readDictionary("de-DE");
+      await expect(dictionaryCode("Ready")).toContainText("就绪");
+      for (const width of [375, 768, 1440]) {
+        await page.setViewportSize({ width, height: 900 });
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      }
     }
   }
   const auditMode = page.getByLabel("证据类型");

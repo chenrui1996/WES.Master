@@ -58,6 +58,8 @@
 
 ### T04：权限、租户、配置和审计
 
+- [x] [数字字典业务码与真实语言回退](../../implementation/151-t04-numeric-dictionary-code.md)/[证据](../../implementation/152-t04-numeric-dictionary-code-tests.md)：已批准code0现在以string原值保存，分类/语言键/角色/部门校验不变；新增18领域/9HTTP/1真实owner，相关81.NET含真实HTTPS键盘创建/两次改译/语言回退/有引用删除409通过、Release0/0。不关闭完整DTC-PLAT-006/012/014或T04整包。
+
 **Files:** `src\Modules\Platform\Features\{Authorization\RolePolicy.cs,Tenancy\TenantContext.cs,Configuration\VersionedSettings.cs,Audit\QueryAudit.cs}`、对应owner EF配置/迁移；`clients\ops-web\src\features\platform\{UsersPage.vue,RolesPage.vue,TenantsPage.vue,SettingsPage.vue,AuditPage.vue}`；`tests\Modules\Platform\{AuthorizationTests.cs,SettingsAuditTests.cs}`。
 
 **Interfaces:** 消费当前身份；产出FUNC-PLAT-002..004/006、PAGE-PLAT-003..006/008，当前权限/数据范围/字段投影、B/P/H版本化策略查询与不可改审计。普通只读授权缓存30秒，高后果/快照每次复验；无TenantId=0共享。

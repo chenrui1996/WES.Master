@@ -15,6 +15,7 @@ public static partial class WmsMasterDataEndpoints
         services.AddSingleton(provider => WmsMasterDataSettings.Load(provider.GetRequiredService<IConfiguration>()));
         services.AddSingleton<MasterDataAuthority>();
         services.AddSingleton<MasterDataDatabase>();
+        services.AddSingleton(provider => LoadLocationSchema(services, provider));
         services.AddSingleton<InventoryAuthority>();
         services.AddSingleton<InventoryDatabase>();
         services.AddSingleton<StockLedgerAuthority>();
@@ -22,7 +23,7 @@ public static partial class WmsMasterDataEndpoints
         return services;
     }
 
-    /// <summary>Maps authenticated reads and separately enabled disabled-warehouse creation; no location creation, activation or stock writes.</summary>
+    /// <summary>Maps authenticated reads and separately enabled disabled creation; no activation or stock writes.</summary>
     public static void MapWesWmsMasterData(this WebApplication app)
     {
         if (!app.Services.GetRequiredService<WmsMasterDataSettings>().Enabled) return;
@@ -52,6 +53,11 @@ public static partial class WmsMasterDataEndpoints
                 sourceDocumentId, correlationId, kind.HasValue ? (StockLedgerKind)kind.Value : null), from, before, http, database, ct));
         if (app.Services.GetRequiredService<WmsMasterDataSettings>().WarehouseCreationEnabled)
             group.MapPost("/warehouses", CreateWarehouseAsync);
+        if (app.Services.GetRequiredService<WmsMasterDataSettings>().LocationCreationEnabled)
+        {
+            _ = app.Services.GetRequiredService<LocationCreationSchema>();
+            group.MapPost("/locations", CreateLocationAsync);
+        }
     }
 
     private static async Task<IResult> QueryAsync(MasterDataQuery query, HttpContext http, MasterDataDatabase database, bool location, CancellationToken ct)
@@ -130,6 +136,8 @@ public static partial class WmsMasterDataEndpoints
         internal WmsMasterDataScope Open(Guid tenant) => new(settings.ConnectionString, tenant, authorization, logs, clock);
         internal WmsMasterDataWriter OpenWarehouseWriter(Guid tenant) =>
             new(settings.ConnectionString, tenant, authorization, WarehouseOnlySchema.Instance, clock, logs);
+        internal WmsMasterDataWriter OpenLocationWriter(Guid tenant, IWarehouseLocationSchema schema) =>
+            new(settings.ConnectionString, tenant, authorization, schema, clock, logs);
     }
 
     private sealed class MasterDataAuthority(IdentityDatabase database) : IMasterDataAuthorization

@@ -42,6 +42,32 @@ public sealed class WmsMasterDataSettingsTests
     public void ExplicitWarehouseCreationRequiresBothApprovedAssemblies() =>
         Assert.True(WmsMasterDataSettings.Load(CreationConfiguration("true", "true", "true")).WarehouseCreationEnabled);
 
+    [Theory]
+    [InlineData(null, "true", "true", false)]
+    [InlineData("false", "true", "true", false)]
+    [InlineData("true", "true", "true", true)]
+    public void LocationCreationIsIndependentAndExplicit(string? creation, string reads, string identity, bool expected)
+    {
+        var configuration = CreationConfiguration("false", reads, identity);
+        configuration["Wes:WmsMasterData:LocationCreationEnabled"] = creation;
+        var settings = WmsMasterDataSettings.Load(configuration);
+        Assert.Equal(expected, settings.LocationCreationEnabled);
+        Assert.False(settings.WarehouseCreationEnabled);
+    }
+
+    [Theory]
+    [InlineData("yes", "true", "true")]
+    [InlineData("", "false", "false")]
+    [InlineData("1", "true", "true")]
+    [InlineData("true", "false", "true")]
+    [InlineData("true", "true", "false")]
+    public void InvalidOrUnassembledLocationCreationIsRejected(string creation, string reads, string identity)
+    {
+        var configuration = CreationConfiguration("false", reads, identity);
+        configuration["Wes:WmsMasterData:LocationCreationEnabled"] = creation;
+        Assert.Throws<InvalidOperationException>(() => WmsMasterDataSettings.Load(configuration));
+    }
+
     private static IConfiguration CreationConfiguration(string creation, string reads, string identity) =>
         new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {

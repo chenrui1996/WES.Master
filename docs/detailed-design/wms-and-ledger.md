@@ -42,6 +42,8 @@
 
 ## 2. 功能/契约
 
+库位创建后续[当前授权HTTP](../implementation/161-t08-authorized-location-creation-http.md)/[证据](../implementation/162-t08-authorized-location-creation-http-tests.md)已接通独立默认关闭LocationCreationEnabled、唯一非keyed singleton schema启动门禁、当前五字段及父仓read、严格输入/永久key、原子禁用位置/事实/Outbox。新增65 HTTP/启动及8配置，最终Release395项含四套真实HTTPS浏览器通过，构建0/0；替代历史“库位无HTTP”，不默认装配schema/授予权限，不包含库位创建表单、真实Pack、启停/层级/容器或完整父DTC。
+
 创建事件后续[owner发布器](../implementation/157-t05-wms-owner-outbox-publisher.md)/[证据](../implementation/158-t05-wms-owner-outbox-publisher-tests.md)已接通WMS自己的耐久租约/CAS、最多6次实际认领/15分钟预算、有限隔离与未确认恢复，不改变原禁用资源或envelope/来源事实。九字段诊断显示真实四态、三字段计数仅Pending，真实浏览器覆盖四态与当前撤权；默认不运行、不含Broker/Inbox/运输消费或资源启用，T08完整生命周期门禁不关闭。
 
 PAGE-WMS-008已交付[当前授权不可变流水子集](../implementation/153-t08-authorized-stock-ledger-query.md)/[证据](../implementation/154-t08-authorized-stock-ledger-query-tests.md)：独立`wms.ledger.read`当前All完整19字段，可信tenant精确维度/来源/UTC微秒半开筛选后OccurredAt/Id升序分页；正负Quantity和历史Before/After固定六位字符串、真实posting来源，无actor/私有对象/改账端点。客户端按有符号BigInt和微秒规范串核对，当前403清旧，离线/迟到取消；真实375/768/1440各宽200%字体及原Platform/WMS回归通过。固定核对快照、授权导出、来源业务页/补偿跳转及完整父DTC仍未交付；历史“授权流水完全未实现”仅剩这些范围适用。

@@ -148,6 +148,8 @@
 
 ### T08：WMS主数据与唯一账本
 
+- [x] [当前授权库位创建HTTP](../../implementation/161-t08-authorized-location-creation-http.md)/[证据](../../implementation/162-t08-authorized-location-creation-http-tests.md)：独立默认关闭写开关及唯一具名singleton schema启动门禁、当前五字段/父仓read、严格输入/永久key、原子禁用位置/事实/Outbox。新增65 HTTP/启动及8配置，6项实际RED后最终Release128含四套HTTPS浏览器+238主数据owner+29架构=395通过、构建0/0。无默认schema或真实Pack验收，库位创建表单/启停/层级/容器和父DTC/整包仍缺。
+
 - [x] [当前授权不可变流水](../../implementation/153-t08-authorized-stock-ledger-query.md)/[证据](../../implementation/154-t08-authorized-stock-ledger-query-tests.md)：独立All完整19字段owner/API/客户端，精确维度/来源/微秒UTC半开SQL过滤后稳定时间分页，正负六位字符串与历史前后余额，当前撤权清旧；新增32真实owner/28HTTP/85前端。最终相关.NET185、前端691/严格构建、Release0/0；含按真实375px+200%修共享外壳。不关闭固定核对快照/导出/来源业务跳转、完整生命周期或T08整包。
 
 - [x] [实时库存客户端](../../implementation/147-t08-inventory-query-client.md)/[证据](../../implementation/148-t08-inventory-query-client-tests.md)：独立Wms路由/导航、完整All字段、精确筛选、六位字符串/BigInt校验、分页/撤权/取消/离线；前端581/严格构建、真实HTTP及三套HTTPS浏览器21、架构29通过，Release0/0。固定核对快照/授权流水/导出与完整生命周期仍缺，不关闭父DTC/T08整包。

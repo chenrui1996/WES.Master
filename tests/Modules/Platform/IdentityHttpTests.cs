@@ -1717,7 +1717,8 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
         public void Advance(TimeSpan interval) => _now += interval;
     }
     private sealed class Factory(string connection, string corpus, TimeProvider clock, string? webRoot = null, string? keyRing = null,
-        string? filesRoot = null, int scannerPort = 3310, bool wmsMasterData = false, bool wmsWarehouseCreation = false) : WebApplicationFactory<Program>
+        string? filesRoot = null, int scannerPort = 3310, bool wmsMasterData = false, bool wmsWarehouseCreation = false,
+        bool wmsLocationCreation = false, Action<IServiceCollection>? locationSchemas = null) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -1734,6 +1735,7 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
                 ["Wes:Identity:KeyRingPath"] = keyRing,
                 ["Wes:WmsMasterData:Enabled"] = wmsMasterData.ToString(),
                 ["Wes:WmsMasterData:WarehouseCreationEnabled"] = wmsWarehouseCreation.ToString(),
+                ["Wes:WmsMasterData:LocationCreationEnabled"] = wmsLocationCreation.ToString(),
                 ["Features:Modules:Wms"] = wmsMasterData.ToString()
             }));
             if (filesRoot is not null)
@@ -1747,6 +1749,7 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
                 }));
             builder.ConfigureServices(services =>
             {
+                locationSchemas?.Invoke(services);
                 services.RemoveAll<TimeProvider>();
                 services.AddSingleton(clock);
                 if (filesRoot is not null || wmsMasterData)

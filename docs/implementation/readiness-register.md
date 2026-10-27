@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+最新T08：[当前授权库位创建HTTP](161-t08-authorized-location-creation-http.md)/[证据](162-t08-authorized-location-creation-http-tests.md)已交付独立默认关闭LocationCreationEnabled、唯一具名singleton schema启动门禁、当前五字段/父仓read、严格body/header及永久key、原子禁用位置/事实/Outbox，65 HTTP/启动与8配置新增。最终Release 128含四套真实HTTPS浏览器+238主数据owner+29架构=395通过，构建0/0。历史“库位创建无HTTP”已替代；无真实schema adapter/Pack验收、创建表单/启停/完整生命周期及整包不关闭。
+
 最新T05：[默认关闭WMS托管发布](159-t05-hosted-wms-publisher.md)/[证据](160-t05-hosted-wms-publisher-tests.md)已验证严格部署快照、显式tenant/batch/周期、新owner runner、60秒合作取消与五计数/未确认警告。新增27 Host/真实进程和1真实MySQL runner，最终Release 85含四套真实HTTPS浏览器+33发布owner+29架构=147通过，构建0/0。真实Program仍先拒绝未登记的Outbox/MessageQueue runtime owner，不以服务集合测试冒称实际Broker可用；剩余接线包括真实adapter/运行能力登记与消费Inbox，整包保持partial。
 
 最新T05：[WMS owner发布器](157-t05-wms-owner-outbox-publisher.md)/[证据](158-t05-wms-owner-outbox-publisher-tests.md)已交付独立scope/transport合同、90秒耐久lease/CAS、认领即计attempt防崩溃无限重试、5次退避/15分钟预算/隔离及ACK未确认恢复。提交跨过lease/预算的两项行为RED已修正为发送前复验；旧Pending真实迁移，原列表九字段扩展四态、PendingCount只计Pending，客户端同步真实标签。新增33owner/3HTTP/4前端，最终238+32含四套HTTPS浏览器+29=299，前端695/严格构建、Release0/0。历史“WMS无publisher”仅托管/实际transport接线仍适用；Inbox、统一快照与整包缺口不关闭。

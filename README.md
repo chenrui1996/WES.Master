@@ -9,6 +9,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 ## 文档工作区
 
+T08续片：[当前授权库位创建HTTP](docs/implementation/161-t08-authorized-location-creation-http.md)/[证据](docs/implementation/162-t08-authorized-location-creation-http-tests.md)接通独立默认关闭写开关、唯一具名singleton schema启动门禁、当前五字段/父仓read、201/200永久幂等及原子禁用位置/事实/Outbox。新增65 HTTP/启动及8配置，最终Release相关395项含四套HTTPS浏览器通过、构建0/0。无默认schema/真实Pack验收，库位创建表单、启停/层级/容器与T04–T08整包仍缺。
+
 T05续片：[默认关闭WMS托管发布](docs/implementation/159-t05-hosted-wms-publisher.md)/[证据](docs/implementation/160-t05-hosted-wms-publisher-tests.md)接通严格tenant/batch/周期、独立owner runner、60秒合作取消与未确认警告。新增27 Host/真实进程及1真实MySQL runner测试；最终Release相关147项（含四套真实HTTPS浏览器）通过，构建0/0。真实Program仍由未登记的Outbox/MessageQueue runtime owner门禁拒绝启用，不伪造Broker能力；实际adapter/运行能力登记、Inbox、统一快照与T04–T08整包仍缺。
 
 T05续片：[WMS owner发布器](docs/implementation/157-t05-wms-owner-outbox-publisher.md)/[证据](docs/implementation/158-t05-wms-owner-outbox-publisher-tests.md)已交付耐久90秒租约/CAS、实际认领最多6次和15分钟预算、有限退避/隔离、提交后发送前复验及未确认恢复；同步原九字段四态诊断/三字段Pending计数和客户端。新增33真实owner/3HTTP/4前端，最终owner238+HTTP/四套真实HTTPS浏览器32+架构29=299、前端695/严格构建、Release0/0通过。默认无Host worker/transport外发，真实Broker、WMS Inbox和T04–T08整包仍未完成。

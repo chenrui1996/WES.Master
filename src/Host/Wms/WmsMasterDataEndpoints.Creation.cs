@@ -14,14 +14,7 @@ public static partial class WmsMasterDataEndpoints
     private static async Task<IResult> CreateWarehouseAsync(CreateWarehouseInput input, HttpContext http,
         MasterDataDatabase database, CancellationToken ct)
     {
-        var key = http.Request.Headers["Idempotency-Key"];
-        if (http.Request.Headers["X-WES-Client"] is not (["ops-web"] or ["pda"])
-            || key.Count != 1 || !Guid.TryParseExact(key[0], "D", out var operation) || operation == Guid.Empty)
-        {
-            http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("WmsInput")
-                .LogWarning("WMS warehouse creation input rejected {Code}", "ValidationFailed");
-            return Results.BadRequest();
-        }
+        if (!TryCreationOperation(http, "warehouse", out var operation)) return Results.BadRequest();
         var subject = IdentityRuntime.Subject(http.User);
         try
         {
@@ -44,6 +37,17 @@ public static partial class WmsMasterDataEndpoints
             return Results.Problem(statusCode: error.IsTransient ? StatusCodes.Status503ServiceUnavailable : StatusCodes.Status500InternalServerError,
                 title: "WMS warehouse creation failed.");
         }
+    }
+
+    private static bool TryCreationOperation(HttpContext http, string kind, out Guid operation)
+    {
+        operation = Guid.Empty;
+        var key = http.Request.Headers["Idempotency-Key"];
+        if (http.Request.Headers["X-WES-Client"] is (["ops-web"] or ["pda"])
+            && key.Count == 1 && Guid.TryParseExact(key[0], "D", out operation) && operation != Guid.Empty) return true;
+        http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("WmsInput")
+            .LogWarning("WMS {Kind} creation input rejected {Code}", kind, "ValidationFailed");
+        return false;
     }
 
     private sealed class WarehouseOnlySchema : IWarehouseLocationSchema

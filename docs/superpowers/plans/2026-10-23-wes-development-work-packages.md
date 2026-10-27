@@ -70,6 +70,8 @@
 
 ### T05：owner事务Outbox/Inbox与可靠投递
 
+- [x] WMS创建事件第二owner诊断API：独立当前消息全字段/真实creator交集、SQL前授权分页、九字段Pending元数据，无payload/虚构Inbox/attempt；新增38真实owner/13HTTP，相关179+159+29=367通过、Release零警告错误/无模型漂移。[设计](../../implementation/141-t05-wms-creation-event-diagnostics.md)/[证据](../../implementation/142-t05-wms-creation-event-diagnostics-tests.md)。第二owner客户端/跨owner聚合/发布消费/真实Broker仍未完成，整包不关闭。
+
 - [x] WMS主数据新增默认禁用仓/位由owner持久化门禁派生精确不可变Outbox，与永久创建事实同事务；重放不追加、晚期失败三表均回滚、不回填旧operation。新增17真实owner，主数据141+领域/HTTP/真实浏览器100+架构29=270通过，Release零警告错误，实际DDL/模型验证通过。[设计](../../implementation/135-t05-t08-wms-creation-outbox.md)/[证据](../../implementation/136-t05-t08-wms-creation-outbox-tests.md)。不包含WMS publisher/Inbox/跨owner统计或真实Broker，整包不关闭。
 
 **Files:** `src\Modules\Notifications\Features\Messaging\{PublishOutbox.cs,ReplayMessage.cs,QueryDelivery.cs}`；每写入owner的`Infrastructure\Messaging\{OutboxStore.cs,InboxStore.cs}`和本模块迁移；`clients\ops-web\src\features\notifications\MessagesPage.vue`；`tests\Modules\Notifications\MessagingTests.cs`、`tests\Contracts\MessagingContractTests.cs`。

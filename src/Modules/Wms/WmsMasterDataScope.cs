@@ -38,6 +38,10 @@ public sealed class WmsMasterDataScope : IAsyncDisposable
     public Task<MasterDataCatalogResult> QueryLocationsAsync(MasterDataSubject subject, MasterDataQuery query, CancellationToken cancellationToken = default) =>
         _access.QueryLocationsAsync(subject, query, cancellationToken);
 
+    /// <summary>Returns safe pending creation-event metadata after independent current message-field and creator authorization.</summary>
+    public Task<MasterDataEventPage> QueryCreationEventsAsync(MasterDataSubject subject, MasterDataEventQuery query, CancellationToken cancellationToken = default) =>
+        _access.QueryCreationEventsAsync(subject, query, cancellationToken);
+
     /// <summary>Disposes this owner; no authority, connection or business state is retained by a global cache.</summary>
     public ValueTask DisposeAsync() => _database.DisposeAsync();
 }

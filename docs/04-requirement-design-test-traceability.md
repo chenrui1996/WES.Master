@@ -9,6 +9,7 @@
 
 | 切片 | 范围/设计 | 测试/证据状态 |
 |---|---|---|
+| T05 WMS创建事件诊断owner/API | REQ-NTF-004..008、PAGE-NTF-003/FUNC-NTF-001；[设计](implementation/141-t05-wms-creation-event-diagnostics.md) | [证据](implementation/142-t05-wms-creation-event-diagnostics-tests.md)：新增38owner/13HTTP，相关179+159+29=367通过、Release零警告错误、无模型漂移；无payload/虚构Inbox或投递状态；不是跨owner客户端/统计/真实Broker或父DTC整体验收 |
 | T08 禁用仓库创建客户端 | REQ-WMS-001..004、PAGE-WMS-001/FUNC-WMS-001；[设计](implementation/139-t08-disabled-warehouse-creation-client.md) | [证据](implementation/140-t08-disabled-warehouse-creation-client-tests.md)：新增35客户端，前端462/严格构建通过，WMS领域/HTTP/真HTTPS只读+写浏览器146+架构29通过；精确预览/原键/未知/撤权/显式读回，非完整DTC-WMS-001 |
 | T08 仓库创建HTTP | REQ-WMS-001..004、PAGE-WMS-001/FUNC-WMS-001；[设计](implementation/137-t08-authorized-warehouse-creation-http.md) | [证据](implementation/138-t08-authorized-warehouse-creation-http-tests.md)：新增38真实HTTP/7配置，相关145+架构29=174通过；Release零警告错误；默认关闭单独写装配，非位置创建/表单/完整DTC-WMS-001 |
 | T05/T08 WMS创建原子Outbox | REQ-NTF-004..008/FUNC-NTF-001、REQ-WMS-001..004/FUNC-WMS-001；[设计](implementation/135-t05-t08-wms-creation-outbox.md) | [证据](implementation/136-t05-t08-wms-creation-outbox-tests.md)：新增17真实owner，主数据141+领域/HTTP/真实浏览器100+架构29=270通过；Release零警告错误，无模型漂移、实查DDL；仅创建原语，非DTC-NTF-001/002或DTC-WMS-001整体验收 |

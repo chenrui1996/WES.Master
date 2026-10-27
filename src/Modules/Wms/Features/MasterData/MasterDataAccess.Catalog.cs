@@ -45,13 +45,7 @@ internal sealed partial class MasterDataAccess
             if (authority is null || authority.CreatorIds is null || authority.CreatorIds.Contains(Guid.Empty))
                 throw new InvalidOperationException("Master-data catalog authorization returned an invalid decision.");
             if (!authority.Authorized) return Rejected(MasterDataReadDecision.Forbidden);
-            // Oracle MySQL EF cannot bind Guid primitive collections reliably; keep the filter typed on the mapped column.
-            var actor = Expression.Parameter(typeof(MasterDataChange), "change");
-            Expression allowed = Expression.Constant(false);
-            foreach (var creator in authority.CreatorIds)
-                allowed = Expression.OrElse(allowed, Expression.Equal(Expression.Property(actor, nameof(MasterDataChange.ActorId)), Expression.Constant(creator)));
-            var changes = database.MasterDataChanges.AsNoTracking()
-                .Where(Expression.Lambda<Func<MasterDataChange, bool>>(allowed, actor));
+            var changes = CreationFactsFor(authority.CreatorIds);
             var code = query.Code?.ToUpperInvariant();
             if (location)
             {
@@ -91,5 +85,15 @@ internal sealed partial class MasterDataAccess
             logger.LogWarning("WMS master-data catalog rejected {Code}", decision.ToString());
             return new(decision, [], [], query.Offset, query.Limit);
         }
+    }
+
+    private IQueryable<MasterDataChange> CreationFactsFor(IReadOnlySet<Guid> creators)
+    {
+        // Oracle MySQL EF cannot bind Guid primitive collections reliably; keep the filter typed on the mapped column.
+        var actor = Expression.Parameter(typeof(MasterDataChange), "change");
+        Expression allowed = Expression.Constant(false);
+        foreach (var creator in creators)
+            allowed = Expression.OrElse(allowed, Expression.Equal(Expression.Property(actor, nameof(MasterDataChange.ActorId)), Expression.Constant(creator)));
+        return database.MasterDataChanges.AsNoTracking().Where(Expression.Lambda<Func<MasterDataChange, bool>>(allowed, actor));
     }
 }

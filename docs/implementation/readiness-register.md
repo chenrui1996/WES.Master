@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+最新T05第二owner：[WMS创建事件诊断](141-t05-wms-creation-event-diagnostics.md)/[证据](142-t05-wms-creation-event-diagnostics-tests.md)已交付WMS owner/API九字段pending创建事件、独立`wms.messages.read`全字段、当前creator交集SQL前过滤与有界页，复用WMS目录过滤而不跨私表。新增38owner/13HTTP，最终179+WMS领域/HTTP/既有两套真实浏览器159+架构29=367通过，Release零警告错误/无模型漂移；客户端第二owner与统计/发布消费/真实Broker仍缺，T05整包不关闭。
+
 最新T08客户端：[仓库创建表单](139-t08-disabled-warehouse-creation-client.md)/[证据](140-t08-disabled-warehouse-creation-client-tests.md)已交付当前write字段可见、精确预览/二次确认、10秒确认未知原键手工恢复、创建/查询互锁与显式读取回执。新增35客户端，全套462/严格构建通过，相关WMS领域/HTTP/真实HTTPS Chromium只读+写两变体146、架构29通过，Release零警告错误。此前“仓库表单未完成”已被本片替代；位置创建/真实Pack/树层巷/编辑启停/容器库存闭环与T08整包仍缺，其余T04–T07也不虚关闭。
 
 最新T08 HTTP：[仓库创建入口](137-t08-authorized-warehouse-creation-http.md)/[证据](138-t08-authorized-warehouse-creation-http-tests.md)已交付单独默认关闭`WarehouseCreationEnabled`、当前write字段、严格JSON/key、201/200/409及真实单效果。新增38HTTP/7配置，相关WMS145+架构29=174通过，Release零警告错误；旧“Host创建未接线”仅库位/其他生命周期仍适用，仓库表单/真实Pack/编辑启停/整包未完成。

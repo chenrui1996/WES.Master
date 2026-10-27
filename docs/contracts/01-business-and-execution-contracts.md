@@ -41,6 +41,8 @@
 
 ## 4. WMS与运输协作
 
+已实施只读增量：GET `/api/wms/master-data-events`在既有显式主数据读装配下提供独立当前`wms.messages.read`/creator授权的九字段创建事件元数据与offset/limit，无payload/Inbox/虚构投递状态；[精确合同](../implementation/141-t05-wms-creation-event-diagnostics.md)。这不是业务transport事件、跨owner统计或Broker健康。
+
 已实施路径增量：POST `/api/wms/warehouses`只在单独默认关闭创建装配下开放，精确`{code,name}`和可信身份/永久key，201+Location或200精确重放；安全拒绝及版本兼容见[仓库HTTP合同](../implementation/137-t08-authorized-warehouse-creation-http.md)。不将既有未版本化路径自行迁移到规划v1，不新增位置/启停或运输实现。
 
 局部实现事件 `wms.master-data.created`/schemaVersion=1，Owner=`Wms`；仅默认禁用仓/位新创建事实，非启用/库存/物理控制命令。envelope与安全payload、tenant/operation事件身份、不可变/回放及迁移兼容详见[WMS创建Outbox](../implementation/135-t05-t08-wms-creation-outbox.md)。该切片仅owner事务Pending暂存，无publisher/consumer/历史回填，不能将下表运输合同标作已实现。

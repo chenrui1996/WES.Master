@@ -35,6 +35,8 @@ public static partial class WmsMasterDataEndpoints
             ReadAsync(id, http, database, location: false, ct));
         group.MapGet("/locations/{id:guid}", (Guid id, HttpContext http, MasterDataDatabase database, CancellationToken ct) =>
             ReadAsync(id, http, database, location: true, ct));
+        group.MapGet("/master-data-events", (int? offset, int? limit, HttpContext http, MasterDataDatabase database, CancellationToken ct) =>
+            ReadCreationEventsAsync(new(offset ?? 0, limit ?? 25), http, database, ct));
         if (app.Services.GetRequiredService<WmsMasterDataSettings>().WarehouseCreationEnabled)
             group.MapPost("/warehouses", CreateWarehouseAsync);
     }
@@ -85,6 +87,28 @@ public static partial class WmsMasterDataEndpoints
         {
             return Results.Problem(statusCode: error.IsTransient ? StatusCodes.Status503ServiceUnavailable : StatusCodes.Status500InternalServerError,
                 title: "WMS master-data access failed.");
+        }
+    }
+
+    private static async Task<IResult> ReadCreationEventsAsync(MasterDataEventQuery query, HttpContext http, MasterDataDatabase database, CancellationToken ct)
+    {
+        var context = IdentityRuntime.Subject(http.User);
+        try
+        {
+            await using var owner = database.Open(context.TenantId);
+            var result = await owner.QueryCreationEventsAsync(new(context.TenantId, context.ActorId, context.SessionId), query, ct);
+            return result.Decision switch
+            {
+                MasterDataReadDecision.Success => Results.Ok(new { result.Rows, result.Offset, result.Limit }),
+                MasterDataReadDecision.Forbidden => Results.Forbid(),
+                MasterDataReadDecision.Invalid => Results.BadRequest(),
+                _ => throw new InvalidOperationException("Unknown WMS creation-event read decision.")
+            };
+        }
+        catch (WmsDatabaseException error)
+        {
+            return Results.Problem(statusCode: error.IsTransient ? StatusCodes.Status503ServiceUnavailable : StatusCodes.Status500InternalServerError,
+                title: "WMS creation-event access failed.");
         }
     }
 

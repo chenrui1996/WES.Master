@@ -9,6 +9,7 @@ test("real WMS definitions and explicitly enabled warehouse creation retain curr
   const location = process.env.WES_E2E_LOCATION_ID;
   const coordination = process.env.WES_E2E_WMS_COORDINATION;
   const creation = process.env.WES_E2E_WMS_CREATE === "true";
+  const inventoryId = process.env.WES_E2E_INVENTORY_ID;
   if (!tenant || !warehouse || !location || !coordination) throw new Error("Requires the controlled WMS/MySQL revocation fixture.");
   const failures: string[] = [];
   const methods: string[] = [];
@@ -184,11 +185,53 @@ test("real WMS definitions and explicitly enabled warehouse creation retain curr
   await eventRead.click(); expect((await deniedEvents).status()).toBe(403);
   await expect(eventList).toHaveCount(0);
   await expect(page.getByRole("region", { name: "WMS 创建事件", exact: true })).toContainText("PermissionDenied");
+  if (inventoryId) {
+    await page.getByTestId("navigation-toggle").click();
+    await page.getByRole("navigation", { name: "管理导航" }).getByRole("link", { name: "库存与保护量", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "库存与保护量", exact: true })).toBeVisible();
+    const inventoryRead = page.getByRole("button", { name: "读取当前库存", exact: true });
+    await page.getByLabel("批次筛选", { exact: true }).focus();
+    await page.keyboard.press("Tab"); await expect(inventoryRead).toBeFocused();
+    expect(await inventoryRead.evaluate(element => element.matches(":focus-visible"))).toBe(true);
+    const readInventory = page.waitForResponse(response => new URL(response.url()).pathname === "/api/wms/inventory");
+    await page.keyboard.press("Enter");
+    const response = await readInventory;
+    expect(response.status()).toBe(200); expect(response.headers()["cache-control"]).toBe("no-store");
+    const inventoryRows = page.getByTestId("inventory-rows");
+    await expect(inventoryRows).toContainText(inventoryId);
+    await expect(inventoryRows).toContainText("999999999.999999");
+    const json = await response.json() as { rows: { quantity: string; available: string; protected: string }[] };
+    expect(json.rows[0]?.quantity).toBe("999999999.999999");
+    expect(json.rows[0]?.available).toBe("999999999.999999");
+    expect(json.rows[0]?.protected).toBe("0.000000");
+    for (const width of [375, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    }
+    await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
+    await context.setOffline(true); await expect(inventoryRead).toBeDisabled();
+    const beforeInventoryReconnect = methods.length;
+    await context.setOffline(false); await expect(inventoryRead).toBeEnabled();
+    expect(methods.length).toBe(beforeInventoryReconnect);
+    await expect(page.getByRole("region", { name: "当前库存", exact: true })).toContainText("陈旧");
+    await writeFile(join(coordination, "inventory-revoke.request"), "revoke");
+    await expect.poll(async () => readFile(join(coordination, "inventory-revoke.confirmed"), "utf8").catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return "pending";
+      throw error;
+    })).toBe("revoked");
+    const deniedInventory = page.waitForResponse(value => new URL(value.url()).pathname === "/api/wms/inventory");
+    await inventoryRead.click(); expect((await deniedInventory).status()).toBe(403);
+    await expect(inventoryRows).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "当前库存", exact: true })).toContainText("PermissionDenied");
+  }
   const stored = await page.evaluate(() => JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage)]));
   for (const secret of [warehouse, location, locationDefinition.packId, "HTTP location", "BROWSER-WH", "Browser warehouse", "accessToken"])
     expect(stored).not.toContain(secret);
   for (const row of eventRows) expect(stored).not.toContain(row.eventId);
-  expect(methods.length).toBe(creation ? 10 : 7);
+  if (inventoryId) expect(stored).not.toContain(inventoryId);
+  expect(methods.length).toBe(creation ? 10 : inventoryId ? 9 : 7);
   expect(methods.filter(method => method === "POST")).toHaveLength(creation ? 1 : 0);
   expect(methods.every(method => method === "GET" || creation && method === "POST")).toBe(true);
   expect(failures).toEqual([]);

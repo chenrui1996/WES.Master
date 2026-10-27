@@ -155,6 +155,11 @@ public sealed partial class IdentityHttpTests
     private async Task<StockBalance> InventoryHostAsync(DataScope scope = DataScope.All)
     {
         var ids = await WmsHostAsync();
+        return await SeedInventoryAsync(ids, scope);
+    }
+
+    private async Task<StockBalance> SeedInventoryAsync((Guid Warehouse, Guid Location) ids, DataScope scope = DataScope.All)
+    {
         await using (var platform = Open())
         {
             var role = new AccessRole(_tenant, "INVENTORY-READ",

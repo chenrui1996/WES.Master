@@ -43,6 +43,8 @@
 
 当前只读库存合同：[精确定义](../implementation/145-t08-authorized-inventory-query.md)。GET `/api/wms/inventory`沿显式WMS读装配，可信当前tenant/actor/session及All完整15字段，精确维度筛选、有界实时分页、固定六位decimal字符串；同一owner一致读保护份额并集，不包含写入/分配许可、物理位置或跨请求核对快照，不把未知观察量填0。
 
+对应[实时客户端](../implementation/147-t08-inventory-query-client.md)只解析精确页/行字段及数量字符串，以BigInt校验等式和单位精度；独立Wms模块+permission路由、All完整字段按钮，当前403清旧，输入/身份变动取消，无业务缓存或重连自动请求。不把实时分页代替固定核对快照/授权流水/导出。
+
 已实施只读增量：GET `/api/wms/master-data-events`在既有显式主数据读装配下提供独立当前`wms.messages.read`/creator授权的九字段创建事件元数据与offset/limit，无payload/Inbox/虚构投递状态；[精确合同](../implementation/141-t05-wms-creation-event-diagnostics.md)。这不是业务transport事件、跨owner统计或Broker健康。
 
 已实施路径增量：POST `/api/wms/warehouses`只在单独默认关闭创建装配下开放，精确`{code,name}`和可信身份/永久key，201+Location或200精确重放；安全拒绝及版本兼容见[仓库HTTP合同](../implementation/137-t08-authorized-warehouse-creation-http.md)。不将既有未版本化路径自行迁移到规划v1，不新增位置/启停或运输实现。

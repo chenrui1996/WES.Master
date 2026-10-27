@@ -9,6 +9,19 @@ afterEach(() => {
 });
 
 describe("module-aware routes", () => {
+  it.each([
+    [true, "wms.inventory.read", "/wms/inventory"],
+    [true, "wms.warehouses.read", "/account/sessions"],
+    [false, "wms.inventory.read", "/module-unavailable"],
+  ])("gates inventory navigation with enabled=%s permission=%s", async (enabled, permission, expected) => {
+    sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false,
+      credentialVersion: "version", grants: [{ permission, scope: 2, departments: [], fields: ["Id"] }] };
+    vi.spyOn(moduleCatalog, "load").mockResolvedValue(true);
+    vi.spyOn(moduleCatalog, "isEnabled").mockReturnValue(enabled);
+    await router.push("/account/sessions"); await router.push("/wms/inventory");
+    expect(router.currentRoute.value.path).toBe(expected);
+    await router.push("/account/sessions");
+  });
   it.each([false, true])("fails closed for the multi-owner message route when catalog ready=%s but no owner is enabled", async ready => {
     sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false,
       credentialVersion: "version", grants: [{ permission: "wms.messages.read", scope: 0, departments: [], fields: ["EventId"] }] };

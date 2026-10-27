@@ -14,14 +14,16 @@ namespace Wes.Modules.Tests.Platform;
 public sealed partial class IdentityHttpTests
 {
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
     [Trait("CaseId", "WMS-CLIENT-06")]
-    public async Task RealBrowserReadsWarehouseAndLocationAndClearsDetailsAfterCurrentRevocation(bool warehouseCreation)
+    public async Task RealBrowserReadsWarehouseAndLocationAndClearsDetailsAfterCurrentRevocation(bool warehouseCreation, bool inventoryRead)
     {
         var ids = await WmsHostAsync(warehouseCreation);
         if (warehouseCreation) await GrantWarehouseCreationAsync();
         await GrantCreationEventReadAsync();
+        var balance = inventoryRead ? await SeedInventoryAsync(ids) : null;
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "WES.slnx"))) root = root.Parent;
         Assert.NotNull(root);
@@ -50,8 +52,12 @@ public sealed partial class IdentityHttpTests
         {
             var start = new ProcessStartInfo("node")
             {
-                WorkingDirectory = web, RedirectStandardError = true, RedirectStandardOutput = true, UseShellExecute = false,
-                StandardOutputEncoding = System.Text.Encoding.UTF8, StandardErrorEncoding = System.Text.Encoding.UTF8
+                WorkingDirectory = web,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                StandardOutputEncoding = System.Text.Encoding.UTF8,
+                StandardErrorEncoding = System.Text.Encoding.UTF8
             };
             start.ArgumentList.Add(Path.Combine(web, "node_modules", "@playwright", "test", "cli.js"));
             start.ArgumentList.Add("test"); start.ArgumentList.Add("wms-master-data.spec.ts"); start.ArgumentList.Add("--config=playwright.config.ts");
@@ -61,6 +67,7 @@ public sealed partial class IdentityHttpTests
             start.Environment["WES_E2E_LOCATION_ID"] = ids.Location.ToString("D");
             start.Environment["WES_E2E_WMS_COORDINATION"] = coordination;
             start.Environment["WES_E2E_WMS_CREATE"] = warehouseCreation ? "true" : "false";
+            start.Environment["WES_E2E_INVENTORY_ID"] = balance?.Id.ToString("D") ?? "";
             using var process = Process.Start(start)!;
             var output = process.StandardOutput.ReadToEndAsync();
             var errors = process.StandardError.ReadToEndAsync();
@@ -85,6 +92,8 @@ public sealed partial class IdentityHttpTests
             Assert.True(process.ExitCode == 0, await output + Environment.NewLine + await errors);
             Assert.True(File.Exists(Path.Combine(coordination, "revoke.confirmed")), "The real current role must have been revoked.");
             Assert.True(File.Exists(Path.Combine(coordination, "events-revoke.confirmed")), "The real message-field role must have been revoked.");
+            if (inventoryRead)
+                Assert.True(File.Exists(Path.Combine(coordination, "inventory-revoke.confirmed")), "The real inventory-field role must have been revoked.");
 
             async Task RevokeWhenRequestedAsync()
             {
@@ -107,6 +116,17 @@ public sealed partial class IdentityHttpTests
                 eventRole.Change(eventRole.Version, true, eventRole.Rules.Select(rule => rule with { Fields = rule.Fields.Remove("EventId") }));
                 await writer.SaveChangesAsync(deadline.Token);
                 await File.WriteAllTextAsync(Path.Combine(coordination, "events-revoke.confirmed"), "revoked", deadline.Token);
+                if (!inventoryRead) return;
+                while (!File.Exists(Path.Combine(coordination, "inventory-revoke.request")))
+                {
+                    if (process.HasExited) return;
+                    await Task.Delay(50, deadline.Token);
+                }
+                var inventoryRole = await writer.Roles.SingleAsync(item => item.Code == "INVENTORY-READ", deadline.Token);
+                inventoryRole.Change(inventoryRole.Version, true,
+                    inventoryRole.Rules.Select(rule => rule with { Fields = rule.Fields.Remove("Available") }));
+                await writer.SaveChangesAsync(deadline.Token);
+                await File.WriteAllTextAsync(Path.Combine(coordination, "inventory-revoke.confirmed"), "revoked", deadline.Token);
             }
         }
         finally
@@ -115,12 +135,19 @@ public sealed partial class IdentityHttpTests
             File.Delete(Path.Combine(coordination, "revoke.confirmed"));
             File.Delete(Path.Combine(coordination, "events-revoke.request"));
             File.Delete(Path.Combine(coordination, "events-revoke.confirmed"));
+            File.Delete(Path.Combine(coordination, "inventory-revoke.request"));
+            File.Delete(Path.Combine(coordination, "inventory-revoke.confirmed"));
             Directory.Delete(coordination);
         }
         await using var verify = OpenWmsMasterData();
         Assert.Equal(warehouseCreation ? 3 : 2, await verify.MasterDataChanges.CountAsync());
         Assert.Equal(warehouseCreation ? 3 : 2, await verify.OutboxMessages.CountAsync());
-        Assert.Empty(await verify.Entries.ToListAsync());
+        Assert.Equal(inventoryRead ? 1 : 0, await verify.Entries.CountAsync());
+        if (inventoryRead)
+        {
+            Assert.Equal(Wes.Wms.Domain.StockMovementQuantity.MaximumValue, (await verify.Balances.SingleAsync()).Quantity);
+            Assert.Empty(await verify.Reservations.ToListAsync());
+        }
         Assert.All(await verify.Warehouses.ToListAsync(), item => Assert.False(item.Enabled));
         Assert.False((await verify.Locations.SingleAsync()).Enabled);
         if (warehouseCreation)

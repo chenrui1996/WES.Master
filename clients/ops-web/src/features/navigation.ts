@@ -11,6 +11,7 @@ const entries = [
   { path: "/files", name: "暂存文件", short: "文", module: "Platform", permission: ["platform.files.read"] },
   { path: "/notifications/messages", name: "消息诊断", short: "消", messageOwners: true },
   { path: "/wms/locations", name: "仓库与库位详情", short: "仓", module: "Wms", permission: ["wms.warehouses.read", "wms.locations.read"] },
+  { path: "/wms/inventory", name: "库存与保护量", short: "存", module: "Wms", permission: ["wms.inventory.read"] },
 ] as const;
 
 export function getNavigation(

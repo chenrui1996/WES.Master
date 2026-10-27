@@ -244,13 +244,68 @@ test("real WMS definitions and explicitly enabled warehouse creation retain curr
     await inventoryRead.click(); expect((await deniedInventory).status()).toBe(403);
     await expect(inventoryRows).toHaveCount(0);
     await expect(page.getByRole("region", { name: "当前库存", exact: true })).toContainText("PermissionDenied");
+    const beforeLedger = methods.length;
+    await page.getByTestId("navigation-toggle").click();
+    await page.getByRole("navigation", { name: "管理导航" }).getByRole("link", { name: "库存流水", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "库存流水", exact: true })).toBeVisible();
+    expect(methods.length).toBe(beforeLedger);
+    const ledgerRead = page.getByRole("button", { name: "读取当前流水", exact: true });
+    await page.getByLabel("结束 UTC（不包含）", { exact: true }).focus();
+    await page.keyboard.press("Tab"); await expect(ledgerRead).toBeFocused();
+    expect(await ledgerRead.evaluate(element => element.matches(":focus-visible"))).toBe(true);
+    const readLedger = page.waitForResponse(value => new URL(value.url()).pathname === "/api/wms/ledger");
+    await page.keyboard.press("Enter");
+    const ledgerResponse = await readLedger;
+    expect(ledgerResponse.status()).toBe(200); expect(ledgerResponse.headers()["cache-control"]).toBe("no-store");
+    const ledgerJson = await ledgerResponse.json() as { rows: Record<string, unknown>[]; offset: number; limit: number };
+    expect(Object.keys(ledgerJson)).toEqual(["rows", "offset", "limit"]);
+    expect(ledgerJson.rows).toHaveLength(1);
+    const fact = ledgerJson.rows[0]!;
+    expect(Object.keys(fact)).toHaveLength(19);
+    expect(fact.balanceId).toBe(inventoryId); expect(fact.kind).toBe(0);
+    expect(fact.quantity).toBe("999999999.999999"); expect(fact.before).toBe("0.000000"); expect(fact.after).toBe("999999999.999999");
+    const ledgerRows = page.getByTestId("stock-ledger-rows");
+    for (const key of ["id", "postingId", "balanceId", "sourceDocumentId", "sourceLineId", "executionUnitId", "correlationId", "occurredAt"])
+      await expect(ledgerRows).toContainText(String(fact[key]));
+    for (const width of [375, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+      const overflow = await page.evaluate(() => [...document.querySelectorAll("*")].filter(element =>
+        element.getBoundingClientRect().right > document.documentElement.clientWidth + 1).map(element => ({
+          tag: element.tagName, class: element.className, name: element.getAttribute("name"),
+          right: element.getBoundingClientRect().right, width: element.getBoundingClientRect().width,
+        })).slice(0, 20));
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), JSON.stringify({ width, overflow })).toBe(true);
+      await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
+    }
+    await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
+    await context.setOffline(true); await expect(ledgerRead).toBeDisabled();
+    const beforeLedgerReconnect = methods.length;
+    await context.setOffline(false); await expect(ledgerRead).toBeEnabled();
+    expect(methods.length).toBe(beforeLedgerReconnect);
+    await expect(page.getByRole("region", { name: "当前库存流水", exact: true })).toContainText("陈旧");
+    await writeFile(join(coordination, "ledger-revoke.request"), "revoke");
+    await expect.poll(async () => readFile(join(coordination, "ledger-revoke.confirmed"), "utf8").catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return "pending";
+      throw error;
+    })).toBe("revoked");
+    const deniedLedger = page.waitForResponse(value => new URL(value.url()).pathname === "/api/wms/ledger");
+    await ledgerRead.click(); expect((await deniedLedger).status()).toBe(403);
+    await expect(ledgerRows).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "当前库存流水", exact: true })).toContainText("PermissionDenied");
+    const saved = await page.evaluate(() => JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage)]));
+    for (const key of ["id", "postingId", "sourceDocumentId", "sourceLineId", "executionUnitId", "correlationId"])
+      expect(saved).not.toContain(String(fact[key]));
   }
   const stored = await page.evaluate(() => JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage)]));
   for (const secret of [warehouse, location, locationDefinition.packId, "HTTP location", "BROWSER-WH", "Browser warehouse", "accessToken"])
     expect(stored).not.toContain(secret);
   for (const row of eventRows) expect(stored).not.toContain(row.eventId);
   if (inventoryId) expect(stored).not.toContain(inventoryId);
-  expect(methods.length).toBe(creation ? 12 : inventoryId ? 11 : 9);
+  expect(methods.length).toBe(creation ? 12 : inventoryId ? 13 : 9);
   expect(methods.filter(method => method === "POST")).toHaveLength(creation ? 1 : 0);
   expect(methods.every(method => method === "GET" || creation && method === "POST")).toBe(true);
   expect(failures).toEqual([]);

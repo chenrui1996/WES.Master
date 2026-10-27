@@ -17,6 +17,8 @@ public static partial class WmsMasterDataEndpoints
         services.AddSingleton<MasterDataDatabase>();
         services.AddSingleton<InventoryAuthority>();
         services.AddSingleton<InventoryDatabase>();
+        services.AddSingleton<StockLedgerAuthority>();
+        services.AddSingleton<StockLedgerDatabase>();
         return services;
     }
 
@@ -43,6 +45,11 @@ public static partial class WmsMasterDataEndpoints
         group.MapGet("/inventory", (int? offset, int? limit, Guid? warehouseId, Guid? locationId, Guid? itemId,
             Guid? containerId, string? batch, HttpContext http, InventoryDatabase database, CancellationToken ct) =>
             QueryInventoryAsync(new(offset ?? 0, limit ?? 25, warehouseId, locationId, itemId, containerId, batch), http, database, ct));
+        group.MapGet("/ledger", (int? offset, int? limit, Guid? warehouseId, Guid? locationId, Guid? itemId,
+            Guid? containerId, string? batch, Guid? sourceDocumentId, Guid? correlationId, int? kind,
+            string? from, string? before, HttpContext http, StockLedgerDatabase database, CancellationToken ct) =>
+            QueryStockLedgerAsync(new(new(offset ?? 0, limit ?? 25, warehouseId, locationId, itemId, containerId, batch),
+                sourceDocumentId, correlationId, kind.HasValue ? (StockLedgerKind)kind.Value : null), from, before, http, database, ct));
         if (app.Services.GetRequiredService<WmsMasterDataSettings>().WarehouseCreationEnabled)
             group.MapPost("/warehouses", CreateWarehouseAsync);
     }

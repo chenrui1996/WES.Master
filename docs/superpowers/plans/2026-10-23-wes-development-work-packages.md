@@ -58,6 +58,8 @@
 
 ### T04：权限、租户、配置和审计
 
+- [x] [新建用户当前目录门禁](../../implementation/155-t04-user-create-loading-gate.md)/[证据](../../implementation/156-t04-user-create-loading-gate-tests.md)：按钮disabled对齐原busy/stale guard，新增2组件测试先红，前端691/严格构建、真实HTTPS创建/凭据/角色流程及四套浏览器回归通过、Release0/0。不关闭父DTC/T04整包。
+
 - [x] [数字字典业务码与真实语言回退](../../implementation/151-t04-numeric-dictionary-code.md)/[证据](../../implementation/152-t04-numeric-dictionary-code-tests.md)：已批准code0现在以string原值保存，分类/语言键/角色/部门校验不变；新增18领域/9HTTP/1真实owner，相关81.NET含真实HTTPS键盘创建/两次改译/语言回退/有引用删除409通过、Release0/0。不关闭完整DTC-PLAT-006/012/014或T04整包。
 
 **Files:** `src\Modules\Platform\Features\{Authorization\RolePolicy.cs,Tenancy\TenantContext.cs,Configuration\VersionedSettings.cs,Audit\QueryAudit.cs}`、对应owner EF配置/迁移；`clients\ops-web\src\features\platform\{UsersPage.vue,RolesPage.vue,TenantsPage.vue,SettingsPage.vue,AuditPage.vue}`；`tests\Modules\Platform\{AuthorizationTests.cs,SettingsAuditTests.cs}`。
@@ -141,6 +143,8 @@
 ## B. 仓储与审批业务
 
 ### T08：WMS主数据与唯一账本
+
+- [x] [当前授权不可变流水](../../implementation/153-t08-authorized-stock-ledger-query.md)/[证据](../../implementation/154-t08-authorized-stock-ledger-query-tests.md)：独立All完整19字段owner/API/客户端，精确维度/来源/微秒UTC半开SQL过滤后稳定时间分页，正负六位字符串与历史前后余额，当前撤权清旧；新增32真实owner/28HTTP/85前端。最终相关.NET185、前端691/严格构建、Release0/0；含按真实375px+200%修共享外壳。不关闭固定核对快照/导出/来源业务跳转、完整生命周期或T08整包。
 
 - [x] [实时库存客户端](../../implementation/147-t08-inventory-query-client.md)/[证据](../../implementation/148-t08-inventory-query-client-tests.md)：独立Wms路由/导航、完整All字段、精确筛选、六位字符串/BigInt校验、分页/撤权/取消/离线；前端581/严格构建、真实HTTP及三套HTTPS浏览器21、架构29通过，Release0/0。固定核对快照/授权流水/导出与完整生命周期仍缺，不关闭父DTC/T08整包。
 

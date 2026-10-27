@@ -414,7 +414,7 @@ onBeforeUnmount(() => {
       </form>
       <p v-if="filters.account || filters.name || filters.departmentId || filters.enabled" class="hint">当前筛选：{{ filters.account }} {{ filters.name }} {{ departmentName(filters.departmentId || null) }} {{ filters.enabled === 'true' ? '启用' : filters.enabled === 'false' ? '停用' : '' }}</p>
             <div class="actions">
-        <button v-if="canCreateUser" data-test="new-user" @click="open('create')">新建用户</button>
+        <button v-if="canCreateUser" data-test="new-user" :disabled="busy || queryStale" @click="open('create')">新建用户</button>
         <button v-if="moreDepartments" type="button" data-test="more-departments" :disabled="busy || loading || departmentCatalog.loading.value" @click="moreCandidates('departments')">加载更多部门候选</button>
         <button v-if="moreRoles" type="button" data-test="more-roles" :disabled="busy || loading || roleCatalog.loading.value" @click="moreCandidates('roles')">加载更多角色候选</button>
       </div>

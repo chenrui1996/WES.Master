@@ -9,6 +9,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 ## 文档工作区
 
+T08/T06续片：[当前授权库存流水](docs/implementation/153-t08-authorized-stock-ledger-query.md)/[证据](docs/implementation/154-t08-authorized-stock-ledger-query-tests.md)已交付独立All完整19字段owner/API/客户端，真实正负量/历史前后余额/来源、微秒UTC半开筛选及当前撤权。新增32真实owner/28HTTP/85前端；并按实测修共享外壳375px+200%文字溢出。关联[T04新建用户加载门禁](docs/implementation/155-t04-user-create-loading-gate.md)/[证据](docs/implementation/156-t04-user-create-loading-gate-tests.md)新增2项先红后绿。最终前端691/严格构建、相关.NET106+46HTTP+4真实HTTPS浏览器+29架构=185通过、Release0/0。固定核对快照/导出、来源业务跳转、完整生命周期及T04–T08整包仍未完成。
+
 T04字典续片：[数字稳定码与语言回退](docs/implementation/151-t04-numeric-dictionary-code.md)/[证据](docs/implementation/152-t04-numeric-dictionary-code-tests.md)修复已批准code`0`被技术标识校验拒绝的问题，仅放宽字典业务码，不改角色/部门/分类/语言键。新增18领域/9HTTP/1真实owner，相关81.NET含真实HTTPS键盘创建/改译/回退/引用删除409通过，Release0/0；完整父DTC及T04–T08整包仍未关闭。
 
 T05第二owner统计：[WMS创建事件范围计数](docs/implementation/149-t05-wms-creation-event-counts.md)/[证据](docs/implementation/150-t05-wms-creation-event-counts-tests.md)接通当前完整统计字段creator交集、SQL全量计数与共享owner计数组件。WMS只返回Pending三字段，不虚构Inbox/发布状态、不跨owner求和；前端604/严格构建、主数据205+HTTP/三套浏览器36+架构29=270通过，Release0/0。统一快照、WMS发布消费与真实Broker仍缺，整包不关闭。

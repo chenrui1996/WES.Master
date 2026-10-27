@@ -78,7 +78,7 @@ body,
 }
 
 body {
-  min-width: 20rem;
+  min-width: min(20rem, 100%);
   margin: 0;
   color: var(--wes-color-text);
   background: var(--wes-color-workspace);

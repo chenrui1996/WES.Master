@@ -41,6 +41,8 @@
 
 ## 4. WMS与运输协作
 
+不可变流水只读合同：[当前精确定义](../implementation/153-t08-authorized-stock-ledger-query.md)。GET `/api/wms/ledger`沿既有默认关闭WMS读装配，独立`wms.ledger.read`当前All完整19字段，不借库存读权或posting actor。维度/批次/来源/关联/类型/显式UTC微秒半开时间SQL前过滤、OccurredAt/Id升序实时页；Quantity有符号、Before/After非负固定六位字符串，来源/余额均真实永久事实。Host仅公开Features读取类别，不引用领域posting；非法/撤权/存储损坏明确失败，无任意改账/删除API。客户端无损BigInt/微秒校验、清旧取消及离线手工恢复，不构造来源跳转、固定核对快照或导出。
+
 当前只读库存合同：[精确定义](../implementation/145-t08-authorized-inventory-query.md)。GET `/api/wms/inventory`沿显式WMS读装配，可信当前tenant/actor/session及All完整15字段，精确维度筛选、有界实时分页、固定六位decimal字符串；同一owner一致读保护份额并集，不包含写入/分配许可、物理位置或跨请求核对快照，不把未知观察量填0。
 
 对应[实时客户端](../implementation/147-t08-inventory-query-client.md)只解析精确页/行字段及数量字符串，以BigInt校验等式和单位精度；独立Wms模块+permission路由、All完整字段按钮，当前403清旧，输入/身份变动取消，无业务缓存或重连自动请求。不把实时分页代替固定核对快照/授权流水/导出。

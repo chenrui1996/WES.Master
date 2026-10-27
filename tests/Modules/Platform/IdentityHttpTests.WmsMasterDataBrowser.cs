@@ -25,6 +25,7 @@ public sealed partial class IdentityHttpTests
         await GrantCreationEventReadAsync();
         await GrantCreationEventCountsAsync();
         var balance = inventoryRead ? await SeedInventoryAsync(ids) : null;
+        if (inventoryRead) await GrantStockLedgerReadAsync();
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "WES.slnx"))) root = root.Parent;
         Assert.NotNull(root);
@@ -94,7 +95,10 @@ public sealed partial class IdentityHttpTests
             Assert.True(File.Exists(Path.Combine(coordination, "revoke.confirmed")), "The real current role must have been revoked.");
             Assert.True(File.Exists(Path.Combine(coordination, "events-revoke.confirmed")), "The real message-field role must have been revoked.");
             if (inventoryRead)
+            {
                 Assert.True(File.Exists(Path.Combine(coordination, "inventory-revoke.confirmed")), "The real inventory-field role must have been revoked.");
+                Assert.True(File.Exists(Path.Combine(coordination, "ledger-revoke.confirmed")), "The real ledger-field role must have been revoked.");
+            }
 
             async Task RevokeWhenRequestedAsync()
             {
@@ -130,6 +134,16 @@ public sealed partial class IdentityHttpTests
                     inventoryRole.Rules.Select(rule => rule with { Fields = rule.Fields.Remove("Available") }));
                 await writer.SaveChangesAsync(deadline.Token);
                 await File.WriteAllTextAsync(Path.Combine(coordination, "inventory-revoke.confirmed"), "revoked", deadline.Token);
+                while (!File.Exists(Path.Combine(coordination, "ledger-revoke.request")))
+                {
+                    if (process.HasExited) return;
+                    await Task.Delay(50, deadline.Token);
+                }
+                var ledgerRole = await writer.Roles.SingleAsync(item => item.Code == "LEDGER-READ", deadline.Token);
+                ledgerRole.Change(ledgerRole.Version, true,
+                    ledgerRole.Rules.Select(rule => rule with { Fields = rule.Fields.Remove("Quantity") }));
+                await writer.SaveChangesAsync(deadline.Token);
+                await File.WriteAllTextAsync(Path.Combine(coordination, "ledger-revoke.confirmed"), "revoked", deadline.Token);
             }
         }
         finally
@@ -140,6 +154,8 @@ public sealed partial class IdentityHttpTests
             File.Delete(Path.Combine(coordination, "events-revoke.confirmed"));
             File.Delete(Path.Combine(coordination, "inventory-revoke.request"));
             File.Delete(Path.Combine(coordination, "inventory-revoke.confirmed"));
+            File.Delete(Path.Combine(coordination, "ledger-revoke.request"));
+            File.Delete(Path.Combine(coordination, "ledger-revoke.confirmed"));
             Directory.Delete(coordination);
         }
         await using var verify = OpenWmsMasterData();

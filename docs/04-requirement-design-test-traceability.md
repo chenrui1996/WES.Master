@@ -9,6 +9,8 @@
 
 | 切片 | 范围/设计 | 测试/证据状态 |
 |---|---|---|
+| T08授权流水/T06文字放大 | PAGE-WMS-008/FUNC-WMS-007、REQ-WMS-005..011、UI-001..004/007/008/011/012；[设计](implementation/153-t08-authorized-stock-ledger-query.md) | [证据](implementation/154-t08-authorized-stock-ledger-query-tests.md)：新增32真实owner/28HTTP/85前端；最终owner106+HTTP46+四套HTTPS浏览器4+架构29=185、前端691/严格构建及Release0/0。375px+200%原阈值实测修共享最小宽度，非全页面DTC/固定快照/导出/业务原单跳转或整包验收 |
+| T04用户新建加载门禁 | PAGE-PLAT-003/FUNC-PLAT-002、REQ-PLAT-004；[设计](implementation/155-t04-user-create-loading-gate.md) | [证据](implementation/156-t04-user-create-loading-gate-tests.md)：新增2组件测试实际先红，按钮disabled对齐原busy/stale guard；最终前端691及真实HTTPS全Platform创建/凭据/角色流程通过，非完整父DTC验收 |
 | T04 数字字典码与真实回退 | DTC-PLAT-006/012/014、FUNC-PLAT-004、PAGE-PLAT-006；[设计](implementation/151-t04-numeric-dictionary-code.md) | [证据](implementation/152-t04-numeric-dictionary-code-tests.md)：新增18领域/9HTTP/1真实owner，相关81.NET含真实HTTPS code0/改译/请求-默认-key回退/引用删除409/原全页面流程通过，Release0/0；不是完整父DTC或整包验收 |
 | T05 WMS创建事件范围统计 | REQ-NTF-004..008、PAGE-NTF-003；[设计](implementation/149-t05-wms-creation-event-counts.md) | [证据](implementation/150-t05-wms-creation-event-counts-tests.md)：新增26真实owner/12HTTP/23前端，主数据205+HTTP/三套HTTPS浏览器36+架构29=270、全前端604/严格构建、Release0/0通过；独立三字段Pending，非跨owner统一快照/Inbox/投递窗口或整包验收 |
 | T08 实时库存客户端 | PAGE-WMS-002、RULE-01..08、UI-001..004/007/008/011/012；[设计](implementation/147-t08-inventory-query-client.md) | [证据](implementation/148-t08-inventory-query-client-tests.md)：新增60前端、全套581/严格构建通过，真实HTTP/三套HTTPS浏览器21、架构29通过、Release0/0；不是固定核对快照/授权流水/导出或父DTC整体验收 |

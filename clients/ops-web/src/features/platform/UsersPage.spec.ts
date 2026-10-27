@@ -7,6 +7,32 @@ const user = { id: "u1", account: "ALICE", name: "Alice", departmentId: "d1", en
   version: "user-v1", credentialVersion: null as string | null, roleIds: ["r1"] };
 const departments = [{ id: "d1", name: "收货", code: "IN", enabled: true, version: "d-v1" },
   { id: "d2", name: "停用部门", code: "OLD", enabled: false, version: "d-v2" }];
+it("disables create until the current initial user query and candidates have finished", async () => {
+  let finish!: (value: Response) => void;
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (url.includes("/users?")) return new Promise<Response>(resolve => { finish = resolve; });
+    return new Response(JSON.stringify({ authorized: true, rows: url.includes("/departments") ? departments : [] }));
+  }));
+  const wrapper = mount(UsersPage); await flushPromises();
+  expect(wrapper.get('[data-test="new-user"]').attributes("disabled")).toBeDefined();
+  finish(new Response(JSON.stringify({ authorized: true, rows: [user] }))); await flushPromises();
+  expect(wrapper.get('[data-test="new-user"]').attributes("disabled")).toBeUndefined();
+  await wrapper.get('[data-test="new-user"]').trigger("click"); expect(wrapper.find('[data-test="user-form"]').exists()).toBe(true);
+  wrapper.unmount();
+});
+it("keeps create disabled after current query failure and restores it only after explicit successful reread", async () => {
+  let reads = 0;
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (url.includes("/users?") && ++reads === 2) return new Response('{"code":"Unavailable"}', { status: 503 });
+    return new Response(JSON.stringify({ authorized: true, rows: url.includes("/departments") ? departments : url.includes("/roles") ? [] : [user] }));
+  }));
+  const wrapper = mount(UsersPage); await flushPromises();
+  await wrapper.get('form[aria-label="用户筛选"]').trigger("submit"); await flushPromises();
+  expect(wrapper.get('[data-test="new-user"]').attributes("disabled")).toBeDefined();
+  await wrapper.get('form[aria-label="用户筛选"]').trigger("submit"); await flushPromises();
+  expect(wrapper.get('[data-test="new-user"]').attributes("disabled")).toBeUndefined();
+  expect(reads).toBe(3); wrapper.unmount();
+});
 it.each([403, 503, "denied"] as const)("discards the actual user role editor and protected labels after candidate %s", async status => {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
     if (url.includes("/roles?") && url.includes("offset=25"))

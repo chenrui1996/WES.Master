@@ -33,6 +33,8 @@ export const router = createRouter({
       meta: { moduleCode: "Wms", anyPermission: ["wms.warehouses.read", "wms.locations.read"] } },
     { path: "/wms/inventory", component: () => import("./features/wms/InventoryPage.vue"),
       meta: { moduleCode: "Wms", permission: "wms.inventory.read" } },
+    { path: "/wms/ledger", component: () => import("./features/wms/StockLedgerPage.vue"),
+      meta: { moduleCode: "Wms", permission: "wms.ledger.read" } },
     { path: "/:pathMatch(.*)*", redirect: "/account/sessions" },
   ],
 });

@@ -22,6 +22,8 @@
 
 ### 页面状态适用
 
+PAGE-PLAT-003局部修复：[新建用户当前目录门禁](../implementation/155-t04-user-create-loading-gate.md)/[证据](../implementation/156-t04-user-create-loading-gate-tests.md)将新建按钮disabled对齐既有busy/queryStale guard，避免初始查询未回或刷新失败时显示可点但不打开。当前加载/失败不可用，显式重读成功恢复，不修改当前权限/命令/服务端规则；新增2组件测试先红，真实HTTPS创建/凭据/角色回归通过，非整页/父DTC关闭。
+
 | 页面 | 共用DTC适用 | 不适用及特有变体 |
 |---|---|---|
 | 001 | UI-001/003/004/007/008/009 | 无分页/实时订阅/first-empty；凭据错误、验证码失效、受限重试单独设计 |

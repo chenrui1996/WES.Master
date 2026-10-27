@@ -16,7 +16,7 @@ export function mayReadInventory(): boolean {
   const fields = new Set(sessionState.subject?.grants.filter(grant => grant.permission === "wms.inventory.read" && grant.scope === 2).flatMap(grant => grant.fields));
   return !!sessionState.subject && inventoryFields.every(field => fields.has(field));
 }
-function validBatch(value: unknown): value is string {
+export function validBatch(value: unknown): value is string {
   return typeof value === "string" && value.length <= 128 && value.trim() === value && !/[\u0000-\u001f\u007f-\u009f]/.test(value);
 }
 function quantity(value: unknown): value is string {

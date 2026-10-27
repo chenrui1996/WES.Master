@@ -10,6 +10,16 @@ afterEach(() => {
 
 describe("module-aware routes", () => {
   it.each([
+    [true, "wms.ledger.read", "/wms/ledger"], [true, "wms.inventory.read", "/account/sessions"],
+    [false, "wms.ledger.read", "/module-unavailable"],
+  ])("gates ledger navigation with enabled=%s permission=%s", async (enabled, permission, expected) => {
+    sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false,
+      credentialVersion: "version", grants: [{ permission, scope: 2, departments: [], fields: ["Id"] }] };
+    vi.spyOn(moduleCatalog, "load").mockResolvedValue(true); vi.spyOn(moduleCatalog, "isEnabled").mockReturnValue(enabled);
+    await router.push("/account/sessions"); await router.push("/wms/ledger");
+    expect(router.currentRoute.value.path).toBe(expected); await router.push("/account/sessions");
+  });
+  it.each([
     [true, "wms.inventory.read", "/wms/inventory"],
     [true, "wms.warehouses.read", "/account/sessions"],
     [false, "wms.inventory.read", "/module-unavailable"],

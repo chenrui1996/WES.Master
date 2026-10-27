@@ -37,6 +37,9 @@ function utc(value: unknown): value is string {
   const time = Date.parse(value);
   return Number.isFinite(time) && new Date(time).toISOString().slice(0, 19) === value.slice(0, 19);
 }
+function utcKey(value: string): string {
+  return value.slice(0, 19) + (value.match(/\.(\d{1,7})/)?.[1] ?? "").padEnd(7, "0");
+}
 function integer(value: unknown, minimum: number): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= minimum;
 }
@@ -57,15 +60,31 @@ function parseRow(value: unknown): MessageRow {
     contractName: value.contractName, schemaVersion: value.schemaVersion, attempts: value.attempts,
     nextAttemptAt: value.nextAttemptAt, publishedAt: value.publishedAt, lastErrorCategory: value.lastErrorCategory };
 }
-export async function queryMessages(offset: number, limit: number, signal: AbortSignal): Promise<MessageRow[]> {
+export interface MessageFilters { status?: number; createdFrom?: string; createdBefore?: string }
+export async function queryMessages(offset: number, limit: number, signal: AbortSignal, filters: MessageFilters = {}): Promise<MessageRow[]> {
   if (!Number.isInteger(offset) || offset < 0 || offset > 10000 || ![25, 50, 100].includes(limit))
     throw new Error("消息页范围无效，请从第一页重新读取。");
+  if (filters.status !== undefined && (!Number.isInteger(filters.status) || filters.status < 0 || filters.status > 3))
+    throw new Error("请选择有效的消息状态。");
+  for (const time of [filters.createdFrom, filters.createdBefore]) {
+    if (time !== undefined && (!utc(time) || Number(time.slice(0, 4)) < 1000))
+      throw new Error("请输入公元 1000 年起的有效 UTC 创建时间。");
+  }
+  if (filters.createdFrom !== undefined && filters.createdBefore !== undefined
+    && utcKey(filters.createdFrom) >= utcKey(filters.createdBefore)) throw new Error("创建时间结束必须晚于开始。");
+  const query = new URLSearchParams({ offset: String(offset), limit: String(limit) });
+  if (filters.status !== undefined) query.set("status", String(filters.status));
+  if (filters.createdFrom !== undefined) query.set("createdFrom", filters.createdFrom);
+  if (filters.createdBefore !== undefined) query.set("createdBefore", filters.createdBefore);
   let value: unknown;
-  try { value = await api(`/api/platform/messages?offset=${offset}&limit=${limit}`, { signal }); }
+  try { value = await api(`/api/platform/messages?${query}`, { signal }); }
   catch (error) { if (error instanceof SyntaxError) throw new MessageResponseError(); throw error; }
   if (!isRecord(value) || Object.keys(value).length !== 2 || value.authorized !== true
     || !Array.isArray(value.rows) || value.rows.length > limit) throw new MessageResponseError();
   const rows = value.rows.map(parseRow);
   if (new Set(rows.map(row => row.eventId.toLowerCase())).size !== rows.length) throw new MessageResponseError();
+  if (rows.some(row => filters.status !== undefined && row.status !== filters.status
+    || filters.createdFrom !== undefined && utcKey(row.createdAt) < utcKey(filters.createdFrom)
+    || filters.createdBefore !== undefined && utcKey(row.createdAt) >= utcKey(filters.createdBefore))) throw new MessageResponseError();
   return rows;
 }

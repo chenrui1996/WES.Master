@@ -78,6 +78,8 @@ T05诊断续实施：[Platform消息只读客户端](docs/implementation/127-t05
 
 T05最新续片：[Platform受权重放客户端](docs/implementation/129-t05-authorized-message-replay-client.md)/[证据](docs/implementation/130-t05-authorized-message-replay-client-tests.md)：准备前重读、理由/expected/原operation预览与二次确认，未知结果冻结原键不自动重发；前端379、严格构建、真实HTTPS浏览器/HTTP3和MySQL重放2通过。跨owner/过滤/Inbox计数/真实Broker及整包仍未完成。
 
+T05筛选续片：[状态与UTC创建时间查询](docs/implementation/131-t05-filtered-message-diagnostics.md)/[证据](docs/implementation/132-t05-filtered-message-diagnostics-tests.md)在owner SQL先筛选后分页，客户端清旧/准备预读保留筛选与精确时间文本，原GET无新参数兼容。前端396/严格构建、HTTP/真实HTTPS浏览器13、MySQL18、架构29通过，Release零警告错误。跨owner/Inbox统计/真实Broker及整包仍未完成。
+
 | 文档组 | 内容 |
 |---|---|
 | 项目治理 | [业务范围与现状矩阵](docs/01-business-scope-and-status.md)、[系统架构](docs/02-system-architecture.md)、[工程/注释/文档规范](docs/03-engineering-governance.md)、[需求追踪矩阵](docs/04-requirement-design-test-traceability.md)、[ADR](docs/adr/README.md) |

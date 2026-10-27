@@ -290,11 +290,11 @@ public static class PlatformEndpoints
         return Results.File(result.Content!, "text/csv; charset=utf-8", $"audit-{snapshotId:D}.csv", enableRangeProcessing: false);
     }
     private static async Task<IResult> OutboxAsync(HttpContext http, IdentityDatabase factory, CancellationToken ct,
-        int offset = 0, int limit = 50)
+        int offset = 0, int limit = 50, int? status = null, DateTimeOffset? createdFrom = null, DateTimeOffset? createdBefore = null)
     {
         var subject = IdentityRuntime.Subject(http.User);
         await using var database = factory.Open(subject.TenantId);
-        var result = await database.OutboxAsync(subject, offset, limit, ct);
+        var result = await database.OutboxAsync(subject, offset, limit, ct, new OutboxQueryFilter(status, createdFrom, createdBefore));
         return result.Authorized ? Results.Ok(result) : Results.Forbid();
     }
     private static async Task<IResult> ReplayOutboxAsync(Guid eventId, ReplayOutboxInput input, HttpContext http,

@@ -15,15 +15,32 @@ public sealed record OutboxQueryRow(Guid EventId, string? ContractName, int? Sch
 /// <summary>An explicit denied outcome is distinct from an authorized empty page.</summary>
 public sealed record OutboxQueryPage(bool Authorized, ImmutableArray<OutboxQueryRow> Rows);
 
+/// <summary>Optional finite delivery status and half-open UTC creation bounds; omitted values preserve unfiltered reads.</summary>
+public sealed record OutboxQueryFilter(int? Status = null, DateTimeOffset? CreatedFrom = null, DateTimeOffset? CreatedBefore = null)
+{
+    internal bool IsValid => Status is not (< 0 or > 3)
+        && ValidTime(CreatedFrom) && ValidTime(CreatedBefore)
+        && (!CreatedFrom.HasValue || !CreatedBefore.HasValue || CreatedFrom.Value < CreatedBefore.Value);
+
+    private static bool ValidTime(DateTimeOffset? time) =>
+        time is null || time.Value.Offset == TimeSpan.Zero && time.Value.Year >= 1000;
+}
+
 /// <summary>Owner-local, current-session-authorized Outbox diagnostics.</summary>
 public sealed class QueryOutbox(PlatformDbContext database, TimeProvider clock)
 {
     /// <summary>Reads a stable, bounded metadata page from the trusted tenant's Outbox.</summary>
     public async Task<OutboxQueryPage> ReadAsync(
-        TenantContext subject, int offset = 0, int limit = 50, CancellationToken cancellationToken = default)
+        TenantContext subject, int offset = 0, int limit = 50, CancellationToken cancellationToken = default,
+        OutboxQueryFilter? filter = null)
     {
         ArgumentNullException.ThrowIfNull(subject);
         cancellationToken.ThrowIfCancellationRequested();
+        filter ??= new OutboxQueryFilter();
+        if (!filter.IsValid)
+        {
+            throw new ArgumentException("Outbox filters require a known status and valid half-open UTC creation bounds.", nameof(filter));
+        }
         if (offset < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(offset));
@@ -43,6 +60,7 @@ public sealed class QueryOutbox(PlatformDbContext database, TimeProvider clock)
         var fields = await new CurrentAuthorization(database, clock).VisibleFieldsAsync(
             subject, "platform.messages.read", new ResourceScope(database.TenantId, Guid.Empty, Guid.Empty),
             cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!fields.Contains(nameof(OutboxQueryRow.EventId))
             || !fields.Contains(nameof(OutboxQueryRow.Status))
             || !fields.Contains(nameof(OutboxQueryRow.CreatedAt))
@@ -58,7 +76,15 @@ public sealed class QueryOutbox(PlatformDbContext database, TimeProvider clock)
         var showNextAttempt = fields.Contains(nameof(OutboxQueryRow.NextAttemptAt));
         var showPublished = fields.Contains(nameof(OutboxQueryRow.PublishedAt));
         var showLastError = fields.Contains(nameof(OutboxQueryRow.LastErrorCategory));
-        var rows = await database.OutboxMessages.AsNoTracking()
+        var messages = database.OutboxMessages.AsNoTracking();
+        if (filter.Status.HasValue)
+        {
+            var status = (OutboxMessageStatus)filter.Status.Value;
+            messages = messages.Where(message => message.Status == status);
+        }
+        if (filter.CreatedFrom.HasValue) messages = messages.Where(message => message.CreatedAt >= filter.CreatedFrom.Value);
+        if (filter.CreatedBefore.HasValue) messages = messages.Where(message => message.CreatedAt < filter.CreatedBefore.Value);
+        var rows = await messages
             .OrderBy(message => message.CreatedAt).ThenBy(message => message.EventId)
             .Skip(offset).Take(limit)
             .Select(message => new OutboxQueryRow(
@@ -73,6 +99,7 @@ public sealed class QueryOutbox(PlatformDbContext database, TimeProvider clock)
                 showPublished ? message.PublishedAt : null,
                 showLastError ? message.LastErrorCategory : null))
             .ToListAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         return new OutboxQueryPage(true, rows.ToImmutableArray());
     }
 }

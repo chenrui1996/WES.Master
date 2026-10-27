@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+最新T05消息筛选：[设计](131-t05-filtered-message-diagnostics.md)/[证据](132-t05-filtered-message-diagnostics-tests.md)已交付Platform状态/UTC创建时间SQL过滤后分页与客户端筛选。前端396/严格构建、HTTP/真实HTTPS Chromium13、MySQL18、架构29通过，Release零警告错误；原参数兼容，非法400，补SQL物化完成时取消检查。以下历史“过滤未完成”仅跨owner部分仍适用；Inbox统计/真实Broker及五个整包仍未关闭。
+
 最新T05续片：[Platform受权重放界面](129-t05-authorized-message-replay-client.md)/[证据](130-t05-authorized-message-replay-client-tests.md)已交付，替代下述历史“重放表单未完成”状态。前端379及严格构建、真实HTTPS浏览器/HTTP3、MySQL重放2通过；同事件/原operation/当前字段/expected/理由预览、未知结果显式同键重试，最终owner查证唯一回执与原payload不变。跨owner/过滤/Inbox计数、真实Broker与T04–T08整包仍未完成。
 
 最新T05局部交付：[Platform消息只读客户端](127-t05-platform-message-diagnostics-client.md)及[证据](128-t05-platform-message-diagnostics-client-tests.md)。新增40项客户端/路由/导航，前端全套346通过、严格构建通过；真实HTTPS Chromium与两项消息HTTP共3通过，真实MySQL查询1通过。修复首轮真实浏览器暴露的All范围值映射错误后复验，不放宽权限。跨owner/Inbox聚合、重放表单、真实Broker仍未完成；T04–T08整体不关闭。Broker/容器命令本次探测不可用，未安装服务或连接未知环境。

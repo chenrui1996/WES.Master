@@ -9,6 +9,7 @@
 
 | 切片 | 范围/设计 | 测试/证据状态 |
 |---|---|---|
+| T05 Platform消息筛选 | REQ-NTF-004..008、PAGE-NTF-003；[设计](implementation/131-t05-filtered-message-diagnostics.md) | [证据](implementation/132-t05-filtered-message-diagnostics-tests.md)：新增15真实owner/10HTTP/17客户端；前端396及严格构建、HTTP/真实浏览器13、MySQL18、架构29通过；不代签完整.NET、跨owner/Inbox/Broker |
 | T05 Platform受权重放客户端 | REQ-NTF-004..008、PAGE-NTF-003/FUNC-NTF-001局部；[设计](implementation/129-t05-authorized-message-replay-client.md) | [证据](implementation/130-t05-authorized-message-replay-client-tests.md)：前端379及严格构建、真实HTTPS浏览器/HTTP3与MySQL重放2通过；同事件/原键/理由/expected预览与未知结果重试；父DTC/跨owner/Broker不代签 |
 | T05 Platform消息诊断客户端 | REQ-NTF-004..008、PAGE-NTF-003、FUNC-NTF-001局部；[设计](implementation/127-t05-platform-message-diagnostics-client.md) | [证据](implementation/128-t05-platform-message-diagnostics-client-tests.md)：前端346、真实HTTPS浏览器/HTTP3及MySQL查询1通过；首轮scope映射错误已修，父DTC/跨owner/Broker仍未关闭 |
 | T01 软件实施基线 | 全部现有PAGE/FUNC及Route语义；不含预留功能扩容 | 文档签核；现场主备/真实环境仍blocked |

@@ -81,6 +81,7 @@
 - [ ] 三Provider/隔离Broker执行崩溃窗口，断线不得丢Outbox；过deadline控制拒发、迟到可信完成核验且不覆盖新位置、认证过期隔离/query；采用RVT-05、VAL-07/08，不声称消息exactly-once。
 - [x] PAGE-NTF-003 Platform owner只读客户端：当前All完整必要字段、可选字段投影、实时分页、撤权/迟到/离线清旧；前端346项、真实HTTPS Chromium与2项消息HTTP、1项MySQL查询回归通过。见[设计](../../implementation/127-t05-platform-message-diagnostics-client.md)/[证据](../../implementation/128-t05-platform-message-diagnostics-client-tests.md)。不代表跨owner聚合、真实Broker或重放表单完成。
 - [x] PAGE-NTF-003 Platform受权重放客户端：准备前重读、当前All字段、理由/expected/原operation预览、二次确认、未知结果原键显式重试；前端379及严格构建、真实HTTPS Chromium/HTTP3、MySQL重放2通过。见[设计](../../implementation/129-t05-authorized-message-replay-client.md)/[证据](../../implementation/130-t05-authorized-message-replay-client-tests.md)。跨owner/过滤/Inbox计数/真实Broker及T05整包仍未完成。
+- [x] Platform消息状态/创建时间筛选在owner SQL中先执行再分页，原GET可选参数兼容、非法值400、取消后不交付；前端396/严格构建、真实HTTPS浏览器/HTTP13、MySQL查询/重放18、架构29通过。见[设计](../../implementation/131-t05-filtered-message-diagnostics.md)/[证据](../../implementation/132-t05-filtered-message-diagnostics-tests.md)。跨owner与Inbox统计/真实Broker及T05整包仍未完成。
 
 ### T06：共享交互与授权查询底座
 

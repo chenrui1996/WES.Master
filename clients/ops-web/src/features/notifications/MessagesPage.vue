@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, shallowRef, useId, watch } from "vue";
 import QueryState from "../../components/QueryState.vue";
 import RealtimePager from "../../components/RealtimePager.vue";
 import { ApiError, sessionState } from "../identity/identity-api";
@@ -11,6 +11,8 @@ const readable = computed(() => requiredMessageFields.every(field => fields.valu
 const canPrepare = computed(() => readable.value && ["ContractName", "SchemaVersion", "Attempts"].every(field => fields.value.has(field))
   && replayMessageFields.every(field => allMessageFields("replay").has(field)));
 const selected = shallowRef<MessageRow | null>(null);
+const filterId = useId();
+const status = ref(""); const createdFrom = ref(""); const createdBefore = ref("");
 const scope = computed(() => JSON.stringify(sessionState.subject));
 const rows = shallowRef<MessageRow[]>([]);
 const offset = ref(0); const limit = ref(25);
@@ -22,6 +24,7 @@ let controller = new AbortController(); let sequence = 0;
 function cancel() { ++sequence; controller.abort(); controller = new AbortController(); busy.value = false; fresh.value = false; }
 function clear() { cancel(); rows.value = []; loaded.value = false; loadedAt.value = ""; error.value = ""; selected.value = null; }
 watch(scope, () => { clear(); offset.value = 0; }, { flush: "sync" });
+watch([status, createdFrom, createdBefore], () => { clear(); offset.value = 0; }, { flush: "sync" });
 function connection() { online.value = navigator.onLine; if (!online.value) cancel(); }
 onMounted(() => { addEventListener("online", connection); addEventListener("offline", connection); });
 onUnmounted(() => { cancel(); removeEventListener("online", connection); removeEventListener("offline", connection); });
@@ -31,7 +34,11 @@ async function load(prepareEventId?: string) {
   const ticket = sequence; const signal = controller.signal; const fingerprint = scope.value;
   const current = () => ticket === sequence && fingerprint === scope.value && !signal.aborted;
   try {
-    const result = await queryMessages(offset.value, limit.value, signal);
+    const time = (value: string) => value ? `${value}${value.length === 16 ? ":00" : ""}Z` : undefined;
+    const result = await queryMessages(offset.value, limit.value, signal, {
+      status: status.value === "" ? undefined : Number(status.value),
+      createdFrom: time(createdFrom.value), createdBefore: time(createdBefore.value),
+    });
     if (current()) {
       rows.value = result; fresh.value = true; loaded.value = true; loadedAt.value = new Date().toISOString();
       if (prepareEventId) {
@@ -66,7 +73,18 @@ function prepare(row: MessageRow) {
       Broker 已确认不表示消费成功或业务完成；不提供消息正文，重放须另行受权及二次确认。</p>
     <p v-if="!readable" role="alert">缺少 Platform 消息 All 范围及必要字段读取权限，不能查询。</p>
     <p v-if="!online" class="notice" role="status">当前离线，已加载消息仅为陈旧参考；恢复连接后请手工重新读取。</p>
-    <form @submit.prevent="load()"><button type="submit" :disabled="busy || !online || !readable || selected !== null">读取 Platform 消息</button></form>
+    <form class="message-filters" @submit.prevent="load()">
+      <div><label :for="`${filterId}-status`">消息状态</label>
+        <select :id="`${filterId}-status`" v-model="status" name="messageStatus" :disabled="selected !== null">
+          <option value="">全部授权状态</option>
+          <option v-for="(label, value) in messageStatuses" :key="value" :value="String(value)">{{ label }}</option>
+        </select></div>
+      <div><label :for="`${filterId}-from`">创建开始（UTC，含）</label>
+        <input :id="`${filterId}-from`" v-model="createdFrom" name="messageFrom" type="datetime-local" :disabled="selected !== null" /></div>
+      <div><label :for="`${filterId}-before`">创建结束（UTC，不含）</label>
+        <input :id="`${filterId}-before`" v-model="createdBefore" name="messageBefore" type="datetime-local" :disabled="selected !== null" /></div>
+      <button type="submit" :disabled="busy || !online || !readable || selected !== null">读取 Platform 消息</button>
+    </form>
     <MessageReplayPanel v-if="selected" :key="selected.eventId" :row="selected" @attempted="fresh = false"
       @changed="changed" @denied="denied" @close="selected = null" />
     <p v-if="error && rows.length" class="error" role="alert">{{ error }}</p>
@@ -99,6 +117,9 @@ function prepare(row: MessageRow) {
 
 <style scoped>
 .messages-page { min-width: 0; }
+.message-filters { display: flex; flex-wrap: wrap; align-items: end; gap: var(--wes-space-3); }
+.message-filters > div { display: grid; gap: var(--wes-space-2); flex: 1 1 12rem; min-width: 0; max-width: 100%; }
+.message-filters input, .message-filters select { width: 100%; min-width: 0; }
 .message-rows { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: var(--wes-space-3); }
 .message-rows li { min-width: 0; overflow-wrap: anywhere; padding: var(--wes-space-4); background: var(--wes-color-surface); border: 1px solid var(--wes-color-border-soft); border-radius: var(--wes-radius); }
 dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--wes-space-2); }

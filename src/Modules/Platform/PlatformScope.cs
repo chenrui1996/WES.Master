@@ -243,8 +243,9 @@ public sealed partial class PlatformScope : IAsyncDisposable
         LoginEventKind? kind, Guid? correlation, CancellationToken ct) =>
         new QueryLoginEvents(_database, _clock, _logs.CreateLogger<QueryLoginEvents>()).ReadAsync(subject, from, to, offset, limit, kind, correlation, ct);
     /// <summary>Reads only current-authorized Platform Outbox metadata; payloads are never projected.</summary>
-    public Task<OutboxQueryPage> OutboxAsync(TenantContext subject, int offset, int limit, CancellationToken ct) =>
-        new QueryOutbox(_database, _clock).ReadAsync(subject, offset, limit, ct);
+    public Task<OutboxQueryPage> OutboxAsync(TenantContext subject, int offset, int limit, CancellationToken ct,
+        OutboxQueryFilter? filter = null) =>
+        new QueryOutbox(_database, _clock).ReadAsync(subject, offset, limit, ct, filter);
     /// <summary>Replays only a quarantined Platform audit event under current replay authority and idempotency.</summary>
     public Task<OutboxReplayResult> ReplayOutboxAsync(TenantContext subject, DirectoryOperation operation,
         Guid eventId, int expectedAttempts, string reason, CancellationToken ct) =>

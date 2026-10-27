@@ -2,6 +2,7 @@ import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import MessagesPage from "./MessagesPage.vue";
 import { forgetIdentity, sessionState, setAccessToken } from "../identity/identity-api";
+import { queryMessages } from "./messages";
 
 const id = "77966ccd-f1dd-412d-8e45-adb475608842";
 const row = { eventId: id, contractName: "platform.audit", schemaVersion: 1, owner: "Platform",
@@ -153,7 +154,7 @@ it("uses realtime paging and resets page size without retaining previous rows", 
   expect(fetch).toHaveBeenLastCalledWith("/api/platform/messages?offset=25&limit=25", expect.anything());
   expect(wrapper.find('[data-test="messages"]').exists()).toBe(false);
   vi.mocked(fetch).mockResolvedValueOnce(page([]));
-  await wrapper.get('select').setValue("50"); await flushPromises();
+  await wrapper.get('[aria-label="Platform 消息实时分页"] select').setValue("50"); await flushPromises();
   expect(fetch).toHaveBeenLastCalledWith("/api/platform/messages?offset=0&limit=50", expect.anything());
 });
 
@@ -206,4 +207,70 @@ it("never prepares from a stale row following a transient read failure", async (
   vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ code: "Unavailable" }), { status: 503 }));
   await read();
   expect(wrapper.get('[data-test="prepare-replay"]').attributes("disabled")).toBeDefined();
+});
+it("clears rows on filter changes and uses the same server filters when preparing replay", async () => {
+  grantReplay(); wrapper = mount(MessagesPage); await read();
+  await wrapper.get('[name="messageStatus"]').setValue("3");
+  expect(wrapper.find('[data-test="messages"]').exists()).toBe(false);
+  await wrapper.get('[name="messageFrom"]').setValue("2026-10-27T00:00");
+  await wrapper.get('[name="messageBefore"]').setValue("2026-10-28T00:00");
+  vi.mocked(fetch).mockResolvedValueOnce(page([quarantined])).mockResolvedValueOnce(page([quarantined]));
+  await read();
+  await wrapper.get('[data-test="prepare-replay"]').trigger("click"); await flushPromises();
+  const urls = vi.mocked(fetch).mock.calls.slice(-2).map(([url]) => new URL(String(url), "https://localhost"));
+  for (const url of urls) {
+    expect(url.searchParams.get("status")).toBe("3");
+    expect(url.searchParams.get("createdFrom")).toBe("2026-10-27T00:00:00Z");
+    expect(url.searchParams.get("createdBefore")).toBe("2026-10-28T00:00:00Z");
+  }
+});
+it("rejects a response outside the requested status instead of displaying it", async () => {
+  wrapper = mount(MessagesPage);
+  await wrapper.get('[name="messageStatus"]').setValue("3");
+  await read();
+  expect(wrapper.find('[data-test="messages"]').exists()).toBe(false);
+  expect(wrapper.text()).toContain("无效");
+});
+it.each([
+  { createdAt: "2026-10-27T00:00:00Z", accepted: true },
+  { createdAt: "2026-10-27T00:00:59.9999999Z", accepted: true },
+  { createdAt: "2026-10-27T00:01:00Z", accepted: false },
+  { createdAt: "2026-10-26T23:59:59Z", accepted: false },
+])("validates the exact half-open response time boundary $createdAt", async ({ createdAt, accepted }) => {
+  wrapper = mount(MessagesPage);
+  await wrapper.get('[name="messageFrom"]').setValue("2026-10-27T00:00");
+  await wrapper.get('[name="messageBefore"]').setValue("2026-10-27T00:01");
+  vi.mocked(fetch).mockResolvedValueOnce(page([{ ...row, createdAt }])); await read();
+  expect(wrapper.find('[data-test="messages"]').exists()).toBe(accepted);
+});
+it.each([
+  { status: 4 }, { status: -1 }, { status: 0.5 }, { createdFrom: "bad" },
+  { createdBefore: "0001-01-01T00:00:00Z" }, { createdFrom: "2026-02-30T00:00:00Z" },
+  { createdFrom: row.createdAt, createdBefore: row.createdAt },
+])("rejects invalid client filters before networking %#", async filters => {
+  await expect(queryMessages(0, 25, new AbortController().signal, filters)).rejects.toThrow();
+  expect(fetch).not.toHaveBeenCalled();
+});
+it("discards a late unfiltered response after the filter changes", async () => {
+  let finish!: (value: Response) => void;
+  vi.mocked(fetch).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  wrapper = mount(MessagesPage); await wrapper.get('form').trigger("submit"); await flushPromises();
+  await wrapper.get('[name="messageStatus"]').setValue("3");
+  finish(page()); await flushPromises();
+  expect(wrapper.find('[data-test="messages"]').exists()).toBe(false);
+  expect(wrapper.text()).not.toContain(id);
+});
+it.each([
+  { createdAt: "2026-10-27T00:00:00.0000000Z", accepted: false },
+  { createdAt: "2026-10-27T00:00:00.0000001Z", accepted: true },
+  { createdAt: "2026-10-27T00:00:00.0000002Z", accepted: false },
+])("preserves sub-millisecond request precision and exact response comparisons $createdAt", async ({ createdAt, accepted }) => {
+  const filters = { createdFrom: "2026-10-27T00:00:00.0000001Z", createdBefore: "2026-10-27T00:00:00.0000002Z" };
+  vi.mocked(fetch).mockResolvedValueOnce(page([{ ...row, createdAt }]));
+  const result = queryMessages(0, 25, new AbortController().signal, filters);
+  if (accepted) expect(await result).toHaveLength(1);
+  else await expect(result).rejects.toThrow("无效");
+  const query = new URL(String(vi.mocked(fetch).mock.calls[0]![0]), "https://localhost").searchParams;
+  expect(query.get("createdFrom")).toBe(filters.createdFrom);
+  expect(query.get("createdBefore")).toBe(filters.createdBefore);
 });

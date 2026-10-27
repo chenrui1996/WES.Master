@@ -19,7 +19,7 @@ namespace Wes.Persistence.Tests;
 /// <summary>RCPT-01..07: isolated real-MySQL directory receipt behavior, never production data.</summary>
 [Collection("PlatformPersistence")]
 [Trait("Provider", "MySQL")]
-public sealed class DirectoryReceiptTests : IAsyncLifetime
+public sealed partial class DirectoryReceiptTests : IAsyncLifetime
 {
     private readonly Guid _tenant = Guid.NewGuid();
     private readonly Guid _otherTenant = Guid.NewGuid();

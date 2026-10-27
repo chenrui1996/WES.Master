@@ -15,6 +15,8 @@ public static partial class WmsMasterDataEndpoints
         services.AddSingleton(provider => WmsMasterDataSettings.Load(provider.GetRequiredService<IConfiguration>()));
         services.AddSingleton<MasterDataAuthority>();
         services.AddSingleton<MasterDataDatabase>();
+        services.AddSingleton<InventoryAuthority>();
+        services.AddSingleton<InventoryDatabase>();
         return services;
     }
 
@@ -37,6 +39,9 @@ public static partial class WmsMasterDataEndpoints
             ReadAsync(id, http, database, location: true, ct));
         group.MapGet("/master-data-events", (int? offset, int? limit, HttpContext http, MasterDataDatabase database, CancellationToken ct) =>
             ReadCreationEventsAsync(new(offset ?? 0, limit ?? 25), http, database, ct));
+        group.MapGet("/inventory", (int? offset, int? limit, Guid? warehouseId, Guid? locationId, Guid? itemId,
+            Guid? containerId, string? batch, HttpContext http, InventoryDatabase database, CancellationToken ct) =>
+            QueryInventoryAsync(new(offset ?? 0, limit ?? 25, warehouseId, locationId, itemId, containerId, batch), http, database, ct));
         if (app.Services.GetRequiredService<WmsMasterDataSettings>().WarehouseCreationEnabled)
             group.MapPost("/warehouses", CreateWarehouseAsync);
     }

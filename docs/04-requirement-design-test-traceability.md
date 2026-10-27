@@ -9,6 +9,7 @@
 
 | 切片 | 范围/设计 | 测试/证据状态 |
 |---|---|---|
+| T08 当前库存owner/API | PAGE-WMS-002、库存账本不变量/RULE-01..08；[设计](implementation/145-t08-authorized-inventory-query.md) | [证据](implementation/146-t08-authorized-inventory-query-tests.md)：新增26真实owner/18HTTP，74+18+架构29=121通过；一致读/无损六位数/All逐字段、当前撤权；不是固定核对快照/导出/客户端或父DTC整体验收 |
 | T05 消息owner选择与WMS事件客户端 | REQ-NTF-004..008、PAGE-NTF-003/FUNC-NTF-001、UI-001..008/011/012；[设计](implementation/143-t05-owner-selected-message-client.md) | [证据](implementation/144-t05-owner-selected-message-client-tests.md)：新增59前端/导航/路由、最终521及严格构建；真实HTTP/三套HTTPS Chromium16+架构29通过，Release零警告错误；不代表跨owner统计/统一快照/WMS发布消费/真实Broker或父DTC整体验收 |
 | T05 WMS创建事件诊断owner/API | REQ-NTF-004..008、PAGE-NTF-003/FUNC-NTF-001；[设计](implementation/141-t05-wms-creation-event-diagnostics.md) | [证据](implementation/142-t05-wms-creation-event-diagnostics-tests.md)：新增38owner/13HTTP，相关179+159+29=367通过、Release零警告错误、无模型漂移；无payload/虚构Inbox或投递状态；不是跨owner客户端/统计/真实Broker或父DTC整体验收 |
 | T08 禁用仓库创建客户端 | REQ-WMS-001..004、PAGE-WMS-001/FUNC-WMS-001；[设计](implementation/139-t08-disabled-warehouse-creation-client.md) | [证据](implementation/140-t08-disabled-warehouse-creation-client-tests.md)：新增35客户端，前端462/严格构建通过，WMS领域/HTTP/真HTTPS只读+写浏览器146+架构29通过；精确预览/原键/未知/撤权/显式读回，非完整DTC-WMS-001 |

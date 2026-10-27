@@ -95,6 +95,14 @@ public sealed partial class PlatformScope : IAsyncDisposable
     }
     /// <summary>Named directory application use cases, not a persistence handle or generated CRUD surface.</summary>
     public DirectoryService Directory => new(_database, _clock, _operation);
+    /// <summary>
+    /// Returns live All-scope fields for a tenant-owned resource without a personal or department owner.
+    /// Own/department grants never match the empty owner metadata; callers must not use this for personally owned resources.
+    /// </summary>
+    public Task<ImmutableHashSet<string>> VisibleTenantResourceFieldsAsync(TenantContext context, string permission,
+        CancellationToken cancellationToken = default) =>
+        new CurrentAuthorization(_database, _clock).VisibleFieldsAsync(
+            context, permission, new(context.TenantId, Guid.Empty, Guid.Empty), cancellationToken);
     /// <summary>Returns request-local real creators permitted for every required field; not a client-facing directory or cached grant.</summary>
     public Task<OwnedCreatorAccess> VisibleOwnedResourceCreatorsAsync(TenantContext context, string permission,
         IReadOnlyCollection<string> requiredFields, CancellationToken cancellationToken = default) =>

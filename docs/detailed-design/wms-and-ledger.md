@@ -42,6 +42,8 @@
 
 ## 2. 功能/契约
 
+PAGE-WMS-002已增加[当前受权库存owner/API](../implementation/145-t08-authorized-inventory-query.md)/[证据](../implementation/146-t08-authorized-inventory-query-tests.md)：All完整字段、tenant维度精确SQL过滤后分页，WMS同一RepeatableRead内复用保护量并集，数量为固定六位字符串，15字段均当前授权；Own/部门未有库存资源归属合同前拒绝，不取最后posting actor冒充库存所有者。无改账/实物位置推断；客户端/固定核对快照/导出与完整DTC仍未交付。
+
 仓库创建UI现有[禁用仓库表单](../implementation/139-t08-disabled-warehouse-creation-client.md)/[证据](../implementation/140-t08-disabled-warehouse-creation-client-tests.md)：当前write字段、code/name预览、第二次确认、冻结原operation与10秒未知/离线边界；回执不赠read，用户另点才读取详情。原无write授权保持只读；后端开关默认关闭。库位创建/树层巷/编辑启停、占用/绑定/活动任务及完整DTC-WMS-001仍未实现，旧“管理动作均未开放”不再适用于这项仓库创建子集。
 
 仓库创建现增加[独立受权HTTP](../implementation/137-t08-authorized-warehouse-creation-http.md)/[证据](../implementation/138-t08-authorized-warehouse-creation-http-tests.md)：需额外默认false部署开关，仅code/name与永久Idempotency-Key，201+Location或当前授权200重放，代码/摘要冲突409。无schema成功替身/位置创建、无启用/库存写入；UI表单与完整DTC仍未交付。

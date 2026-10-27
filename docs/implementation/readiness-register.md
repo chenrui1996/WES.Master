@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+最新T08库存：[当前受权owner/API](145-t08-authorized-inventory-query.md)/[证据](146-t08-authorized-inventory-query-tests.md)已交付All完整字段、tenant精确维度SQL过滤后分页、同一RepeatableRead账面/保护量投影、重叠并集和六位decimal字符串，无改账端点。新增26真实owner/18HTTP，最终原账本预留+新读取74+HTTP18+架构29=121通过、Release0/0、无模型漂移。历史“库存查询无API”已由本片替代；客户端/固定核对快照/导出、真实Pack、主数据完整生命周期、容器/业务单据/运输完成仍缺，T04–T08不虚关闭。
+
 最新T05双owner客户端：[设计](143-t05-owner-selected-message-client.md)/[证据](144-t05-owner-selected-message-client-tests.md)已将WMS创建事件接入原消息路由，Platform/Wms模块+permission成对OR、owner切换清旧/取消、Platform重放锁选择、独立当前WMS九字段读取及真实当前撤EventId后403。新增59前端/导航/路由，最终521/严格构建、HTTP/三套真实HTTPS浏览器16+架构29通过，Release零警告错误。历史“第二owner客户端缺失”已由本片替代；跨owner统计/统一快照、WMS publisher/Inbox与真实Broker仍未实现，T04–T08整包保持未关闭。
 
 最新T05第二owner：[WMS创建事件诊断](141-t05-wms-creation-event-diagnostics.md)/[证据](142-t05-wms-creation-event-diagnostics-tests.md)已交付WMS owner/API九字段pending创建事件、独立`wms.messages.read`全字段、当前creator交集SQL前过滤与有界页，复用WMS目录过滤而不跨私表。新增38owner/13HTTP，最终179+WMS领域/HTTP/既有两套真实浏览器159+架构29=367通过，Release零警告错误/无模型漂移；客户端第二owner与统计/发布消费/真实Broker仍缺，T05整包不关闭。

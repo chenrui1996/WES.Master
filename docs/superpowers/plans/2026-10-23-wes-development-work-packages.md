@@ -138,6 +138,8 @@
 
 ### T08：WMS主数据与唯一账本
 
+- [x] [当前授权库存owner/API](../../implementation/145-t08-authorized-inventory-query.md)/[证据](../../implementation/146-t08-authorized-inventory-query-tests.md)：All完整字段、精确tenant维度过滤、同一RepeatableRead余额/保护份额、复用并集规则与六位decimal字符串，无库存写入。新增26真实owner/18HTTP；账本/预留/读取74、HTTP18、架构29通过、Release0/0、无模型漂移。客户端/固定核对快照/导出及T08整包仍缺。
+
 - [x] 仓库创建客户端：当前write字段、预览与二次确认、原键冻结/10秒未知手工恢复、取消清旧和显式GET回执。新增35客户端，全套462/严格构建通过；相关WMS领域/HTTP/真HTTPS只读+写浏览器146、架构29通过，Release零警告错误。[设计](../../implementation/139-t08-disabled-warehouse-creation-client.md)/[证据](../../implementation/140-t08-disabled-warehouse-creation-client-tests.md)。不开放库位创建/Pack/启停/库存，不关闭T08。
 
 - [x] 仓库创建HTTP接线独立默认关闭、当前write字段、精确key/body/201/200/409，复用writer与原子Outbox；新增38真实HTTP/7配置，相关145+架构29通过、Release零警告错误。[设计](../../implementation/137-t08-authorized-warehouse-creation-http.md)/[证据](../../implementation/138-t08-authorized-warehouse-creation-http-tests.md)。位置创建/真实Pack/仓库表单/其他生命周期仍未完成，整包不关闭。

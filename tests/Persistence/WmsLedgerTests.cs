@@ -10,7 +10,7 @@ namespace Wes.Persistence.Tests;
 
 [Collection("PlatformPersistence")]
 [Trait("Provider", "MySQL")]
-public sealed class WmsLedgerTests : IAsyncLifetime
+public sealed partial class WmsLedgerTests : IAsyncLifetime
 {
     private readonly Guid _tenant = Guid.NewGuid();
     private readonly Guid _other = Guid.NewGuid();

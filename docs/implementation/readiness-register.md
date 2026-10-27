@@ -320,3 +320,10 @@
 - Host已通过公开应用边界装配真实Platform当前authority，复用现有JWT `tid/sub/sid`解析。显式`Wes:WmsMasterData:Enabled`且Identity启用才映射两个GET，默认不注册；HTTPS/no-store、完整固定字段、当前角色/字段及登出撤销、实际跨tenant资源、禁止写动词已验证。不自动授予既有管理员权限或执行迁移。
 - 新增**6项配置+11项真实MySQL/JWT HTTP**，最终完整串行Release Architecture **29**、Modules **524**、Persistence **571**、Route **228**，共**1352 passed、0 failed、0 skipped**；全solution构建**0警告/0错误**。首次7项500与复用既有JWT subject的修正据实记录，未改claims/断言；见[设计](119-t08-master-data-detail-http.md)/[证据](120-t08-master-data-detail-http-tests.md)。
 - 本片无新迁移/前端变化，HTTP新用例使用TestServer，既有两套真实HTTPS浏览器由完整回归覆盖，不冒充WMS新增浏览器验收。列表/树/页面、当前创建授权、编辑启停/容器/Outbox及其他T08范围尚未完成；T04/T05/T06/T07/T08整体仍不关闭，生产/现场及ApplicationNotAssembled门禁不变。
+
+### T08 仓库/库位只读详情客户端
+
+- `/wms/locations`已交付PAGE-WMS-001详情子集，不把已知UUID查询当作目录/树。Wms客户端模块开关与仓/位任一read权限控制入口，页面分别要求完整6/9字段；真实API仍逐次复验资源范围。成功显示定义/版本/UTC和读取时间，不把Enabled当空闲/可分配/物理许可；无管理写入口。
+- 切换类型/UUID/主体/字段撤销立即取消清旧，迟到成功/错误均丢弃；严格拒绝错Id/缺字段/假boolean/非法UTC或JSON；同查询失败仅显示明确陈旧投影，401/403/404清旧；离线不发送/排队，恢复需手工读取，无新增业务存储。
+- 新增**31组件+5路由+2导航=38项**，前端全套**278 passed**和vue-tsc/Vite构建通过；真实HTTPS Kestrel+MySQL+Chromium验证双资源/精确字段、独立owner撤字段后403清旧、375/768/1440、键盘focus-visible、桌面200%字体及离线恢复无自动请求。完整Modules **525**、Architecture **29**，共**554 passed / 0 failed / 0 skipped**，包含三套真实HTTPS浏览器；Release全solution构建**0警告/0错误**。失败与修正、复跑命令见[设计](121-t08-master-data-detail-client.md)/[证据](122-t08-master-data-detail-client-tests.md)。
+- 本片无迁移/依赖/生产授权变化，未重跑未改动的Persistence/Route；上片1352是历史完整结果，不叠加冒充本片全量。**T08及T04–T07仍partial**：主数据列表/树、当前创建授权、编辑启停及活动/占用/预约/锁证据、容器绑定、受权库存/流水/快照导出、单位/FIFO/FEFO/序列集成、Outbox与运输完成证明等未验收；真实Pack、其他页面/终端及生产/现场门禁保持阻断。

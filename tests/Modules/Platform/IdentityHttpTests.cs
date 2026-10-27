@@ -1698,7 +1698,8 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
                 ["Wes:Identity:BreachCorpusPath"] = corpus,
                 ["Wes:Web:Root"] = webRoot,
                 ["Wes:Identity:KeyRingPath"] = keyRing,
-                ["Wes:WmsMasterData:Enabled"] = wmsMasterData.ToString()
+                ["Wes:WmsMasterData:Enabled"] = wmsMasterData.ToString(),
+                ["Features:Modules:Wms"] = wmsMasterData.ToString()
             }));
             if (filesRoot is not null)
                 builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
@@ -1713,7 +1714,7 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
             {
                 services.RemoveAll<TimeProvider>();
                 services.AddSingleton(clock);
-                if (filesRoot is not null)
+                if (filesRoot is not null || wmsMasterData)
                 {
                     // The test factory adds configuration after top-level composition captures the deployment catalog.
                     services.RemoveAll<Wes.Host.Runtime.FeatureSwitches>();

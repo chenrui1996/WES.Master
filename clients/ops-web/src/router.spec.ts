@@ -9,6 +9,46 @@ afterEach(() => {
 });
 
 describe("module-aware routes", () => {
+  it.each(["wms.warehouses.read", "wms.locations.read"])("allows WMS details with either resource read permission %s", async permission => {
+    sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false,
+      credentialVersion: "version", grants: [{ permission, scope: 0, departments: [], fields: ["Id"] }] };
+    vi.spyOn(moduleCatalog, "load").mockResolvedValue(true);
+    vi.spyOn(moduleCatalog, "isEnabled").mockReturnValue(true);
+    await router.push("/wms/locations");
+    expect(router.currentRoute.value.path).toBe("/wms/locations");
+    await router.push("/account/sessions");
+  });
+
+  it("denies WMS direct navigation without either permission", async () => {
+    sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false,
+      credentialVersion: "version", grants: [] };
+    vi.spyOn(moduleCatalog, "load").mockResolvedValue(true);
+    vi.spyOn(moduleCatalog, "isEnabled").mockReturnValue(true);
+    await router.push("/wms/locations");
+    expect(router.currentRoute.value.path).toBe("/account/sessions");
+  });
+
+  it("rejects disabled WMS direct navigation even when resource permission exists", async () => {
+    sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false,
+      credentialVersion: "version", grants: [{ permission: "wms.locations.read", scope: 0, departments: [], fields: ["Id"] }] };
+    vi.spyOn(moduleCatalog, "load").mockResolvedValue(true);
+    vi.spyOn(moduleCatalog, "isEnabled").mockReturnValue(false);
+    await router.push("/wms/locations");
+    expect(router.currentRoute.value.path).toBe("/module-unavailable");
+    expect(router.currentRoute.value.query.module).toBe("Wms");
+  });
+
+  it("does not interpret a failed catalog as an enabled WMS module", async () => {
+    sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false,
+      credentialVersion: "version", grants: [{ permission: "wms.locations.read", scope: 0, departments: [], fields: ["Id"] }] };
+    vi.spyOn(moduleCatalog, "load").mockResolvedValue(false);
+    const enabled = vi.spyOn(moduleCatalog, "isEnabled");
+    await router.push("/wms/locations");
+    expect(router.currentRoute.value.path).toBe("/module-unavailable");
+    expect(router.currentRoute.value.query.reason).toBe("catalog");
+    expect(enabled).not.toHaveBeenCalled();
+  });
+
   it("redirects direct navigation to a disabled module before checking permissions", async () => {
     sessionState.subject = {
       tenantId: "tenant", userId: "user", sessionId: "session",

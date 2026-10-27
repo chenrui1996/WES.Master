@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { getNavigation } from "./navigation";
 
 describe("management navigation", () => {
+  it.each(["wms.warehouses.read", "wms.locations.read"])("gates WMS details by module and either resource permission %s", permission => {
+    expect(getNavigation(module => module === "Wms", value => value === permission).map(item => item.path))
+      .toEqual(["/account/sessions", "/wms/locations"]);
+    expect(getNavigation(() => false, value => value === permission).map(item => item.path)).toEqual(["/account/sessions"]);
+  });
   it("keeps session navigation independent of modules and gates entries by module and permission", () => {
     const moduleEnabled = (module: string) => module === "Platform";
     const permissions = new Set(["platform.users.read", "platform.dictionary.read"]);

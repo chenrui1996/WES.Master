@@ -68,6 +68,8 @@ T08授权详情续实施：[当前主数据读取](docs/implementation/117-t08-c
 
 T08详情HTTP续实施：[默认关闭的只读接线](docs/implementation/119-t08-master-data-detail-http.md)及[证据](docs/implementation/120-t08-master-data-detail-http-tests.md)接通真实Platform当前授权适配器、既有JWT subject和仓/位两个GET。新增6项配置/11项HTTP，最终完整.NET **1352项通过**、构建零警告/错误；跨tenant、撤权/登出、HTTPS/no-store和无写入口已测。仅显式部署装配，不自动迁移/授予权限；列表/树/页面、创建授权、完整主数据生命周期及T08整包仍未完成。
 
+T08只读页面续实施：[仓库/库位详情客户端](docs/implementation/121-t08-master-data-detail-client.md)及[证据](docs/implementation/122-t08-master-data-detail-client-tests.md)在`/wms/locations`提供显式UUID详情查询，双层模块/字段门禁、严格投影、目标/主体切换与迟到丢弃、离线陈旧且不重放。新增38项客户端用例，前端全套**278 passed**及严格构建通过；真实HTTPS/MySQL/Chromium验证双资源与当前字段撤权403清除旧详情、三种宽度/键盘/无业务缓存。完整Modules525+Architecture29=**554 passed**，Release构建零警告/错误；本片未重跑Persistence/Route。仅详情子集，列表/树、创建授权、启停/容器绑定/Outbox与五个整包仍不关闭。
+
 | 文档组 | 内容 |
 |---|---|
 | 项目治理 | [业务范围与现状矩阵](docs/01-business-scope-and-status.md)、[系统架构](docs/02-system-architecture.md)、[工程/注释/文档规范](docs/03-engineering-governance.md)、[需求追踪矩阵](docs/04-requirement-design-test-traceability.md)、[ADR](docs/adr/README.md) |

@@ -15,4 +15,8 @@ public sealed partial class PlatformScope
     public BusinessFileAccess BusinessFiles(FileEntityReference entity, IBusinessFileAuthorization authorization,
         IQuarantineStore storage, IFileScanner scanner) =>
         new(_database, entity, authorization, storage, scanner, _clock, _logs);
+
+    /// <summary>Changes one exact business reference with mandatory current entity write authority and a permanent receipt.</summary>
+    public BusinessFileBindings BusinessFileBindings(FileEntityReference entity, IBusinessFileBindingAuthorization authorization) =>
+        new(_database, entity, authorization, _clock, _logs);
 }

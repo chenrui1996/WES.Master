@@ -348,7 +348,7 @@ public sealed partial class PlatformDbContext : DbContext
                 throw new InvalidOperationException("Platform message receipts are append-only outside bounded Inbox retention.");
             }
 
-            if (entry.Entity is PlatformOutboxReplayReceipt or PlatformAuditExportReceipt
+            if (entry.Entity is PlatformOutboxReplayReceipt or PlatformAuditExportReceipt or FileBindingOperation
                 && entry.State != EntityState.Added)
             {
                 throw new InvalidOperationException("Platform message receipts are append-only.");

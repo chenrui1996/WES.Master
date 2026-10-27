@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Routing;
 using Wes.Host.Identity;
 using Wes.Host.Platform;
@@ -8,6 +9,10 @@ using Wes.Wms.Features.Ledger;
 using Wes.Wms.Features.MasterData;
 
 namespace Wes.Host.Wms;
+
+/// <summary>Exact opaque file precondition; owner, actor and business target cannot be supplied in the body.</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record FileBindingInput(string? ExpectedVersion);
 
 public static partial class WmsMasterDataEndpoints
 {
@@ -35,7 +40,33 @@ public static partial class WmsMasterDataEndpoints
             files.MapGet("/{fileId:guid}/content", (Guid entityId, Guid fileId, HttpContext http, IdentityDatabase platform,
                 MasterDataDatabase database, PlatformFileAdapters adapters, CancellationToken ct) =>
                 ReadMasterDataFileAsync(entityId, fileId, location, content: true, http, platform, database, adapters, ct));
+            files.MapPut("/{fileId:guid}", (Guid entityId, Guid fileId, FileBindingInput input, HttpContext http,
+                IdentityDatabase platform, MasterDataDatabase database, CancellationToken ct) =>
+                ChangeMasterDataFileAsync(entityId, fileId, input, location, attached: true, http, platform, database, ct));
+            files.MapDelete("/{fileId:guid}", (Guid entityId, Guid fileId,
+                [Microsoft.AspNetCore.Mvc.FromBody] FileBindingInput input, HttpContext http,
+                IdentityDatabase platform, MasterDataDatabase database, CancellationToken ct) =>
+                ChangeMasterDataFileAsync(entityId, fileId, input, location, attached: false, http, platform, database, ct));
         }
+    }
+
+    private static async Task<IResult> ChangeMasterDataFileAsync(Guid entityId, Guid fileId, FileBindingInput input,
+        bool location, bool attached, HttpContext http, IdentityDatabase platform, MasterDataDatabase database, CancellationToken ct)
+    {
+        if (entityId == Guid.Empty || fileId == Guid.Empty
+            || !TryWmsMutationOperation(http, "attachment", out var operation)) return Results.BadRequest();
+        var subject = IdentityRuntime.Subject(http.User);
+        var entity = new FileEntityReference(FileEntityOwner(location), entityId);
+        await using var owner = platform.Open(subject.TenantId);
+        var bindings = owner.BusinessFileBindings(entity, new MasterDataFileAuthority(database, location));
+        var result = attached
+            ? await bindings.BindAsync(subject, fileId, operation, Guid.Parse(http.TraceIdentifier), input.ExpectedVersion, ct)
+            : await bindings.UnbindAsync(subject, fileId, operation, Guid.Parse(http.TraceIdentifier), input.ExpectedVersion, ct);
+        if (result.Decision != FileAccessDecision.Success) return FileOutcome(result.Decision, result);
+        var receipt = new { result.Id, result.Version, result.Attached };
+        return attached && !result.Replayed
+            ? Results.Created($"/api/wms/{(location ? "locations" : "warehouses")}/{entityId:D}/files/{fileId:D}", receipt)
+            : Results.Ok(receipt);
     }
 
     private static async Task<IResult> ReadMasterDataFileAsync(Guid entityId, Guid fileId, bool location, bool content,
@@ -66,8 +97,9 @@ public static partial class WmsMasterDataEndpoints
         FileAccessDecision.Forbidden => Results.Forbid(),
         FileAccessDecision.NotFound => Results.NotFound(),
         FileAccessDecision.Invalid => Results.BadRequest(),
+        FileAccessDecision.VersionRequired => Results.StatusCode(428),
         FileAccessDecision.VersionConflict => Results.StatusCode(412),
-        FileAccessDecision.StateConflict => Results.Conflict(),
+        FileAccessDecision.StateConflict or FileAccessDecision.IdempotencyConflict => Results.Conflict(),
         _ => throw new InvalidOperationException("Unknown business file read outcome.")
     };
 
@@ -78,23 +110,48 @@ public static partial class WmsMasterDataEndpoints
         return Results.StatusCode(status);
     }
 
-    private sealed class MasterDataFileAuthority(MasterDataDatabase database, bool location) : IBusinessFileAuthorization
+    private sealed class MasterDataFileAuthority(MasterDataDatabase database, bool location) : IBusinessFileBindingAuthorization
     {
         public async Task<bool> CanReadAsync(TenantContext context, FileEntityReference entity, CancellationToken cancellationToken)
         {
-            if (entity.Owner != FileEntityOwner(location))
-                throw new InvalidOperationException("Business file owner does not match the named entity adapter.");
+            bool? sourceLocation = entity.Owner switch
+            {
+                "wms-warehouse" => false,
+                "wms-location" => true,
+                _ => null
+            };
+            if (sourceLocation is null) return false;
             await using var owner = database.Open(context.TenantId);
             var subject = new MasterDataSubject(context.TenantId, context.ActorId, context.SessionId);
-            var result = location
+            var result = sourceLocation.Value
                 ? await owner.ReadLocationAsync(subject, entity.EntityId, cancellationToken)
                 : await owner.ReadWarehouseAsync(subject, entity.EntityId, cancellationToken);
-            return result.Decision switch
-            {
-                MasterDataReadDecision.Success => true,
-                MasterDataReadDecision.Forbidden or MasterDataReadDecision.NotFound => false,
-                _ => throw new InvalidOperationException("Validated business file entity produced an invalid read outcome.")
-            };
+            return Allowed(result.Decision);
         }
+
+        public async Task<bool> CanChangeAsync(TenantContext context, FileEntityReference entity,
+            FileBindingAction action, CancellationToken cancellationToken)
+        {
+            if (entity.Owner != FileEntityOwner(location))
+                throw new InvalidOperationException("Business file owner does not match the named entity adapter.");
+            var change = action switch
+            {
+                FileBindingAction.Attach => MasterDataAttachmentChange.Attach,
+                FileBindingAction.Detach => MasterDataAttachmentChange.Detach,
+                _ => throw new ArgumentOutOfRangeException(nameof(action))
+            };
+            await using var owner = database.Open(context.TenantId);
+            var subject = new MasterDataSubject(context.TenantId, context.ActorId, context.SessionId);
+            return Allowed(location
+                ? await owner.AuthorizeLocationFileAsync(subject, entity.EntityId, change, cancellationToken)
+                : await owner.AuthorizeWarehouseFileAsync(subject, entity.EntityId, change, cancellationToken));
+        }
+
+        private static bool Allowed(MasterDataReadDecision decision) => decision switch
+        {
+            MasterDataReadDecision.Success => true,
+            MasterDataReadDecision.Forbidden or MasterDataReadDecision.NotFound => false,
+            _ => throw new InvalidOperationException("Validated business file entity produced an invalid read outcome.")
+        };
     }
 }

@@ -30,6 +30,16 @@ public sealed class WmsMasterDataScope : IAsyncDisposable
     public Task<MasterDataReadResult> ReadLocationAsync(MasterDataSubject subject, Guid id, CancellationToken cancellationToken = default) =>
         _access.ReadLocationAsync(subject, id, cancellationToken);
 
+    /// <summary>Checks full warehouse read plus exact current Attach/Detach write authority against WMS-owned provenance.</summary>
+    public Task<MasterDataReadDecision> AuthorizeWarehouseFileAsync(MasterDataSubject subject, Guid id,
+        MasterDataAttachmentChange action, CancellationToken cancellationToken = default) =>
+        _access.AuthorizeFilesAsync(subject, id, location: false, action, cancellationToken);
+
+    /// <summary>Checks full location read plus exact current Attach/Detach write authority; no reference or resource is mutated.</summary>
+    public Task<MasterDataReadDecision> AuthorizeLocationFileAsync(MasterDataSubject subject, Guid id,
+        MasterDataAttachmentChange action, CancellationToken cancellationToken = default) =>
+        _access.AuthorizeFilesAsync(subject, id, location: true, action, cancellationToken);
+
     /// <summary>Returns realtime warehouses filtered by current complete-field creator scope before bounded stable paging; no total.</summary>
     public Task<MasterDataCatalogResult> QueryWarehousesAsync(MasterDataSubject subject, MasterDataQuery query, CancellationToken cancellationToken = default) =>
         _access.QueryWarehousesAsync(subject, query, cancellationToken);

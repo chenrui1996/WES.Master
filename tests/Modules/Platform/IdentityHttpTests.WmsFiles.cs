@@ -192,14 +192,11 @@ public sealed partial class IdentityHttpTests
         Assert.Empty(await verify.Audit.Where(item => item.Action == PlatformAuditAction.FileDownloaded).ToListAsync());
     }
 
-    [Theory]
-    [InlineData("POST")]
-    [InlineData("PUT")]
-    [InlineData("DELETE")]
-    public async Task WmsBusinessFilesDoNotExposeBindingOrLifecycleWrites(string method)
+    [Fact]
+    public async Task WmsBusinessFilesDoNotExposeUnreviewedLifecycleWrites()
     {
         var (entity, file) = await WmsBusinessFileHostAsync(location: false);
-        using var request = new HttpRequestMessage(new HttpMethod(method), BusinessFileRoute(false, entity, file));
+        using var request = new HttpRequestMessage(HttpMethod.Post, BusinessFileRoute(false, entity, file));
 
         using var response = await _client.SendAsync(request);
 
@@ -213,22 +210,22 @@ public sealed partial class IdentityHttpTests
     private static string BusinessFileRoute(bool location, Guid entity, Guid file) =>
         $"/api/wms/{(location ? "locations" : "warehouses")}/{entity:D}/files/{file:D}";
 
-    private async Task<(Guid Entity, Guid File)> WmsBusinessFileHostAsync(bool location)
+    private async Task<(Guid Entity, Guid File)> WmsBusinessFileHostAsync(bool location, bool bound = true, Guid? fileCreator = null)
     {
         await FileHostAsync();
         var ids = await WmsHostAsync(filesRoot: _filesRoot);
         var entity = location ? ids.Location : ids.Warehouse;
-        var file = new QuarantinedFile(_tenant, _user, Guid.NewGuid(), "attached.txt", "text/plain", 4,
+        var file = new QuarantinedFile(_tenant, fileCreator ?? _user, Guid.NewGuid(), "attached.txt", "text/plain", 4,
             Convert.ToHexString(SHA256.HashData("safe"u8)), _clock.GetUtcNow().AddDays(-1));
         var adapters = _factory.Services.GetRequiredService<PlatformFileAdapters>();
         await adapters.Storage.WriteAsync(_tenant, file.Id, "safe"u8.ToArray(), CancellationToken.None);
         file.ConfirmStored(file.Sha256, 4, _clock.GetUtcNow());
         var attempt = file.BeginScan(_clock.GetUtcNow());
         file.CompleteScan(attempt, FileScanVerdict.Clean, file.Sha256, 4, _clock.GetUtcNow());
-        file.AddReference(_clock.GetUtcNow());
+        if (bound) file.AddReference(_clock.GetUtcNow());
         await using var seed = Open();
         seed.Files.Add(file);
-        seed.FileReferences.Add(new(_tenant, file.Id, location ? "wms-location" : "wms-warehouse", entity));
+        if (bound) seed.FileReferences.Add(new(_tenant, file.Id, location ? "wms-location" : "wms-warehouse", entity));
         await seed.SaveChangesAsync();
         return (entity, file.Id);
     }

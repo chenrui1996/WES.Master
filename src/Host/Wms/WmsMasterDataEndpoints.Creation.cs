@@ -14,7 +14,7 @@ public static partial class WmsMasterDataEndpoints
     private static async Task<IResult> CreateWarehouseAsync(CreateWarehouseInput input, HttpContext http,
         MasterDataDatabase database, CancellationToken ct)
     {
-        if (!TryCreationOperation(http, "warehouse", out var operation)) return Results.BadRequest();
+        if (!TryWmsMutationOperation(http, "warehouse creation", out var operation)) return Results.BadRequest();
         var subject = IdentityRuntime.Subject(http.User);
         try
         {
@@ -39,14 +39,14 @@ public static partial class WmsMasterDataEndpoints
         }
     }
 
-    private static bool TryCreationOperation(HttpContext http, string kind, out Guid operation)
+    private static bool TryWmsMutationOperation(HttpContext http, string kind, out Guid operation)
     {
         operation = Guid.Empty;
         var key = http.Request.Headers["Idempotency-Key"];
         if (http.Request.Headers["X-WES-Client"] is (["ops-web"] or ["pda"])
             && key.Count == 1 && Guid.TryParseExact(key[0], "D", out operation) && operation != Guid.Empty) return true;
         http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("WmsInput")
-            .LogWarning("WMS {Kind} creation input rejected {Code}", kind, "ValidationFailed");
+            .LogWarning("WMS {Kind} input rejected {Code}", kind, "ValidationFailed");
         return false;
     }
 

@@ -327,6 +327,71 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                     b.ToTable("platform_directory_users", (string)null);
                 });
 
+            modelBuilder.Entity("Wes.Platform.Domain.FileBindingOperation", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("OperationId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("ActorId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<bool>("Attached")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("AuditId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("CorrelationId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("EntityId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("ExpectedVersion")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("FileId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Owner")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)")
+                        .UseCollation("utf8mb4_bin")
+                        .HasAnnotation("MySQL:Collation", "utf8mb4_bin");
+
+                    b.Property<string>("ResultVersion")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "OperationId");
+
+                    b.HasIndex("TenantId", "FileId", "CreatedAt");
+
+                    b.ToTable("platform_file_binding_operations", (string)null);
+                });
+
             modelBuilder.Entity("Wes.Platform.Domain.FileReference", b =>
                 {
                     b.Property<string>("TenantId")
@@ -1112,6 +1177,15 @@ namespace Wes.Platform.Infrastructure.Persistence.Migrations
                     b.HasOne("Wes.Platform.Domain.DirectoryDepartment", null)
                         .WithMany()
                         .HasForeignKey("TenantId", "DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Wes.Platform.Domain.FileBindingOperation", b =>
+                {
+                    b.HasOne("Wes.Platform.Domain.QuarantinedFile", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "FileId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

@@ -132,6 +132,7 @@
 
 **Interfaces:** 消费实体授权/存储扫描能力；产出FUNC-PLAT-005/PAGE-PLAT-007的隔离→扫描→Available引用，Workflow只存该受权引用，不接真实secret或任意URL。
 
+- [x] [永久具名附件绑定/解绑](../../implementation/167-t07-durable-business-file-bindings.md)/[证据](../../implementation/168-t07-durable-business-file-bindings-tests.md)：明确当前双owner Attach/Detach及全部持久来源实体read、引用/计数/版本/审计/永久回执单事务、精确父文件锁后复验和严格PUT/DELETE；同键只恢复原事实。真实MySQL1213锁顺序和来源权限绕过均以实际RED驱动修复。无业务附件目录/客户端或真实ClamAV/病毒库/ACL，不关闭以下父DTC/T07。
 - [x] [具名仓/位附件读取](../../implementation/165-t07-entity-authorized-file-reads.md)/[证据](../../implementation/166-t07-entity-authorized-file-reads-tests.md)：固定类型/实际精确引用、当前WMS实体及Platform文件权限交集，复用IO后复验/摘要/审计/清零；新增26真实MySQL/21 HTTP，相关Release221含五套既有HTTPS浏览器、架构29、构建0/0通过。无绑定/解绑应用入口、业务附件目录/客户端及真实病毒库/ACL，不关闭以下父DTC或T07。
 - [x] PAR-04独立内容校验基础：20 MiB边界、允许类型的扩展名/MIME/基础签名或UTF-8一致性及常见禁用签名检查；Release定向38项通过，详见[实施记录](../../implementation/83-t07-file-content-validation.md)和[测试记录](../../implementation/84-t07-file-content-validation-tests.md)。不包含上传、存储、扫描、Available或T07整包验收。
 - [x] 隔离生命周期/存储/协议及持久化基础：扫描attempt/60秒截止、600秒处理问题投影、24小时孤儿删除fence、不可覆盖私有存储、精确字节摘要、loopback ClamAV协议、tenant文件/引用表及Version并发。新增40项本地测试及8项真实MySQL测试通过，包含实际列排序规则及owner大小写隔离，见[设计](../../implementation/93-t07-quarantined-file-lifecycle.md)/[测试](../../implementation/94-t07-quarantined-file-lifecycle-tests.md)。无Host注册、应用协调、实体授权或页面，不关闭以下整体验收；协议监听器不是真实病毒清除证据。

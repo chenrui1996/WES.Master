@@ -9,7 +9,8 @@ public sealed class PlatformDesignTimeFactory : IDesignTimeDbContextFactory<Plat
     /// <summary>Builds provider metadata for migration generation; applying migrations needs an authorized runtime connection.</summary>
     public PlatformDbContext CreateDbContext(string[] args)
     {
-        var options = new DbContextOptionsBuilder<PlatformDbContext>().UseMySQL().Options;
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
+            .UseMySQL(mysql => mysql.MigrationsHistoryTable("__WesPlatformMigrations")).Options;
         return new PlatformDbContext(options, new Guid("00000000-0000-0000-0000-000000000001"));
     }
 }

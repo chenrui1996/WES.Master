@@ -22,7 +22,7 @@ public static partial class WmsMasterDataEndpoints
     private static async Task<IResult> CreateLocationAsync(CreateLocationInput input, HttpContext http,
         MasterDataDatabase database, LocationCreationSchema schema, CancellationToken ct)
     {
-        if (!TryCreationOperation(http, "location", out var operation)) return Results.BadRequest();
+        if (!TryWmsMutationOperation(http, "location creation", out var operation)) return Results.BadRequest();
         var subject = IdentityRuntime.Subject(http.User);
         try
         {

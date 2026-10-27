@@ -1684,6 +1684,7 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
         if (!_migrated) return;
         await RemoveWmsMasterDataAsync();
         await using var database = Open();
+        await database.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM platform_file_binding_operations WHERE TenantId = {_tenant.ToString("D")}");
         await database.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM platform_audit_export_receipts WHERE TenantId = {_tenant.ToString("D")}");
         await database.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM platform_audit WHERE TenantId = {_tenant.ToString("D")}");
         await database.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM platform_login_events WHERE TenantId = {_tenant.ToString("D")}");

@@ -20,7 +20,7 @@
 
 ## 2. 配置与生命周期
 
-具名仓库/库位附件读取复用 `Wes:WmsMasterData:Enabled` 与默认关闭 `Wes:Files:Enabled` 的AND，不增加开关或动态授权策略；任一关闭不映射这些路由，文件身份/引用保留。UI模块开关不替代当前双owner权限。详见[具名实体附件读取](../implementation/165-t07-entity-authorized-file-reads.md)；启用不代表绑定/解绑、业务附件UI或真实病毒库/ACL已验收。
+具名仓库/库位附件读取及[永久绑定/解绑](../implementation/167-t07-durable-business-file-bindings.md)复用 `Wes:WmsMasterData:Enabled` 与默认关闭 `Wes:Files:Enabled` 的AND，不增加开关或动态授权策略；任一关闭不映射GET/PUT/DELETE这些路由，文件身份/引用/永久操作回执保留。UI模块开关不替代当前双owner权限，上传者也不能绕过已有来源实体read。详见[具名实体附件读取](../implementation/165-t07-entity-authorized-file-reads.md)；启用不代表业务附件UI或真实病毒库/ACL已验收，撤去路由不是删除永久回执的许可。
 
 配置采用强类型、明确定义的嵌套节，所有已注册开关在部署配置中显式给值：
 

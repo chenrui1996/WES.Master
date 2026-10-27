@@ -755,6 +755,7 @@ public sealed partial class AuthorizedFileAccessTests : IAsyncLifetime
         foreach (var tenant in new[] { _tenant, _other })
         {
             await using var db = Open(tenant);
+            await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM platform_file_binding_operations WHERE TenantId = {tenant.ToString("D")}");
             await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM platform_file_references WHERE TenantId = {tenant.ToString("D")}");
             await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM platform_files WHERE TenantId = {tenant.ToString("D")}");
             await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM platform_audit WHERE TenantId = {tenant.ToString("D")}");
@@ -770,7 +771,8 @@ public sealed partial class AuthorizedFileAccessTests : IAsyncLifetime
 
     private sealed class Clock : TimeProvider
     {
-        public override DateTimeOffset GetUtcNow() => new(2026, 10, 27, 0, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset Now { get; set; } = new(2026, 10, 27, 0, 0, 0, TimeSpan.Zero);
+        public override DateTimeOffset GetUtcNow() => Now;
     }
 
     private sealed class Store(Func<Task>? onRead = null) : IQuarantineStore

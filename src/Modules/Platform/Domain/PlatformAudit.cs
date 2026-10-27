@@ -32,7 +32,11 @@ public enum PlatformAuditAction
     /// <summary>Exact uploaded bytes were confirmed in private storage; this is not scan clearance.</summary>
     FileUploadStored,
     /// <summary>An explicit fixed-snapshot export was authorized and committed before binary delivery.</summary>
-    AuditExported
+    AuditExported,
+    /// <summary>An exact authorized business file reference was added with its file version and permanent operation.</summary>
+    FileAttached,
+    /// <summary>An exact authorized business file reference was removed without deleting physical content.</summary>
+    FileDetached
 }
 
 /// <summary>Append-only audit fact staged with the owner mutation; no general request/payload string is accepted.</summary>

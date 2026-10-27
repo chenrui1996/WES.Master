@@ -37,6 +37,15 @@ public enum MasterDataReadDecision
     Invalid
 }
 
+/// <summary>Exact attachment write fields checked against the real existing entity creator, not the requesting actor.</summary>
+public enum MasterDataAttachmentChange
+{
+    /// <summary>Explicit permission to add a file reference.</summary>
+    Attach,
+    /// <summary>Explicit permission to remove a file reference.</summary>
+    Detach
+}
+
 /// <summary>Safe warehouse definition; Enabled false is not allocation or physical safety evidence.</summary>
 public sealed record WarehouseMasterView(Guid Id, string Code, string Name, bool Enabled, string Version, DateTimeOffset CreatedAt);
 /// <summary>Safe pinned semantic location definition; no device addresses, inventory or owner audit metadata.</summary>
@@ -60,7 +69,15 @@ internal sealed partial class MasterDataAccess(WmsDbContext database, IMasterDat
     internal Task<MasterDataReadResult> ReadLocationAsync(MasterDataSubject subject, Guid id, CancellationToken ct = default) =>
         ReadAsync(subject, id, location: true, ct);
 
-    private async Task<MasterDataReadResult> ReadAsync(MasterDataSubject subject, Guid id, bool location, CancellationToken ct)
+    internal async Task<MasterDataReadDecision> AuthorizeFilesAsync(MasterDataSubject subject, Guid id, bool location,
+        MasterDataAttachmentChange action, CancellationToken ct)
+    {
+        if (!Enum.IsDefined(action)) return Reject(MasterDataReadDecision.Invalid).Decision;
+        return (await ReadAsync(subject, id, location, ct, action)).Decision;
+    }
+
+    private async Task<MasterDataReadResult> ReadAsync(MasterDataSubject subject, Guid id, bool location, CancellationToken ct,
+        MasterDataAttachmentChange? attachment = null)
     {
         ArgumentNullException.ThrowIfNull(subject);
         ct.ThrowIfCancellationRequested();
@@ -94,6 +111,15 @@ internal sealed partial class MasterDataAccess(WmsDbContext database, IMasterDat
             var exact = fields.ToHashSet(StringComparer.Ordinal);
             if (!(location ? LocationFields : WarehouseFields).All(exact.Contains))
                 return Reject(MasterDataReadDecision.Forbidden);
+            if (attachment is not null)
+            {
+                var write = await _authorization.ReadFieldsAsync(subject,
+                    location ? "wms.locations.write" : "wms.warehouses.write", row.Creator, ct);
+                ct.ThrowIfCancellationRequested();
+                if (write is null) throw new InvalidOperationException("Master-data attachment authorization returned no decision.");
+                if (!write.ToHashSet(StringComparer.Ordinal).Contains(attachment.Value.ToString()))
+                    return Reject(MasterDataReadDecision.Forbidden);
+            }
             return new(MasterDataReadDecision.Success, row.Warehouse, row.Location);
         }
         catch (DbException error)

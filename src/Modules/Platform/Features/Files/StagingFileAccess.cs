@@ -4,7 +4,6 @@ using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Wes.Platform.Domain;
-using Wes.Platform.Features.Authorization;
 using Wes.Platform.Features.Tenancy;
 using Wes.Platform.Infrastructure.Persistence;
 
@@ -236,11 +235,7 @@ public sealed partial class StagingFileAccess
                 item.FileId == file.Id && item.Owner == _entity.Owner && item.EntityId == _entity.EntityId, ct)
             || !await _entityAuthorization!.CanReadAsync(context, _entity, ct))
             return false;
-        var creator = await _database.DirectoryUsers.AsNoTracking().SingleOrDefaultAsync(item => item.Id == file.CreatorId, ct);
-        if (creator is null) return false;
-        var visible = await new CurrentAuthorization(_database, _clock).VisibleFieldsAsync(context, permission,
-            new(file.TenantId, file.CreatorId, creator.DepartmentId), ct);
-        return fields.All(visible.Contains);
+        return await new CurrentFileAuthorization(_database, _clock).AllowedAsync(context, file, permission, fields, ct);
     }
 
     private StagingFileView View(QuarantinedFile file) => new(file.Id, file.FileName, file.ContentType, file.ByteCount,

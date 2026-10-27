@@ -9,7 +9,9 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 ## 文档工作区
 
-T07读取续片：[具名实体附件读取](docs/implementation/165-t07-entity-authorized-file-reads.md)/[证据](docs/implementation/166-t07-entity-authorized-file-reads-tests.md)接通仓/位固定类型、精确持久绑定、当前WMS实体与Platform文件权限交集，复用IO后复验/摘要/审计下载及缓冲清零。新增26真实MySQL/21 HTTP，相关Release221项含五套既有HTTPS浏览器通过、构建0/0。两个既有部署开关AND、默认关闭；绑定/解绑应用入口、业务附件目录/客户端和真实病毒库/ACL仍缺，T04–T08不关闭。
+T07写续片：[永久具名附件绑定/解绑](docs/implementation/167-t07-durable-business-file-bindings.md)/[证据](docs/implementation/168-t07-durable-business-file-bindings-tests.md)实现当前双owner明确Attach/Detach、全部持久来源实体read、引用/计数/版本/审计/永久回执原子提交及严格PUT/DELETE。新增30真实owner/32 HTTP，首轮620项、来源权限RED修正后的最终相关282项含六套既有HTTPS浏览器及Release0/0通过（不重复累计）。真实MySQL1213由父文件锁顺序根治；来源撤权/未登记旧owner不允许另绑绕权，同键恢复只返回原事实。复用两个默认关闭开关；业务附件目录/客户端、真实病毒库/ACL及T04–T08整包仍缺。
+
+T07读取续片：[具名实体附件读取](docs/implementation/165-t07-entity-authorized-file-reads.md)/[证据](docs/implementation/166-t07-entity-authorized-file-reads-tests.md)接通仓/位固定类型、精确持久绑定、当前WMS实体与Platform文件权限交集，复用IO后复验/摘要/审计下载及缓冲清零。新增26真实MySQL/21 HTTP，相关Release221项含五套既有HTTPS浏览器通过、构建0/0。两个既有部署开关AND、默认关闭；该读取片当时未含绑定/解绑，现由后续写片补齐。目录/客户端和真实病毒库/ACL仍缺，T04–T08不关闭。
 
 T08客户端续片：[禁用库位创建](docs/implementation/163-t08-disabled-location-creation-client.md)/[证据](docs/implementation/164-t08-disabled-location-creation-client-tests.md)复用仓库确认/未知恢复状态机，接通当前五字段/父仓read、完整tuple预览/原key冻结、二次确认和手工读回执。新增35前端，全套730/严格构建通过，相关.NET158含五套真实HTTPS浏览器、Release0/0通过；实际201/完整body及owner单效果已核验。无默认schema或真实Pack/完整层级链、启停/容器，T04–T08不虚关闭。
 

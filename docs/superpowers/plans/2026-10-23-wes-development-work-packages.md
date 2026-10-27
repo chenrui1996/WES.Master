@@ -148,6 +148,8 @@
 
 ### T08：WMS主数据与唯一账本
 
+- [x] [禁用库位创建客户端](../../implementation/163-t08-disabled-location-creation-client.md)/[证据](../../implementation/164-t08-disabled-location-creation-client-tests.md)：当前完整write/父仓read、精确tuple预览/二次确认、原key/body未知恢复与显式GET回执，复用原仓库状态机。新增35前端，全套730/严格构建、相关.NET158含五套真实HTTPS浏览器、Release0/0通过，真实201及owner单效果已核验。无真实Pack/完整层级候选链、启停/容器或父DTC/整包验收。
+
 - [x] [当前授权库位创建HTTP](../../implementation/161-t08-authorized-location-creation-http.md)/[证据](../../implementation/162-t08-authorized-location-creation-http-tests.md)：独立默认关闭写开关及唯一具名singleton schema启动门禁、当前五字段/父仓read、严格输入/永久key、原子禁用位置/事实/Outbox。新增65 HTTP/启动及8配置，6项实际RED后最终Release128含四套HTTPS浏览器+238主数据owner+29架构=395通过、构建0/0。无默认schema或真实Pack验收，库位创建表单/启停/层级/容器和父DTC/整包仍缺。
 
 - [x] [当前授权不可变流水](../../implementation/153-t08-authorized-stock-ledger-query.md)/[证据](../../implementation/154-t08-authorized-stock-ledger-query-tests.md)：独立All完整19字段owner/API/客户端，精确维度/来源/微秒UTC半开SQL过滤后稳定时间分页，正负六位字符串与历史前后余额，当前撤权清旧；新增32真实owner/28HTTP/85前端。最终相关.NET185、前端691/严格构建、Release0/0；含按真实375px+200%修共享外壳。不关闭固定核对快照/导出/来源业务跳转、完整生命周期或T08整包。

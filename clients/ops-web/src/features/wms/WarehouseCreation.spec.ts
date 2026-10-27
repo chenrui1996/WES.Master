@@ -1,6 +1,6 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import WarehouseCreation from "./WarehouseCreation.vue";
+import WarehouseCreation from "./MasterDataCreation.vue";
 import { forgetIdentity, sessionState, setAccessToken } from "../identity/identity-api";
 import { warehouseDraftError } from "./master-data";
 

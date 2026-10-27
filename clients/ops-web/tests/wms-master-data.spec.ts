@@ -2,13 +2,15 @@ import { expect, test } from "@playwright/test";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-test("real WMS definitions and explicitly enabled warehouse creation retain current authority", async ({ page, context }) => {
+test("real WMS definitions and explicitly enabled creation retain current authority", async ({ page, context }) => {
   test.skip(!process.env.WES_E2E_WMS_COORDINATION, "Requires the explicit WMS/current-role fixture, not the Platform-only fixture.");
   const tenant = process.env.WES_E2E_TENANT;
   const warehouse = process.env.WES_E2E_WAREHOUSE_ID;
   const location = process.env.WES_E2E_LOCATION_ID;
   const coordination = process.env.WES_E2E_WMS_COORDINATION;
   const creation = process.env.WES_E2E_WMS_CREATE === "true";
+  const locationCreation = process.env.WES_E2E_WMS_LOCATION_CREATE === "true";
+  const locationPack = process.env.WES_E2E_WMS_LOCATION_PACK;
   const inventoryId = process.env.WES_E2E_INVENTORY_ID;
   const delivery = process.env.WES_E2E_WMS_DELIVERY;
   if (!["pending", "leased", "completed"].includes(delivery ?? "")) throw new Error("Requires explicit durable delivery-state fixture.");
@@ -132,6 +134,52 @@ test("real WMS definitions and explicitly enabled warehouse creation retain curr
   } else {
     await expect(page.getByRole("button", { name: "新建禁用仓库", exact: true })).toHaveCount(0);
   }
+  if (locationCreation) {
+    if (!locationPack) throw new Error("Requires explicitly assembled test-only location schema.");
+    await page.getByRole("button", { name: "新建禁用库位", exact: true }).click();
+    await expect(details).toHaveCount(0);
+    await page.getByLabel("新库位代码", { exact: true }).fill("browser-loc");
+    await page.getByLabel("新库位名称", { exact: true }).fill("Browser location");
+    await page.getByLabel("父仓 UUID（提交时复验当前读取权）", { exact: true }).fill(warehouse);
+    await page.getByLabel("固定 Pack UUID", { exact: true }).fill(locationPack);
+    await page.getByLabel("固定 schema 版本", { exact: true }).fill("v1");
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: "预览禁用库位创建", exact: true })).toBeFocused();
+    expect(await page.getByRole("button", { name: "预览禁用库位创建", exact: true }).evaluate(element => element.matches(":focus-visible"))).toBe(true);
+    await page.keyboard.press("Enter");
+    const preview = page.getByTestId("location-preview");
+    const operation = await preview.locator("dd").nth(3).innerText();
+    await expect(preview).toContainText(warehouse);
+    await expect(preview).toContainText(locationPack);
+    for (const width of [375, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
+    }
+    const response = page.waitForResponse(item => new URL(item.url()).pathname === "/api/wms/locations" && item.request().method() === "POST");
+    await page.getByRole("button", { name: "确认创建禁用库位", exact: true }).click();
+    const createdResponse = await response;
+    expect(createdResponse.status()).toBe(201);
+    expect(createdResponse.headers()["cache-control"]).toBe("no-store");
+    expect(createdResponse.request().headers()["idempotency-key"]).toBe(operation);
+    expect(createdResponse.request().postDataJSON()).toEqual({ code: "BROWSER-LOC", name: "Browser location",
+      warehouseId: warehouse, packId: locationPack, schemaVersion: "v1" });
+    const created = await createdResponse.json() as { decision: number; id: string; version: string };
+    expect(created.decision).toBe(0);
+    await expect(page.getByTestId("location-receipt")).toContainText("已确认禁用库位");
+    const readCreated = page.waitForResponse(item => item.url().endsWith(`/api/wms/locations/${created.id}`));
+    await page.getByRole("button", { name: "用回执 UUID 读取当前库位", exact: true }).click();
+    expect((await readCreated).status()).toBe(200);
+    await expect(details).toContainText("BROWSER-LOC");
+    await expect(details).toContainText(created.version);
+    await expect(details).toContainText("主数据禁用");
+    await page.getByLabel("资源 UUID", { exact: true }).fill(location);
+    const restore = page.waitForResponse(item => item.url().endsWith(`/api/wms/locations/${location}`));
+    await submit.click(); expect((await restore).status()).toBe(200);
+  } else {
+    await expect(page.getByRole("button", { name: "新建禁用库位", exact: true })).toHaveCount(0);
+  }
 
   // The host fixture changes the real role through a second DB owner, not a fake HTTP response.
   await writeFile(join(coordination, "revoke.request"), "revoke");
@@ -174,7 +222,7 @@ test("real WMS definitions and explicitly enabled warehouse creation retain curr
   const events = await eventsResponse;
   expect(events.status()).toBe(200); expect(events.headers()["cache-control"]).toBe("no-store");
   const eventRows = (await events.json() as { rows: { eventId: string; aggregateId: string; occurredAt: string; status: number }[] }).rows;
-  expect(eventRows).toHaveLength(creation ? 3 : 2);
+  expect(eventRows).toHaveLength(creation || locationCreation ? 3 : 2);
   expect(eventRows.map(row => row.status).sort()).toEqual(delivery === "pending" ? [0, 0, 0] : delivery === "leased" ? [0, 1] : [2, 3]);
   const eventList = page.getByTestId("wms-events");
   await expect(eventList).toContainText(warehouse); await expect(eventList).toContainText(location);
@@ -313,8 +361,8 @@ test("real WMS definitions and explicitly enabled warehouse creation retain curr
     expect(stored).not.toContain(secret);
   for (const row of eventRows) expect(stored).not.toContain(row.eventId);
   if (inventoryId) expect(stored).not.toContain(inventoryId);
-  expect(methods.length).toBe(creation ? 12 : inventoryId ? 13 : 9);
-  expect(methods.filter(method => method === "POST")).toHaveLength(creation ? 1 : 0);
-  expect(methods.every(method => method === "GET" || creation && method === "POST")).toBe(true);
+  expect(methods.length).toBe(creation || locationCreation ? 12 : inventoryId ? 13 : 9);
+  expect(methods.filter(method => method === "POST")).toHaveLength(creation || locationCreation ? 1 : 0);
+  expect(methods.every(method => method === "GET" || (creation || locationCreation) && method === "POST")).toBe(true);
   expect(failures).toEqual([]);
 });

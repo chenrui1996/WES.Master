@@ -90,20 +90,45 @@ export function mayCreateWarehouse(): boolean {
   const fields = new Set(sessionState.subject?.grants.filter(grant => grant.permission === "wms.warehouses.write").flatMap(grant => grant.fields));
   return !!sessionState.subject && ["Code", "Name"].every(field => fields.has(field));
 }
+export function mayCreateLocation(): boolean {
+  const grants = sessionState.subject?.grants;
+  const write = new Set(grants?.filter(grant => grant.permission === "wms.locations.write").flatMap(grant => grant.fields));
+  const read = new Set(grants?.filter(grant => grant.permission === "wms.warehouses.read").flatMap(grant => grant.fields));
+  return !!sessionState.subject && ["Code", "Name", "WarehouseId", "PackId", "SchemaVersion"].every(field => write.has(field))
+    && warehouseFields.every(field => read.has(field));
+}
 export function warehouseDraftError(draftCode: string, name: string): string {
   if (!code.test(draftCode)) return "代码须为 1 至 64 个 ASCII 字母、数字、-、_ 或 .，不自动去除空白。";
   if (!validName(name)) return "名称须为 1 至 128 个字符，不能含控制字符或边界空白。";
   return "";
 }
 export interface WarehouseCreationCommand { code: string; name: string; operation: string }
-export interface WarehouseCreationReceipt { decision: 0 | 1; id: string; version: string }
-export async function createWarehouse(command: WarehouseCreationCommand, signal: AbortSignal): Promise<WarehouseCreationReceipt> {
+export interface LocationCreationCommand extends WarehouseCreationCommand { warehouseId: string; packId: string; schemaVersion: string }
+export interface MasterDataCreationReceipt { decision: 0 | 1; id: string; version: string }
+export function locationDraftError(draftCode: string, name: string, warehouseId: string, packId: string, schemaVersion: string): string {
+  const error = warehouseDraftError(draftCode, name);
+  if (error) return error;
+  if (!validIdentity(warehouseId) || !validIdentity(packId)) return "父仓与 Pack 须为有效的非空 UUID，不自动去除空白。";
+  if (!code.test(schemaVersion)) return "schema 须为 1 至 64 个 ASCII 字母、数字、-、_ 或 .，保留版本大小写。";
+  return "";
+}
+export async function createWarehouse(command: WarehouseCreationCommand, signal: AbortSignal): Promise<MasterDataCreationReceipt> {
   const error = warehouseDraftError(command.code, command.name);
   if (error || !validIdentity(command.operation)) throw new Error(error || "创建操作 UUID 无效。");
+  return postCreation("warehouses", command.operation, { code: command.code, name: command.name }, signal);
+}
+export async function createLocation(command: LocationCreationCommand, signal: AbortSignal): Promise<MasterDataCreationReceipt> {
+  const error = locationDraftError(command.code, command.name, command.warehouseId, command.packId, command.schemaVersion);
+  if (error || !validIdentity(command.operation)) throw new Error(error || "创建操作 UUID 无效。");
+  return postCreation("locations", command.operation, { code: command.code, name: command.name,
+    warehouseId: command.warehouseId, packId: command.packId, schemaVersion: command.schemaVersion }, signal);
+}
+async function postCreation(kind: ResourceKind, operation: string, body: { code: string; name: string } |
+  { code: string; name: string; warehouseId: string; packId: string; schemaVersion: string }, signal: AbortSignal): Promise<MasterDataCreationReceipt> {
   let value: unknown;
   try {
-    value = await api("/api/wms/warehouses", { method: "POST", signal,
-      headers: { "Idempotency-Key": command.operation }, body: JSON.stringify({ code: command.code, name: command.name }) });
+    value = await api(`/api/wms/${kind}`, { method: "POST", signal,
+      headers: { "Idempotency-Key": operation }, body: JSON.stringify(body) });
   } catch (failure) {
     if (failure instanceof SyntaxError) throw new Error("创建响应无效，提交结果不明；请保留原操作核对。");
     throw failure;

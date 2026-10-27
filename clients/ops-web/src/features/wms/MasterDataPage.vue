@@ -2,14 +2,15 @@
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from "vue";
 import QueryState from "../../components/QueryState.vue";
 import MasterDataCatalog from "./MasterDataCatalog.vue";
-import WarehouseCreation from "./WarehouseCreation.vue";
+import MasterDataCreation from "./MasterDataCreation.vue";
 import { ApiError, sessionState } from "../identity/identity-api";
-import { locationFields, MasterDataResponseError, mayCreateWarehouse, readMasterData, validIdentity, warehouseFields, type MasterData, type ResourceKind } from "./master-data";
+import { locationFields, MasterDataResponseError, mayCreateLocation, mayCreateWarehouse, readMasterData, validIdentity, warehouseFields, type MasterData, type ResourceKind } from "./master-data";
 
 const resourceKind = ref<ResourceKind>(mayRead("warehouses") ? "warehouses" : "locations");
 const resourceId = ref("");
 const catalogRevision = ref(0);
-const creationOpen = ref(false); const canCreate = computed(mayCreateWarehouse);
+const creationOpen = ref<ResourceKind | null>(null);
+const canCreate = computed(mayCreateWarehouse); const canCreateLocation = computed(mayCreateLocation);
 const record = shallowRef<MasterData | null>(null);
 const busy = ref(false); const fresh = ref(false); const error = ref(""); const notFound = ref(false);
 const loadedAt = ref(""); const online = ref(navigator.onLine);
@@ -63,18 +64,20 @@ function selectCatalogResource(id: string) {
   reset(); resourceId.value = id; void read();
 }
 function creationAttempted() { reset(); ++catalogRevision.value; }
-function openCreation() { creationAttempted(); creationOpen.value = true; }
-function readCreatedWarehouse(id: string) {
-  creationOpen.value = false; resourceKind.value = "warehouses"; selectCatalogResource(id);
+function openCreation(kind: ResourceKind) { creationAttempted(); creationOpen.value = kind; }
+function readCreatedDefinition(id: string) {
+  if (!creationOpen.value) return;
+  resourceKind.value = creationOpen.value; creationOpen.value = null; selectCatalogResource(id);
 }
 </script>
 
 <template>
   <section class="page" aria-labelledby="master-data-heading">
     <header class="page-heading"><div><p class="eyebrow">WMS · 主数据定义</p><h1 id="master-data-heading">仓库与库位详情</h1></div></header>
-    <p class="hint">通过实时目录或已知 UUID 读取当前授权的主数据。不代表可分配、位置空闲或物理安全许可；层级树、库位创建和启停尚未开放。</p>
-    <button v-if="canCreate && !creationOpen" type="button" @click="openCreation">新建禁用仓库</button>
-    <WarehouseCreation v-if="creationOpen" @attempted="creationAttempted" @read="readCreatedWarehouse" @close="creationOpen = false" />
+    <p class="hint">通过实时目录或已知 UUID 读取当前授权的主数据。不代表可分配、位置空闲或物理安全许可；创建须独立部署装配，层级树和启停尚未开放。</p>
+    <button v-if="canCreate && !creationOpen" type="button" @click="openCreation('warehouses')">新建禁用仓库</button>
+    <button v-if="canCreateLocation && !creationOpen" type="button" @click="openCreation('locations')">新建禁用库位</button>
+    <MasterDataCreation v-if="creationOpen" :kind="creationOpen" @attempted="creationAttempted" @read="readCreatedDefinition" @close="creationOpen = null" />
     <template v-if="!creationOpen">
     <form class="master-data-query" @submit.prevent="read">
       <div class="master-data-kind"><label for="master-data-kind">资源类型</label>

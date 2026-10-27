@@ -14,19 +14,23 @@ namespace Wes.Modules.Tests.Platform;
 public sealed partial class IdentityHttpTests
 {
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(true, false)]
-    [InlineData(false, true)]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(false, false, true)]
     [Trait("CaseId", "WMS-CLIENT-06")]
-    public async Task RealBrowserReadsWarehouseAndLocationAndClearsDetailsAfterCurrentRevocation(bool warehouseCreation, bool inventoryRead)
+    public async Task RealBrowserReadsWarehouseAndLocationAndClearsDetailsAfterCurrentRevocation(bool warehouseCreation, bool inventoryRead, bool locationCreation)
     {
-        var ids = await WmsHostAsync(warehouseCreation);
+        var schema = new LocationHttpSchema();
+        var ids = await WmsHostAsync(warehouseCreation, locationCreation, locationCreation
+            ? services => services.AddSingleton<Wes.Wms.Features.MasterData.IWarehouseLocationSchema>(schema) : null);
         if (warehouseCreation) await GrantWarehouseCreationAsync();
+        if (locationCreation) await GrantLocationCreationAsync();
         await GrantCreationEventReadAsync();
         await GrantCreationEventCountsAsync();
         var balance = inventoryRead ? await SeedInventoryAsync(ids) : null;
         if (inventoryRead) await GrantStockLedgerReadAsync();
-        if (!warehouseCreation)
+        if (!warehouseCreation && !locationCreation)
         {
             await using var publisher = new Wes.Wms.WmsPublishingScope(_connection, _tenant,
                 inventoryRead ? new CreationEventTransport(1) : new BrowserCreationEventTransport(ids.Warehouse),
@@ -47,7 +51,8 @@ public sealed partial class IdentityHttpTests
         using var generated = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddHours(1));
         using var certificate = X509CertificateLoader.LoadPkcs12(generated.Export(X509ContentType.Pfx), password: null);
         await using var server = new Factory(_connection, _corpus, _clock, Path.Combine(web, "dist"), wmsMasterData: true,
-            wmsWarehouseCreation: warehouseCreation);
+            wmsWarehouseCreation: warehouseCreation, wmsLocationCreation: locationCreation,
+            locationSchemas: locationCreation ? services => services.AddSingleton<Wes.Wms.Features.MasterData.IWarehouseLocationSchema>(schema) : null);
         server.UseKestrel(options => options.Listen(IPAddress.Loopback, 0, listener => listener.UseHttps(certificate)));
         server.StartServer();
         var address = Assert.Single(server.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses);
@@ -77,7 +82,9 @@ public sealed partial class IdentityHttpTests
             start.Environment["WES_E2E_LOCATION_ID"] = ids.Location.ToString("D");
             start.Environment["WES_E2E_WMS_COORDINATION"] = coordination;
             start.Environment["WES_E2E_WMS_CREATE"] = warehouseCreation ? "true" : "false";
-            start.Environment["WES_E2E_WMS_DELIVERY"] = warehouseCreation ? "pending" : inventoryRead ? "leased" : "completed";
+            start.Environment["WES_E2E_WMS_LOCATION_CREATE"] = locationCreation ? "true" : "false";
+            start.Environment["WES_E2E_WMS_LOCATION_PACK"] = locationCreation ? LocationHttpSchema.Pack.ToString("D") : "";
+            start.Environment["WES_E2E_WMS_DELIVERY"] = warehouseCreation || locationCreation ? "pending" : inventoryRead ? "leased" : "completed";
             start.Environment["WES_E2E_INVENTORY_ID"] = balance?.Id.ToString("D") ?? "";
             using var process = Process.Start(start)!;
             var output = process.StandardOutput.ReadToEndAsync();
@@ -168,8 +175,8 @@ public sealed partial class IdentityHttpTests
             Directory.Delete(coordination);
         }
         await using var verify = OpenWmsMasterData();
-        Assert.Equal(warehouseCreation ? 3 : 2, await verify.MasterDataChanges.CountAsync());
-        Assert.Equal(warehouseCreation ? 3 : 2, await verify.OutboxMessages.CountAsync());
+        Assert.Equal(warehouseCreation || locationCreation ? 3 : 2, await verify.MasterDataChanges.CountAsync());
+        Assert.Equal(warehouseCreation || locationCreation ? 3 : 2, await verify.OutboxMessages.CountAsync());
         Assert.Equal(inventoryRead ? 1 : 0, await verify.Entries.CountAsync());
         if (inventoryRead)
         {
@@ -177,7 +184,8 @@ public sealed partial class IdentityHttpTests
             Assert.Empty(await verify.Reservations.ToListAsync());
         }
         Assert.All(await verify.Warehouses.ToListAsync(), item => Assert.False(item.Enabled));
-        Assert.False((await verify.Locations.SingleAsync()).Enabled);
+        Assert.Equal(locationCreation ? 2 : 1, await verify.Locations.CountAsync());
+        Assert.All(await verify.Locations.ToListAsync(), item => Assert.False(item.Enabled));
         if (warehouseCreation)
         {
             var created = await verify.Warehouses.SingleAsync(item => item.Code == "BROWSER-WH");
@@ -187,6 +195,16 @@ public sealed partial class IdentityHttpTests
             var message = await verify.OutboxMessages.SingleAsync(item => item.EventId == fact.OperationId);
             Assert.Equal(created.Id, message.AggregateId);
             Assert.Equal(created.Version, message.AggregateVersion);
+        }
+        if (locationCreation)
+        {
+            var created = await verify.Locations.SingleAsync(item => item.Code == "BROWSER-LOC");
+            Assert.Equal(("Browser location", ids.Warehouse, LocationHttpSchema.Pack, "v1"),
+                (created.Name, created.WarehouseId, created.PackId, created.SchemaVersion));
+            Assert.Equal((_tenant, ids.Warehouse, LocationHttpSchema.Pack, "v1", "BROWSER-LOC"), Assert.Single(schema.Calls));
+            var fact = await verify.MasterDataChanges.SingleAsync(item => item.LocationId == created.Id);
+            var message = await verify.OutboxMessages.SingleAsync(item => item.EventId == fact.OperationId);
+            Assert.Equal((_user, created.Id, created.Version), (fact.ActorId, message.AggregateId, message.AggregateVersion));
         }
     }
 

@@ -41,6 +41,8 @@
 
 ## 4. WMS与运输协作
 
+对应[库位创建客户端](../implementation/163-t08-disabled-location-creation-client.md)只发送上述精确tuple/永久key，经预览和二次确认；503等未知结果冻结原tuple/key手工恢复，422仅拒绝本次、不抹除先前未知。三字段回执不当完整resource投影，必须显式GET重新复验read，不默认schema实现/授予权限，不代表可用Pack、启用/可分配或物理完成。
+
 已实施路径增量：POST `/api/wms/locations`只在独立默认关闭LocationCreationEnabled且具名schema装配通过后开放。精确`{code,name,warehouseId,packId,schemaVersion}`，可信subject/永久key、当前五字段及父仓read，默认禁用位置/事实/Outbox原子提交。201+Location或200精确三字段重放；SchemaRejected422/Unavailable503等详见[库位HTTP合同](../implementation/161-t08-authorized-location-creation-http.md)。无默认schema实现或实际Pack验收，不将接口扩展点当现场可用，亦不代表启用/库存或物理完成。
 
 不可变流水只读合同：[当前精确定义](../implementation/153-t08-authorized-stock-ledger-query.md)。GET `/api/wms/ledger`沿既有默认关闭WMS读装配，独立`wms.ledger.read`当前All完整19字段，不借库存读权或posting actor。维度/批次/来源/关联/类型/显式UTC微秒半开时间SQL前过滤、OccurredAt/Id升序实时页；Quantity有符号、Before/After非负固定六位字符串，来源/余额均真实永久事实。Host仅公开Features读取类别，不引用领域posting；非法/撤权/存储损坏明确失败，无任意改账/删除API。客户端无损BigInt/微秒校验、清旧取消及离线手工恢复，不构造来源跳转、固定核对快照或导出。

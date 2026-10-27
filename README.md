@@ -9,6 +9,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 ## 文档工作区
 
+T08客户端续片：[禁用库位创建](docs/implementation/163-t08-disabled-location-creation-client.md)/[证据](docs/implementation/164-t08-disabled-location-creation-client-tests.md)复用仓库确认/未知恢复状态机，接通当前五字段/父仓read、完整tuple预览/原key冻结、二次确认和手工读回执。新增35前端，全套730/严格构建通过，相关.NET158含五套真实HTTPS浏览器、Release0/0通过；实际201/完整body及owner单效果已核验。无默认schema或真实Pack/完整层级链、启停/容器，T04–T08不虚关闭。
+
 T08续片：[当前授权库位创建HTTP](docs/implementation/161-t08-authorized-location-creation-http.md)/[证据](docs/implementation/162-t08-authorized-location-creation-http-tests.md)接通独立默认关闭写开关、唯一具名singleton schema启动门禁、当前五字段/父仓read、201/200永久幂等及原子禁用位置/事实/Outbox。新增65 HTTP/启动及8配置，最终Release相关395项含四套HTTPS浏览器通过、构建0/0。无默认schema/真实Pack验收，库位创建表单、启停/层级/容器与T04–T08整包仍缺。
 
 T05续片：[默认关闭WMS托管发布](docs/implementation/159-t05-hosted-wms-publisher.md)/[证据](docs/implementation/160-t05-hosted-wms-publisher-tests.md)接通严格tenant/batch/周期、独立owner runner、60秒合作取消与未确认警告。新增27 Host/真实进程及1真实MySQL runner测试；最终Release相关147项（含四套真实HTTPS浏览器）通过，构建0/0。真实Program仍由未登记的Outbox/MessageQueue runtime owner门禁拒绝启用，不伪造Broker能力；实际adapter/运行能力登记、Inbox、统一快照与T04–T08整包仍缺。

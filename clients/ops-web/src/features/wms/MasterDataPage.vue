@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from "vue";
 import QueryState from "../../components/QueryState.vue";
+import MasterDataCatalog from "./MasterDataCatalog.vue";
 import { ApiError, sessionState } from "../identity/identity-api";
 import { locationFields, MasterDataResponseError, readMasterData, validIdentity, warehouseFields, type MasterData, type ResourceKind } from "./master-data";
 
 const resourceKind = ref<ResourceKind>(mayRead("warehouses") ? "warehouses" : "locations");
 const resourceId = ref("");
+const catalogRevision = ref(0);
 const record = shallowRef<MasterData | null>(null);
 const busy = ref(false); const fresh = ref(false); const error = ref(""); const notFound = ref(false);
 const loadedAt = ref(""); const online = ref(navigator.onLine);
@@ -49,17 +51,21 @@ async function read() {
     } else {
       if (failure instanceof MasterDataResponseError || failure instanceof ApiError && (failure.status === 401 || failure.status === 403)) {
         record.value = null; loadedAt.value = "";
+        ++catalogRevision.value;
       }
       error.value = failure instanceof Error ? failure.message : "主数据读取未确认，请显式重试。";
     }
   } finally { if (ticket === sequence) busy.value = false; }
+}
+function selectCatalogResource(id: string) {
+  reset(); resourceId.value = id; void read();
 }
 </script>
 
 <template>
   <section class="page" aria-labelledby="master-data-heading">
     <header class="page-heading"><div><p class="eyebrow">WMS · 只读定义</p><h1 id="master-data-heading">仓库与库位详情</h1></div></header>
-    <p class="hint">通过已知 UUID 读取当前授权的主数据。不代表可分配、位置空闲或物理安全许可；目录、树和管理动作尚未开放。</p>
+    <p class="hint">通过实时目录或已知 UUID 读取当前授权的主数据。不代表可分配、位置空闲或物理安全许可；层级树和管理动作尚未开放。</p>
     <form class="master-data-query" @submit.prevent="read">
       <div class="master-data-kind"><label for="master-data-kind">资源类型</label>
         <select id="master-data-kind" v-model="resourceKind" name="resourceKind"><option value="warehouses">仓库</option><option value="locations">库位</option></select></div>
@@ -70,6 +76,8 @@ async function read() {
     <p v-if="!readable" role="alert" class="error">缺少当前资源类型的完整读取字段权限。菜单可见不等于资源授权。</p>
     <p v-if="!online" role="status" class="notice">当前离线：仅显示已加载的陈旧定义；恢复后请手工重新读取，不排队或重放。</p>
     <p v-if="error && record" role="alert" class="error">{{ error }}</p>
+    <MasterDataCatalog v-if="readable" :key="catalogRevision" :kind="resourceKind" :readable="readable"
+      @select="selectCatalogResource" @denied="reset" />
     <QueryState v-if="readable" label="主数据详情" :state="queryState" :busy="busy" :error-message="error"
       :stale-message="`陈旧定义，仅供参考；当前读取未确认。上次成功读取：${loadedAt || '未确认'}`" @retry="read">
       <template #empty>

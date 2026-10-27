@@ -30,6 +30,14 @@ public sealed class WmsMasterDataScope : IAsyncDisposable
     public Task<MasterDataReadResult> ReadLocationAsync(MasterDataSubject subject, Guid id, CancellationToken cancellationToken = default) =>
         _access.ReadLocationAsync(subject, id, cancellationToken);
 
+    /// <summary>Returns realtime warehouses filtered by current complete-field creator scope before bounded stable paging; no total.</summary>
+    public Task<MasterDataCatalogResult> QueryWarehousesAsync(MasterDataSubject subject, MasterDataQuery query, CancellationToken cancellationToken = default) =>
+        _access.QueryWarehousesAsync(subject, query, cancellationToken);
+
+    /// <summary>Returns realtime locations filtered by current authority and exact optional warehouse/code/status; no stock or writes.</summary>
+    public Task<MasterDataCatalogResult> QueryLocationsAsync(MasterDataSubject subject, MasterDataQuery query, CancellationToken cancellationToken = default) =>
+        _access.QueryLocationsAsync(subject, query, cancellationToken);
+
     /// <summary>Disposes this owner; no authority, connection or business state is retained by a global cache.</summary>
     public ValueTask DisposeAsync() => _database.DisposeAsync();
 }

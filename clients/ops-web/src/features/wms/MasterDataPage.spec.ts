@@ -34,7 +34,8 @@ it("reads only after explicit submit and renders safe disabled warehouse details
   expect(details.text()).toContain(second);
   expect(details.text()).toContain("主数据禁用");
   expect(wrapper.text()).toContain("不代表可分配");
-  expect(wrapper.findAll("button").map(button => button.text())).toEqual(["读取当前详情"]);
+  expect(wrapper.findAll("button").map(button => button.text())).toContain("读取当前详情");
+  expect(wrapper.findAll("button").some(button => /创建|编辑|启用|禁用|绑定/.test(button.text()))).toBe(false);
 });
 
 it("selects the location boundary and displays complete pinned lineage", async () => {
@@ -187,4 +188,35 @@ it("aborts pending work when unmounted", async () => {
   wrapper = mount(MasterDataPage); await read();
   wrapper.unmount(); wrapper = undefined;
   expect(request.mock.calls[0]![1].signal?.aborted).toBe(true);
+});
+
+it("re-reads selected catalog identities instead of treating catalog rows as current details", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ rows: [row], offset: 0, limit: 25 })))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ ...row, name: "重新读取的定义" }))));
+  wrapper = mount(MasterDataPage);
+  await wrapper.get(".master-data-catalog form").trigger("submit"); await flushPromises();
+  await wrapper.get('[data-test="select-master-data"]').trigger("click"); await flushPromises();
+  expect(vi.mocked(fetch).mock.calls[1]?.[0]).toBe(`/api/wms/warehouses/${id}`);
+  expect(wrapper.get('[data-test="master-data-details"]').text()).toContain("重新读取的定义");
+});
+
+it("clears the confirmed catalog if current detail authority is denied", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ rows: [row], offset: 0, limit: 25 })))
+    .mockResolvedValueOnce(new Response(JSON.stringify(row)))
+    .mockResolvedValueOnce(new Response("{}", { status: 403 })));
+  wrapper = mount(MasterDataPage);
+  await wrapper.get(".master-data-catalog form").trigger("submit"); await flushPromises();
+  await wrapper.get('[data-test="select-master-data"]').trigger("click"); await flushPromises();
+  await wrapper.get("form").trigger("submit"); await flushPromises();
+  expect(wrapper.find('[data-test="master-data-details"]').exists()).toBe(false);
+  expect(wrapper.find('[data-test="select-master-data"]').exists()).toBe(false);
+});
+
+it("clears current details if a refreshed catalog no longer has current full-field authority", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(JSON.stringify(row)))
+    .mockResolvedValueOnce(new Response("{}", { status: 403 })));
+  wrapper = mount(MasterDataPage); await read();
+  await wrapper.get(".master-data-catalog form").trigger("submit"); await flushPromises();
+  expect(wrapper.find('[data-test="master-data-details"]').exists()).toBe(false);
+  expect(wrapper.text()).toContain("RequestFailed403");
 });

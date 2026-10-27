@@ -95,6 +95,10 @@ public sealed partial class PlatformScope : IAsyncDisposable
     }
     /// <summary>Named directory application use cases, not a persistence handle or generated CRUD surface.</summary>
     public DirectoryService Directory => new(_database, _clock, _operation);
+    /// <summary>Returns request-local real creators permitted for every required field; not a client-facing directory or cached grant.</summary>
+    public Task<OwnedCreatorAccess> VisibleOwnedResourceCreatorsAsync(TenantContext context, string permission,
+        IReadOnlyCollection<string> requiredFields, CancellationToken cancellationToken = default) =>
+        new CurrentAuthorization(_database, _clock).VisibleOwnedCreatorsAsync(context, permission, requiredFields, cancellationToken);
     /// <summary>Resolves trusted external resource provenance against live Platform authority, without exposing directory tables.</summary>
     public Task<ImmutableHashSet<string>> VisibleOwnedResourceFieldsAsync(TenantContext context, string permission,
         Guid resourceTenantId, Guid creatorId, CancellationToken cancellationToken = default) =>

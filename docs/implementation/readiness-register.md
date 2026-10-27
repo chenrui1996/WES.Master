@@ -327,3 +327,10 @@
 - 切换类型/UUID/主体/字段撤销立即取消清旧，迟到成功/错误均丢弃；严格拒绝错Id/缺字段/假boolean/非法UTC或JSON；同查询失败仅显示明确陈旧投影，401/403/404清旧；离线不发送/排队，恢复需手工读取，无新增业务存储。
 - 新增**31组件+5路由+2导航=38项**，前端全套**278 passed**和vue-tsc/Vite构建通过；真实HTTPS Kestrel+MySQL+Chromium验证双资源/精确字段、独立owner撤字段后403清旧、375/768/1440、键盘focus-visible、桌面200%字体及离线恢复无自动请求。完整Modules **525**、Architecture **29**，共**554 passed / 0 failed / 0 skipped**，包含三套真实HTTPS浏览器；Release全solution构建**0警告/0错误**。失败与修正、复跑命令见[设计](121-t08-master-data-detail-client.md)/[证据](122-t08-master-data-detail-client-tests.md)。
 - 本片无迁移/依赖/生产授权变化，未重跑未改动的Persistence/Route；上片1352是历史完整结果，不叠加冒充本片全量。**T08及T04–T07仍partial**：主数据列表/树、当前创建授权、编辑启停及活动/占用/预约/锁证据、容器绑定、受权库存/流水/快照导出、单位/FIFO/FEFO/序列集成、Outbox与运输完成证明等未验收；真实Pack、其他页面/终端及生产/现场门禁保持阻断。
+
+### T08 当前授权仓库/库位目录
+
+- 两个只读目录GET复用默认关闭装配；Platform当前session/目录/角色逐字段计算Own/Departments/All交集并解析真实creator，WMS通过公开端口取UUID集合，在自己的tenant/创建事实SQL内授权后排序分页，禁止先分页再过滤，无total/隐藏creator。精确Code/Enabled/库位Warehouse筛选与25/50/100及offset上限明确，缺字段403、受权空范围200空行，不返回成功式错误页。
+- 既有页面增加显式目录、共享实时分页及固定卡片；选择Id后重新GET当前详情，不将目录行当最新授权。切类型/过滤/scope立即取消清行，503同查询陈旧禁选，401/403/404或非法页清行；详情与目录403双向清理。离线不发送/排队、不自动恢复重读，无新增业务本机缓存。
+- 新增**30真实owner+18 HTTP+28客户端**；前端全套**306 passed**及严格构建。真实HTTPS/MySQL/Chromium覆盖双目录/选择后重读/三种宽度/Tab/Enter/200%桌面字体/独立owner撤字段403清双侧。完整.NET Architecture29/Modules543/Persistence599/Route228共**1399 passed**后补两个SQL物化后取消反例，修正后主数据owner86+HTTP/浏览器30+Architecture29共**145 passed / 0 failed / 0 skipped**，Release重建**0警告/0错误**；两轮结果精确归属不叠加。见[设计](123-t08-authorized-master-data-catalog.md)/[证据](124-t08-authorized-master-data-catalog-tests.md)。
+- 无迁移/依赖/默认授权/生产许可变化，旧单资源GET shape不变；**T08及其他四包仍partial**。树/层巷、当前创建授权、编辑启停/活动占用预约锁、容器、受权库存/流水/固定快照导出、规则集成、Outbox及运输完成仍待；真实Pack/现场/终端门禁不变。

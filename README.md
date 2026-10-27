@@ -70,6 +70,8 @@ T08详情HTTP续实施：[默认关闭的只读接线](docs/implementation/119-t
 
 T08只读页面续实施：[仓库/库位详情客户端](docs/implementation/121-t08-master-data-detail-client.md)及[证据](docs/implementation/122-t08-master-data-detail-client-tests.md)在`/wms/locations`提供显式UUID详情查询，双层模块/字段门禁、严格投影、目标/主体切换与迟到丢弃、离线陈旧且不重放。新增38项客户端用例，前端全套**278 passed**及严格构建通过；真实HTTPS/MySQL/Chromium验证双资源与当前字段撤权403清除旧详情、三种宽度/键盘/无业务缓存。完整Modules525+Architecture29=**554 passed**，Release构建零警告/错误；本片未重跑Persistence/Route。仅详情子集，列表/树、创建授权、启停/容器绑定/Outbox与五个整包仍不关闭。
 
+T08目录续实施：[当前授权仓库/库位目录](docs/implementation/123-t08-authorized-master-data-catalog.md)及[证据](docs/implementation/124-t08-authorized-master-data-catalog-tests.md)新增两个GET及实时发现入口：Platform逐字段范围交集解析真实creator，WMS在tenant内先授权过滤再排序分页，无total或私表跨引用。新增30项真实owner、18项HTTP、28项客户端；前端全套**306 passed**及严格构建，真实HTTPS Chromium目录选取后重读与双向撤权清旧通过。完整.NET **1399 passed**后补SQL物化完成时取消反例，修正后全部主数据/HTTP/浏览器/架构**145 passed**，不叠加冒充一次全套；Release零警告/错误。树、授权创建/写生命周期、库存查询/Outbox及整包仍未完成。
+
 | 文档组 | 内容 |
 |---|---|
 | 项目治理 | [业务范围与现状矩阵](docs/01-business-scope-and-status.md)、[系统架构](docs/02-system-architecture.md)、[工程/注释/文档规范](docs/03-engineering-governance.md)、[需求追踪矩阵](docs/04-requirement-design-test-traceability.md)、[ADR](docs/adr/README.md) |

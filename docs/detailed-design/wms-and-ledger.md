@@ -36,6 +36,8 @@
 
 当前受控实施仅交付PAGE-WMS-001的[只读详情子集](../implementation/121-t08-master-data-detail-client.md)：同一批准入口显式按已知UUID读仓/位，完整字段及当前资源授权、未找到/入口未装配、迟到响应/离线陈旧边界已验证；[测试证据](../implementation/122-t08-master-data-detail-client-tests.md)。上述树/列表/管理动作及父DTC没有因此完成，未实施项不能显示为可用或自行放宽范围。
 
+后续已补[当前受权实时目录](../implementation/123-t08-authorized-master-data-catalog.md)：逐字段creator范围交集、先授权过滤再有界分页，无total；固定卡片支持代码/名称/UUID/主数据状态发现，选择后重新读取详情，两个方向403清旧。精确Code/Enabled及库位Warehouse筛选、共享分页、严格响应/迟到与离线边界见[证据](../implementation/124-t08-authorized-master-data-catalog-tests.md)。仍非完整树/层巷、创建/启停/绑定或父DTC验收，不将实时目录当固定快照。
+
 ## 2. 功能/契约
 
 | FUNC定义 | PAGE/REQ/原TC | 编号主流程、状态和拒绝 |

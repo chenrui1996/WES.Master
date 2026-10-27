@@ -7,6 +7,9 @@ using Wes.Platform.Infrastructure.Persistence;
 
 namespace Wes.Platform.Features.Authorization;
 
+/// <summary>Request-local creator scope for a complete projection; false authority is distinct from an authorized empty scope.</summary>
+public sealed record OwnedCreatorAccess(bool Authorized, ImmutableArray<Guid> CreatorIds);
+
 /// <summary>Reads current owner state for each request; it never uses caller-supplied menu/role claims or stale cache.</summary>
 public sealed class CurrentAuthorization(PlatformDbContext database, TimeProvider clock)
 {
@@ -71,5 +74,32 @@ public sealed class CurrentAuthorization(PlatformDbContext database, TimeProvide
         if (creator is null) return ImmutableHashSet<string>.Empty;
         return RolePolicy.VisibleFields(context.TenantId, context.ActorId, permission,
             new ResourceScope(resourceTenantId, creator.Id, creator.DepartmentId), grants);
+    }
+
+    /// <summary>
+    /// Resolves the intersection of each required field's current scope against real tenant directory creators.
+    /// The caller is trusted owner application code, not an HTTP scope assertion; results must not be cached or sent to clients.
+    /// </summary>
+    public async Task<OwnedCreatorAccess> VisibleOwnedCreatorsAsync(TenantContext context, string permission,
+        IReadOnlyCollection<string> requiredFields, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(permission);
+        ArgumentNullException.ThrowIfNull(requiredFields);
+        if (requiredFields.Count is < 1 or > 16 || requiredFields.Any(string.IsNullOrWhiteSpace))
+            throw new ArgumentException("An explicit bounded projection is required.", nameof(requiredFields));
+        var grants = await ReadGrantsAsync(context, cancellationToken);
+        var query = database.DirectoryUsers.AsNoTracking().AsQueryable();
+        foreach (var field in requiredFields.Distinct(StringComparer.Ordinal))
+        {
+            var matching = grants.Where(grant => grant.Permission == permission && grant.Fields.Contains(field)).ToArray();
+            if (matching.Length == 0) return new(false, []);
+            if (matching.Any(grant => grant.Scope == DataScope.All)) continue;
+            var own = matching.Any(grant => grant.Scope == DataScope.Own);
+            var departments = matching.Where(grant => grant.Scope == DataScope.Departments).SelectMany(grant => grant.Departments);
+            var departmentScope = database.DirectoryUsers.Where(ScopeExpressions.MatchIds<DirectoryUser>(creator => creator.DepartmentId, departments));
+            query = query.Where(creator => own && creator.Id == context.ActorId || departmentScope.Any(member => member.Id == creator.Id));
+        }
+        var ids = await query.Select(creator => creator.Id).ToListAsync(cancellationToken);
+        return new(true, ids.ToImmutableArray());
     }
 }

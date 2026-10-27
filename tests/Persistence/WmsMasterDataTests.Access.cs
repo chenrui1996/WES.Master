@@ -282,6 +282,16 @@ public sealed partial class WmsMasterDataTests
 
     private sealed class PlatformAuthority(PlatformDbContext database, TimeProvider clock) : IMasterDataAuthorization
     {
+        public async Task<MasterDataCreatorAccess> ReadCreatorsAsync(MasterDataSubject subject, string permission,
+            IReadOnlyCollection<string> requiredFields, CancellationToken cancellationToken)
+        {
+            await using var scope = new Wes.Platform.PlatformScope(database.Database.GetConnectionString()!, database.TenantId,
+                clock, NullLoggerFactory.Instance);
+            var result = await scope.VisibleOwnedResourceCreatorsAsync(new(subject.TenantId, subject.ActorId, subject.SessionId),
+                permission, requiredFields, cancellationToken);
+            return new(result.Authorized, result.CreatorIds.ToHashSet());
+        }
+
         public async Task<IReadOnlySet<string>> ReadFieldsAsync(MasterDataSubject subject, string permission,
             Guid creator, CancellationToken cancellationToken)
         {
@@ -294,6 +304,10 @@ public sealed partial class WmsMasterDataTests
 
     private sealed class ControlledAuthority(IReadOnlySet<string> fields, Action? beforeReturn = null) : IMasterDataAuthorization
     {
+        public Task<MasterDataCreatorAccess> ReadCreatorsAsync(MasterDataSubject subject, string permission,
+            IReadOnlyCollection<string> requiredFields, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("This single-resource authority does not implement catalogs.");
+
         public Task<IReadOnlySet<string>> ReadFieldsAsync(MasterDataSubject subject, string permission, Guid creator,
             CancellationToken cancellationToken)
         {

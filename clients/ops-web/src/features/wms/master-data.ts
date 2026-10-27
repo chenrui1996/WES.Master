@@ -49,3 +49,36 @@ export async function readMasterData(kind: ResourceKind, id: string, signal: Abo
     throw error;
   }
 }
+
+export interface MasterDataFilters { code?: string; enabled?: boolean; warehouseId?: string }
+export interface MasterDataPage { rows: MasterData[]; offset: number; limit: number }
+export async function queryMasterData(kind: ResourceKind, offset: number, limit: number, filters: MasterDataFilters,
+  signal: AbortSignal): Promise<MasterDataPage> {
+  if (!Number.isInteger(offset) || offset < 0 || offset > 10000 || ![25, 50, 100].includes(limit))
+    throw new Error("目录页范围无效，请从第一页重新读取。");
+  if (filters.code !== undefined && !code.test(filters.code)) throw new Error("代码须为 1 至 64 个 ASCII 字母、数字、-、_ 或 .。");
+  if (filters.warehouseId !== undefined && (kind !== "locations" || !validIdentity(filters.warehouseId)))
+    throw new Error("仓库筛选须为有效的非空 UUID，且只适用于库位目录。");
+  const query = new URLSearchParams({ offset: String(offset), limit: String(limit) });
+  if (filters.code !== undefined) query.set("code", filters.code.toUpperCase());
+  if (filters.enabled !== undefined) query.set("enabled", String(filters.enabled));
+  if (filters.warehouseId !== undefined) query.set("warehouseId", filters.warehouseId);
+  let value: unknown;
+  try { value = await api(`/api/wms/${kind}?${query}`, { signal }); }
+  catch (error) { if (error instanceof SyntaxError) throw new MasterDataResponseError(); throw error; }
+  if (!isRecord(value) || Object.keys(value).length !== 3 || !Array.isArray(value.rows)
+    || value.offset !== offset || value.limit !== limit || value.rows.length > limit) throw new MasterDataResponseError();
+  const ids = new Set<string>();
+  const rows = value.rows.map((row: unknown) => {
+    if (!isRecord(row) || !validIdentity(row.id)) throw new MasterDataResponseError();
+    const parsed = parseDefinition(row, kind, row.id);
+    if (ids.has(parsed.definition.id.toLowerCase()) || filters.code !== undefined && parsed.definition.code !== filters.code.toUpperCase()
+      || filters.enabled !== undefined && parsed.definition.enabled !== filters.enabled
+      || filters.warehouseId !== undefined && (parsed.kind !== "locations"
+        || parsed.definition.warehouseId.toLowerCase() !== filters.warehouseId.toLowerCase())) throw new MasterDataResponseError();
+    ids.add(parsed.definition.id.toLowerCase());
+    return parsed;
+  });
+  if (rows.some((row, index) => index > 0 && rows[index - 1]!.definition.code >= row.definition.code)) throw new MasterDataResponseError();
+  return { rows, offset, limit };
+}

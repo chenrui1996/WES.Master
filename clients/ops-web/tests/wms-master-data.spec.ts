@@ -23,6 +23,10 @@ test("real WMS definitions remain read-only and disappear after current role rev
   await page.getByRole("navigation", { name: "管理导航" }).getByRole("link", { name: "仓库与库位详情", exact: true }).click();
   await expect(page.getByRole("heading", { name: "仓库与库位详情", exact: true })).toBeVisible();
   expect(methods).toEqual([]);
+  const catalogWarehouse = page.waitForResponse(response => new URL(response.url()).pathname === "/api/wms/warehouses");
+  await page.getByRole("button", { name: "读取目录", exact: true }).click();
+  expect((await catalogWarehouse).status()).toBe(200);
+  await expect(page.getByTestId("master-data-catalog")).toContainText("WH-HTTP");
   await page.getByLabel("资源 UUID", { exact: true }).fill(warehouse);
   await page.keyboard.press("Tab");
   const submit = page.getByRole("button", { name: "读取当前详情", exact: true });
@@ -39,11 +43,21 @@ test("real WMS definitions remain read-only and disappear after current role rev
   await expect(details).toContainText(warehouseDefinition.version);
   await expect(details).toContainText(warehouseDefinition.createdAt);
   await expect(details).toContainText("主数据禁用");
+  await expect(page.getByTestId("master-data-catalog")).toBeVisible();
   await page.getByLabel("资源类型", { exact: true }).selectOption("locations");
   await expect(details).toHaveCount(0);
-  await page.getByLabel("资源 UUID", { exact: true }).fill(location);
+  await expect(page.getByTestId("master-data-catalog")).toHaveCount(0);
+  const catalogLocation = page.waitForResponse(response => new URL(response.url()).pathname === "/api/wms/locations");
+  await page.getByRole("button", { name: "读取目录", exact: true }).click();
+  expect((await catalogLocation).status()).toBe(200);
+  await expect(page.getByTestId("master-data-catalog")).toContainText("A1");
   const readLocation = page.waitForResponse(response => response.url().endsWith(`/api/wms/locations/${location}`));
-  await submit.click();
+  await page.getByLabel("固定仓库 UUID 筛选", { exact: true }).click();
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "读取库位 A1 当前详情", exact: true })).toBeFocused();
+  expect(await page.getByRole("button", { name: "读取库位 A1 当前详情", exact: true }).evaluate(element => element.matches(":focus-visible"))).toBe(true);
+  await page.keyboard.press("Enter");
   const locationResponse = await readLocation;
   expect(locationResponse.status()).toBe(200);
   const locationDefinition = await locationResponse.json() as { packId: string; schemaVersion: string; version: string };
@@ -52,6 +66,7 @@ test("real WMS definitions remain read-only and disappear after current role rev
   await expect(details).toContainText(locationDefinition.packId);
   await expect(details).toContainText(locationDefinition.schemaVersion);
   await expect(details).toContainText(locationDefinition.version);
+  await expect(page.getByLabel("资源 UUID", { exact: true })).toHaveValue(location);
   for (const width of [375, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -79,11 +94,12 @@ test("real WMS definitions remain read-only and disappear after current role rev
   await submit.click();
   expect((await denied).status()).toBe(403);
   await expect(details).toHaveCount(0);
+  await expect(page.getByTestId("master-data-catalog")).toHaveCount(0);
   await expect(page.getByRole("region", { name: "主数据详情", exact: true })).toContainText("PermissionDenied");
   const stored = await page.evaluate(() => JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage)]));
   for (const secret of [warehouse, location, locationDefinition.packId, "HTTP location", "accessToken"])
     expect(stored).not.toContain(secret);
-  expect(methods.length).toBe(3);
+  expect(methods.length).toBe(5);
   expect(methods.every(method => method === "GET")).toBe(true);
   expect(failures).toEqual([]);
 });

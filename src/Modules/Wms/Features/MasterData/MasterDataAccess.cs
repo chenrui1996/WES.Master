@@ -18,6 +18,10 @@ public interface IMasterDataAuthorization
     /// <summary>Returns exact currently visible field names for this permission and creator; missing authority returns no fields.</summary>
     Task<IReadOnlySet<string>> ReadFieldsAsync(MasterDataSubject subject, string permission, Guid creator,
         CancellationToken cancellationToken);
+
+    /// <summary>Resolves all real creators authorized for the complete fixed projection before WMS applies paging; never caches results.</summary>
+    Task<MasterDataCreatorAccess> ReadCreatorsAsync(MasterDataSubject subject, string permission,
+        IReadOnlyCollection<string> requiredFields, CancellationToken cancellationToken);
 }
 
 /// <summary>Finite read decisions; only Success carries a projection.</summary>
@@ -42,8 +46,8 @@ public sealed record LocationMasterView(Guid Id, Guid WarehouseId, Guid PackId, 
 public sealed record MasterDataReadResult(MasterDataReadDecision Decision,
     WarehouseMasterView? Warehouse = null, LocationMasterView? Location = null);
 
-/// <summary>Tenant-owned single-resource reads with provenance derived inside WMS, not supplied by the caller.</summary>
-internal sealed class MasterDataAccess(WmsDbContext database, IMasterDataAuthorization authorization, ILogger<MasterDataAccess> logger)
+/// <summary>Tenant-owned catalog and single-resource reads with provenance derived inside WMS, not supplied by the caller.</summary>
+internal sealed partial class MasterDataAccess(WmsDbContext database, IMasterDataAuthorization authorization, ILogger<MasterDataAccess> logger)
 {
     private static readonly string[] WarehouseFields = ["Id", "Code", "Name", "Enabled", "Version", "CreatedAt"];
     private static readonly string[] LocationFields = [.. WarehouseFields, "WarehouseId", "PackId", "SchemaVersion"];

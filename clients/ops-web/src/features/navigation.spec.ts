@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { getNavigation } from "./navigation";
 
 describe("management navigation", () => {
+  it("gates Platform-only message diagnostics by its owner module and read permission", () => {
+    expect(getNavigation(module => module === "Platform", permission => permission === "platform.messages.read").map(item => item.path))
+      .toEqual(["/account/sessions", "/notifications/messages"]);
+    expect(getNavigation(() => false, permission => permission === "platform.messages.read").map(item => item.path))
+      .toEqual(["/account/sessions"]);
+  });
   it.each(["wms.warehouses.read", "wms.locations.read"])("gates WMS details by module and either resource permission %s", permission => {
     expect(getNavigation(module => module === "Wms", value => value === permission).map(item => item.path))
       .toEqual(["/account/sessions", "/wms/locations"]);

@@ -8,6 +8,7 @@ const entries = [
   { path: "/admin/configuration", name: "配置与语言", short: "配", module: "Platform", permission: ["platform.settings.read", "platform.dictionary.read"] },
   { path: "/admin/audit", name: "审计与登录事件", short: "审", module: "Platform", permission: ["platform.audit.read"] },
   { path: "/files", name: "暂存文件", short: "文", module: "Platform", permission: ["platform.files.read"] },
+  { path: "/notifications/messages", name: "Platform 消息诊断", short: "消", module: "Platform", permission: ["platform.messages.read"] },
   { path: "/wms/locations", name: "仓库与库位详情", short: "仓", module: "Wms", permission: ["wms.warehouses.read", "wms.locations.read"] },
 ] as const;
 

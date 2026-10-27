@@ -9,6 +9,7 @@
 
 | 切片 | 范围/设计 | 测试/证据状态 |
 |---|---|---|
+| T05 Platform消息诊断客户端 | REQ-NTF-004..008、PAGE-NTF-003、FUNC-NTF-001局部；[设计](implementation/127-t05-platform-message-diagnostics-client.md) | [证据](implementation/128-t05-platform-message-diagnostics-client-tests.md)：前端346、真实HTTPS浏览器/HTTP3及MySQL查询1通过；首轮scope映射错误已修，父DTC/跨owner/Broker仍未关闭 |
 | T01 软件实施基线 | 全部现有PAGE/FUNC及Route语义；不含预留功能扩容 | 文档签核；现场主备/真实环境仍blocked |
 | T02 Host首片 | FUNC-SYS-001/004基础、架构§7、DTC-SYS-001/006部分 | 仅健康/边界切片；结果见[实施记录](implementation/01-foundation-host.md)，不将父DTC整体标passed |
 | T02 MySQL基础片 | 同一FUNC/DTC的真实Provider基础、ARCH-TC-005首期部分 | [Provider记录](implementation/03-mysql-provider-foundation.md)：仅wes_test探针迁移/事务/约束/tenant/并发/清理，不代表业务owner、最小权限或完整T02验收 |

@@ -1,6 +1,6 @@
 # 通知、任务、缓存诊断页面与详细测试
 
-- 状态：评审中；DTC均designed/未执行
+- 状态：实施中；局部切片见下，父DTC不得由子集代签
 - 权威：[原规格](../modules/notifications-and-jobs.md)；SCOPE-WF-03..05、SCOPE-PLAT-06；REQ-NTF-001..014
 - 共用：[标准](00-shared-page-and-test-standard.md)；[RabbitMQ/Quartz参考](01-reference-cases.md)
 - 产品阅读：告警列表/投递详情和后台执行诊断，高密度，DENSITY=3、DATA_COMPLEXITY=3、CONSEQUENCE=3（仅管理写入）。
@@ -29,6 +29,8 @@
 | FUNC-NTF-005 | 006；REQ-PLAT-013..014；NTF-TC-013..014 | 1查各domain缓存分类/来源；2标记Disabled/Unavailable/Stale；3只读可回源则限流查询；4安全状态依赖丢失暂停相关写；5派生缓存按owner重建。缓存miss不授权资源，不能修改ledger |
 
 所有管理命令使用operationID、expectedVersion、reason/idempotencyKey；channel配置只引用secret。重放记录源MessageId与新attempt，不生成一个绕过去重的新业务身份。缓存TTL/Outbox保留不能短于经批准的重试/恢复窗口。
+
+PAGE-NTF-003 当前局部交付为[Platform消息只读诊断](../implementation/127-t05-platform-message-diagnostics-client.md)，[测试证据](../implementation/128-t05-platform-message-diagnostics-client-tests.md)。页面必显 EventId/Owner/Status/CreatedAt，可选固定字段 ContractName/SchemaVersion/Attempts/NextAttemptAt/PublishedAt/LastErrorCategory，均按当前 All 字段权限；不含payload或业务完成推断。采用固定卡片与实时分页，无可配置列、关联候选或业务写入。跨owner聚合/过滤/Inbox计数/重放表单及父DTC仍未完整实现；仅Platform模块门禁不新增Notifications运行能力开关。
 
 已定默认按[规则基线RULE-14..17](05-approved-rules-and-defaults.md)：普通幂等非物理消息5次退避/15分钟预算，Inbox/完成Outbox在线90天+领域唯一身份长期保护；Job分类、并发/时区/恢复与参数见PAR-06。通知聚合30秒/普通静默15分钟≤60分钟，高危即时不可静默；事实不抑制。公告7天，租户授权∩组织∩（用户∪角色），空受众拒发，PDA渠道显式启用。VAL-06/07为下表必测变体。
 

@@ -9,6 +9,15 @@ afterEach(() => {
 });
 
 describe("module-aware routes", () => {
+  it.each([true, false])("gates direct Platform message navigation with read permission %s", async allowed => {
+    sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false,
+      credentialVersion: "version", grants: allowed ? [{ permission: "platform.messages.read", scope: 2, departments: [], fields: ["EventId"] }] : [] };
+    vi.spyOn(moduleCatalog, "load").mockResolvedValue(true);
+    vi.spyOn(moduleCatalog, "isEnabled").mockReturnValue(true);
+    await router.push("/notifications/messages");
+    expect(router.currentRoute.value.path).toBe(allowed ? "/notifications/messages" : "/account/sessions");
+    await router.push("/account/sessions");
+  });
   it.each(["wms.warehouses.read", "wms.locations.read"])("allows WMS details with either resource read permission %s", async permission => {
     sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false,
       credentialVersion: "version", grants: [{ permission, scope: 0, departments: [], fields: ["Id"] }] };

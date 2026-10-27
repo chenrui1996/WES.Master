@@ -79,6 +79,7 @@
 - [x] Platform Inbox 90天owner-local有界保留清理及保存失败恢复，许可绑定原owner事务、成功后失效；见[实施](../../implementation/49-t05-inbox-retention-save-recovery.md)及[测试](../../implementation/50-t05-inbox-retention-save-recovery-tests.md)。默认关闭的显式tenant托管保留维护已接线，见[设计](../../implementation/87-platform-retention-maintenance.md)及[测试](../../implementation/88-platform-retention-maintenance-tests.md)；它不等于Quartz作业、托管publisher或真实Broker。
 - [x] Platform托管publisher调度：默认禁用、显式tenant/batch/周期、60秒合作取消预算与公共owner边界；缺少唯一singleton transport或Outbox/MessageQueue能力时拒绝启用。新增25项Host与5项真实MySQL测试通过，原34项托管保留配置及12项持久保留回归仍通过。见[设计](../../implementation/95-t05-hosted-platform-publisher.md)/[测试](../../implementation/96-t05-hosted-platform-publisher-tests.md)。没有真实Broker适配/确认丢失验收，不关闭T05。
 - [ ] 三Provider/隔离Broker执行崩溃窗口，断线不得丢Outbox；过deadline控制拒发、迟到可信完成核验且不覆盖新位置、认证过期隔离/query；采用RVT-05、VAL-07/08，不声称消息exactly-once。
+- [x] PAGE-NTF-003 Platform owner只读客户端：当前All完整必要字段、可选字段投影、实时分页、撤权/迟到/离线清旧；前端346项、真实HTTPS Chromium与2项消息HTTP、1项MySQL查询回归通过。见[设计](../../implementation/127-t05-platform-message-diagnostics-client.md)/[证据](../../implementation/128-t05-platform-message-diagnostics-client-tests.md)。不代表跨owner聚合、真实Broker或重放表单完成。
 
 ### T06：共享交互与授权查询底座
 

@@ -25,6 +25,8 @@ export const router = createRouter({
     { path: "/admin/configuration", component: () => import("./features/platform/SettingsPage.vue"), meta: { moduleCode: "Platform", configuration: true } },
     { path: "/admin/audit", component: () => import("./features/platform/AuditPage.vue"), meta: { moduleCode: "Platform", permission: "platform.audit.read" } },
     { path: "/files", component: () => import("./features/platform/FilesPage.vue"), meta: { moduleCode: "Platform", permission: "platform.files.read" } },
+    { path: "/notifications/messages", component: () => import("./features/notifications/MessagesPage.vue"),
+      meta: { moduleCode: "Platform", permission: "platform.messages.read" } },
     { path: "/wms/locations", component: () => import("./features/wms/MasterDataPage.vue"),
       meta: { moduleCode: "Wms", anyPermission: ["wms.warehouses.read", "wms.locations.read"] } },
     { path: "/:pathMatch(.*)*", redirect: "/account/sessions" },

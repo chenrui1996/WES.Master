@@ -85,6 +85,45 @@ test("real HTTPS identity, authorized named pages and responsive frame", async (
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   }
+  const messageRequests: string[] = [];
+  page.on("request", request => { if (new URL(request.url()).pathname === "/api/platform/messages") messageRequests.push(request.method()); });
+  await nav.getByRole("link", { name: "Platform 消息诊断", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "消息诊断 · 仅 Platform" })).toBeVisible();
+  expect(messageRequests).toEqual([]);
+  const readMessages = page.getByRole("button", { name: "读取 Platform 消息", exact: true });
+  await readMessages.focus();
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Tab");
+  await expect(readMessages).toBeFocused();
+  expect(await readMessages.evaluate(element => element.matches(":focus-visible"))).toBe(true);
+  const messageResponse = page.waitForResponse(response => new URL(response.url()).pathname === "/api/platform/messages");
+  await page.keyboard.press("Enter");
+  const receivedMessages = await messageResponse;
+  expect(receivedMessages.status()).toBe(200);
+  expect(receivedMessages.headers()["cache-control"]).toContain("no-store");
+  const messageBody = await receivedMessages.json() as { authorized: boolean; rows: { eventId: string; owner: string }[] };
+  expect(messageBody.authorized).toBe(true);
+  expect(messageBody.rows).toHaveLength(25);
+  expect(messageBody.rows.every(row => row.owner === "Platform")).toBe(true);
+  const messageList = page.getByTestId("messages");
+  await expect(messageList.locator("li")).toHaveCount(25);
+  await expect(messageList).toContainText(messageBody.rows[0]!.eventId);
+  await expect(page.getByRole("main")).toContainText("不表示消费成功或业务完成");
+  for (const width of [375, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  }
+  const enlargedMessages = await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize)).toBe("32px");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await enlargedMessages.evaluate(element => element.parentNode?.removeChild(element));
+  await page.context().setOffline(true);
+  await expect(readMessages).toBeDisabled();
+  await expect(page.getByRole("main")).toContainText("陈旧");
+  await page.context().setOffline(false);
+  await expect(readMessages).toBeEnabled();
+  expect(messageRequests).toEqual(["GET"]);
+  await page.setViewportSize({ width: 1440, height: 900 });
   for (const [link, api] of [
     ["用户与部门", "/api/platform/users"], ["角色与权限", "/api/platform/roles"],
     ["租户", "/api/platform/tenants"], ["配置与语言", "/api/platform/settings"], ["审计与登录事件", "/api/platform/audit"],

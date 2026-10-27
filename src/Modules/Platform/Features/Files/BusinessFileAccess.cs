@@ -46,6 +46,11 @@ public sealed class BusinessFileAccess
     public Task<FileAccessResult> ReadAsync(TenantContext context, Guid fileId, CancellationToken ct = default) =>
         _access.ReadAsync(context, fileId, ct);
 
+    /// <summary>Queries only this entity's exact bindings with current entity authority and per-field file scopes before paging.</summary>
+    public Task<StagingFilePage> QueryAsync(TenantContext context, int offset = 0, int limit = 25,
+        int? state = null, CancellationToken ct = default) =>
+        _access.QueryAsync(context, offset, limit, state, ct);
+
     /// <summary>Reuses verified download/audit/zeroing and rechecks entity and binding authority after storage IO.</summary>
     public Task<FileDownloadResult> DownloadAsync(TenantContext context, Guid fileId, Guid correlation, CancellationToken ct = default) =>
         _access.DownloadAsync(context, fileId, correlation, ct);

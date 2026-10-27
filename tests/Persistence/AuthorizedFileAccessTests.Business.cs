@@ -242,12 +242,15 @@ public sealed partial class AuthorizedFileAccessTests
         public FileEntityReference? LastEntity { get; private set; }
         public TenantContext? LastContext { get; private set; }
         public Exception? Failure { get; set; }
+        public Action<int>? BeforeRead { get; set; }
 
         public Task<bool> CanReadAsync(TenantContext context, FileEntityReference entity, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
             if (Failure is not null) throw Failure;
             Calls++;
+            BeforeRead?.Invoke(Calls);
+            ct.ThrowIfCancellationRequested();
             LastEntity = entity;
             LastContext = context;
             return Task.FromResult(Allowed);

@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+最新T07目录：[当前实体附件目录](169-t07-current-entity-attachment-catalog.md)/[证据](170-t07-current-entity-attachment-catalog-tests.md)已验证固定仓/位集合GET、实际精确引用/计数、当前实体两时点和逐字段文件scope SQL过滤后分页，暂存仍拒绝绑定。新增30真实owner/28 HTTP，相关166+138含既有HTTPS文件浏览器+29架构=333；随后精确最终新API28/架构29及Release0/0通过，不重复累计。历史“无目录API”已替代；客户端、真实扫描/病毒库/ACL及T07整包仍缺。
+
 最新T07写：[永久具名绑定/解绑](167-t07-durable-business-file-bindings.md)/[证据](168-t07-durable-business-file-bindings-tests.md)实现当前双owner Attach/Detach和全部既有来源实体read、精确引用/计数/版本/审计/永久操作回执单事务、锁后复验与严格PUT/DELETE。新增30真实owner/32 HTTP，首轮620项、来源RED修正后最终282项含六套既有HTTPS浏览器、Release0/0通过，不重复累计。MySQL1213通过先锁父文件根治；来源撤权/未登记owner不允许另绑，恢复只返回原提交事实。历史“无绑定/解绑应用入口”已由本片替代；仍无完整业务附件目录/客户端或真实病毒库/ACL，不关闭T07。
 
 T07读取记录：[具名实体附件](165-t07-entity-authorized-file-reads.md)/[证据](166-t07-entity-authorized-file-reads-tests.md)已交付仓/位固定类型、精确实际引用、当前WMS实体与Platform文件权限交集、存储IO后复验/审计/清零。新增26真实MySQL/21 HTTP，相关Release106+86含五套既有HTTPS浏览器+29架构=221通过，构建0/0。历史“所有业务附件无实体授权读取”由本片替代；该片未含的绑定/解绑已由最新写片补齐，目录/客户端及真实病毒库/ACL仍缺，不关闭T07。
@@ -30,7 +32,7 @@ T07读取记录：[具名实体附件](165-t07-entity-authorized-file-reads.md)/
 | T04 | 父DTC全变体/页面与命令适用矩阵及剩余集成验收，日志→Outbox→job全链路 | 生产最小权限/保留容量与运维验收 |
 | T05 | 实际Broker adapter/运行能力登记、WMS消费Inbox、跨owner统一快照与完整聚合、完整投递恢复接线；默认关闭WMS调度桥已验证 | 批准隔离Broker、ACK丢失/崩溃窗口实测 |
 | T06 | 全具名页面DTC矩阵、其他owner固定核对快照与相关客户端 | 真实PDA/OS/扫码枪矩阵 |
-| T07 | 完整业务文件目录/客户端；仓/位当前授权读取及持久绑定/解绑已实现，验证见最新证据 | 真实ClamAV/病毒库/识别/健康、部署ACL |
+| T07 | 当前实体附件客户端及完整页面验收；仓/位当前目录/读取和持久绑定/解绑owner/API已验证 | 真实ClamAV/病毒库/识别/健康、部署ACL |
 | T08 | 完整主数据启停/层级/容器、固定核对快照/导出、流水来源业务跳转及运输完成闭环 | 实际Pack schema/资源归属及相应现场门禁 |
 
 上述缺口不能由现有自动化测试数量或本轮切片完成代签；当前实现可继续按依赖推进，但T04–T08整体仍为partial。

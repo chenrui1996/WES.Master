@@ -9,6 +9,7 @@
 
 | 切片 | 范围/设计 | 测试/证据状态 |
 |---|---|---|
+| T07当前实体附件目录 | REQ-PLAT-007..012/FUNC-PLAT-005，PAGE-PLAT-007及DTC-PLAT-005/007/014目录子集；[设计](implementation/169-t07-current-entity-attachment-catalog.md) | [证据](implementation/170-t07-current-entity-attachment-catalog-tests.md)：新增30真实owner/28 HTTP，相关333含既有HTTPS文件浏览器、精确最终新API28/架构29、Release0/0，不重复累计；当前实体两时点、精确引用和逐字段scope SQL分页前交集，无物理IO/新迁移。客户端/真实病毒库/ACL及整包仍缺 |
 | T07持久具名附件绑定/解绑 | REQ-PLAT-007..012/FUNC-PLAT-005，DTC-PLAT-007/008/014引用写子集；[设计](implementation/167-t07-durable-business-file-bindings.md) | [证据](implementation/168-t07-durable-business-file-bindings-tests.md)：明确双owner写字段、全部来源实体当前read、永久同键恢复及引用/计数/版本/审计/回执单事务；真实1213由父文件锁顺序根治。严格PUT/DELETE复用默认双开关，无完整目录/客户端或真实病毒库/ACL，不代签父DTC/整包 |
 | T07具名实体附件读取 | REQ-PLAT-007..012/FUNC-PLAT-005，DTC-PLAT-007/008/014读取子集；[设计](implementation/165-t07-entity-authorized-file-reads.md) | [证据](implementation/166-t07-entity-authorized-file-reads-tests.md)：新增26真实MySQL/21 HTTP，相关Release221含五套既有HTTPS浏览器/架构29、构建0/0；精确绑定+当前WMS实体+文件权限交集，复用IO后复验/审计/清零。无绑定/解绑应用入口、业务目录/客户端或真实病毒库/ACL，不代签父DTC/整包 |
 | T08禁用库位创建客户端 | PAGE-WMS-001/FUNC-WMS-001、REQ-WMS-001..004创建子集、UI-001..012适用子集；[设计](implementation/163-t08-disabled-location-creation-client.md) | [证据](implementation/164-t08-disabled-location-creation-client-tests.md)：新增35前端，全套730/严格构建、相关.NET158含五套真实HTTPS浏览器、Release0/0。完整tuple/二次确认/原键未知恢复、显式当前GET及真实owner单效果；无真实Pack/完整层级链/启停/容器或父DTC验收 |

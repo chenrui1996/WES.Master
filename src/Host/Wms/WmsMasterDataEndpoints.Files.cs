@@ -34,6 +34,9 @@ public static partial class WmsMasterDataEndpoints
                 catch (Exception error) when (PlatformFileAdapters.IsStorageIntegrityFailure(error))
                 { return FileFailure(invocation.HttpContext, 500); }
             });
+            files.MapGet("", (Guid entityId, int? offset, int? limit, int? state, HttpContext http,
+                IdentityDatabase platform, MasterDataDatabase database, PlatformFileAdapters adapters, CancellationToken ct) =>
+                QueryMasterDataFilesAsync(entityId, offset, limit, state, location, http, platform, database, adapters, ct));
             files.MapGet("/{fileId:guid}", (Guid entityId, Guid fileId, HttpContext http, IdentityDatabase platform,
                 MasterDataDatabase database, PlatformFileAdapters adapters, CancellationToken ct) =>
                 ReadMasterDataFileAsync(entityId, fileId, location, content: false, http, platform, database, adapters, ct));
@@ -48,6 +51,26 @@ public static partial class WmsMasterDataEndpoints
                 IdentityDatabase platform, MasterDataDatabase database, CancellationToken ct) =>
                 ChangeMasterDataFileAsync(entityId, fileId, input, location, attached: false, http, platform, database, ct));
         }
+
+    }
+
+    private static async Task<IResult> QueryMasterDataFilesAsync(Guid entityId, int? offset, int? limit, int? state,
+        bool location, HttpContext http, IdentityDatabase platform, MasterDataDatabase database,
+        PlatformFileAdapters adapters, CancellationToken ct)
+    {
+        if (entityId == Guid.Empty || http.Request.Query.Any(item =>
+            item.Key is not ("offset" or "limit" or "state") || item.Value.Count != 1 || string.IsNullOrWhiteSpace(item.Value[0])))
+        {
+            http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("WmsFiles")
+                .LogWarning("Business file catalog rejected invalid identity or query fields.");
+            return Results.BadRequest();
+        }
+        var subject = IdentityRuntime.Subject(http.User);
+        await using var owner = platform.Open(subject.TenantId);
+        var access = owner.BusinessFiles(new(FileEntityOwner(location), entityId),
+            new MasterDataFileAuthority(database, location), adapters.Storage, adapters.Scanner);
+        var result = await access.QueryAsync(subject, offset ?? 0, limit ?? 25, state, ct);
+        return FileOutcome(result.Decision, result);
     }
 
     private static async Task<IResult> ChangeMasterDataFileAsync(Guid entityId, Guid fileId, FileBindingInput input,

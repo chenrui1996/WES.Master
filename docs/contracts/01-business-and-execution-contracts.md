@@ -23,6 +23,8 @@
 
 ## 2. 结果、错误、取消与时限
 
+具名附件集合GET增量：[当前实体目录](../implementation/169-t07-current-entity-attachment-catalog.md)。`GET /api/wms/warehouses/{entityId}/files` 及固定 `locations` 同结构，仅接受单值offset/limit/state；offset0..10000、limit25/50/100、state合法生命周期数值，非法/重复/不支持query400。当前实体完整read前后复验，Platform当前九字段scope、精确实际绑定/计数和tenant在SQL分页前交集；200精确 `{decision,rows,offset,limit}`，rows仅九字段，无total/引用目录/路径/摘要。401身份/撤销会话、403实体/字段拒绝，错误沿用503/500；no-store，无扫描/存储IO/审计写。两个既有开关AND且默认关闭，集合POST仍405，无客户端或实际病毒库验收。
+
 已实施具名附件读取增量：GET `/api/wms/warehouses/{entityId}/files/{fileId}` 及 `/content`，另有固定 `locations` 两路径；仅WMS读装配与Files两个既有开关均开启。固定owner/type不从请求采信，必须精确持久绑定、当前实体完整read及Platform文件九字段read/Content交集。沿用200安全投影或attachment/no-store/nosniff字节、403拒绝/404缺文件/400非法ID/409状态/412版本/503依赖/500完整性错误；下载IO后复验且审计先于交付。详见[实体附件读取](../implementation/165-t07-entity-authorized-file-reads.md)，旧泛owner值不自动迁为具名类型。
 
 具名写增量：[永久附件绑定/解绑](../implementation/167-t07-durable-business-file-bindings.md)。在同一固定 `/files/{fileId}` 路径 PUT绑定、DELETE解绑；严格JSON body仅 `expectedVersion`（此具名写合同使用body版本，不接受If-Match替换），单值合法 `Idempotency-Key` 与 `X-WES-Client`。当前目标实体完整read及对应WMS write字段Attach/Detach，另需按真实文件creator/当前部门核验Platform write同名字段；write不自动grant文件read。给已绑定文件增加目标还须全部持久来源实体当前read，未登记来源拒绝。成功精确 `{id,version,attached}`，初次绑定201+Location，解绑/原键重放200，no-store；缺版本428/非法400/版本冲突412/成员状态或换参409，依赖错误沿用503/500。永久操作以tenant+operation唯一且核actor/完整语义元组，不按普通90天缓存删除；解绑或物理删除后恢复仍是原事实，不重建引用。引用/计数/版本/审计/回执在Platform同事务；跨owner授权不声称分布式ACID。复用默认双开关，POST仍405，无业务附件目录或泛CRUD。

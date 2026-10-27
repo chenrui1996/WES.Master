@@ -34,9 +34,17 @@ internal enum MasterDataDecision
 }
 internal sealed record MasterDataResult(MasterDataDecision Decision, Guid? Id = null, string? Version = null);
 
-/// <summary>Internal disabled master-data creation only; a future external boundary must supply live authorization first.</summary>
+/// <summary>Internal disabled creation primitive; external callers use the current-authorized writer boundary.</summary>
 internal sealed class CreateMasterData(WmsDbContext database, TimeProvider clock, IWarehouseLocationSchema schema)
 {
+    internal static bool IsValid(CreateMasterDataCommand command) =>
+        command.OperationId != Guid.Empty && command.ActorId != Guid.Empty && command.CorrelationId != Guid.Empty
+        && MasterDataValue.IsCode(command.Code) && MasterDataValue.IsName(command.Name)
+        && (command.WarehouseId.HasValue
+            ? command.WarehouseId != Guid.Empty && command.PackId.HasValue && command.PackId != Guid.Empty
+                && MasterDataValue.IsCode(command.SchemaVersion)
+            : !command.PackId.HasValue && command.SchemaVersion is null);
+
     internal async Task<MasterDataResult> ExecuteAsync(CreateMasterDataCommand command, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(command);
@@ -44,13 +52,7 @@ internal sealed class CreateMasterData(WmsDbContext database, TimeProvider clock
         ct.ThrowIfCancellationRequested();
         if (database.ChangeTracker.Entries().Any() || database.Database.CurrentTransaction is not null)
             throw new InvalidOperationException("Master-data creation requires a clean WMS owner.");
-        if (command.OperationId == Guid.Empty || command.ActorId == Guid.Empty || command.CorrelationId == Guid.Empty
-            || !MasterDataValue.IsCode(command.Code) || !MasterDataValue.IsName(command.Name)
-            || (command.WarehouseId.HasValue
-                ? command.WarehouseId == Guid.Empty || command.PackId is null || command.PackId == Guid.Empty
-                    || !MasterDataValue.IsCode(command.SchemaVersion)
-                : command.PackId.HasValue || command.SchemaVersion is not null))
-            return new(MasterDataDecision.Invalid);
+        if (!IsValid(command)) return new(MasterDataDecision.Invalid);
         var code = MasterDataValue.Code(command.Code);
         try
         {

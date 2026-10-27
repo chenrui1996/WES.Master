@@ -72,6 +72,8 @@ T08只读页面续实施：[仓库/库位详情客户端](docs/implementation/12
 
 T08目录续实施：[当前授权仓库/库位目录](docs/implementation/123-t08-authorized-master-data-catalog.md)及[证据](docs/implementation/124-t08-authorized-master-data-catalog-tests.md)新增两个GET及实时发现入口：Platform逐字段范围交集解析真实creator，WMS在tenant内先授权过滤再排序分页，无total或私表跨引用。新增30项真实owner、18项HTTP、28项客户端；前端全套**306 passed**及严格构建，真实HTTPS Chromium目录选取后重读与双向撤权清旧通过。完整.NET **1399 passed**后补SQL物化完成时取消反例，修正后全部主数据/HTTP/浏览器/架构**145 passed**，不叠加冒充一次全套；Release零警告/错误。树、授权创建/写生命周期、库存查询/Outbox及整包仍未完成。
 
+T08创建授权续实施：[默认禁用创建应用边界](docs/implementation/125-t08-current-authorized-master-data-creation.md)及[证据](docs/implementation/126-t08-current-authorized-master-data-creation-tests.md)新增显式writer，真实当前角色/会话/字段及creator当前部门复验后才执行永久operation；库位另需当前父仓read与显式schema证据，撤权也阻断重放且不泄漏旧Id/Version。新增38项真实owner，最终联合主数据124、领域/只读HTTP/真实浏览器50、架构29共**203 passed**，构建零警告/错误。无Host写端点/表单、默认schema/权限、迁移或依赖变化；T08完整生命周期与五包未关闭。
+
 | 文档组 | 内容 |
 |---|---|
 | 项目治理 | [业务范围与现状矩阵](docs/01-business-scope-and-status.md)、[系统架构](docs/02-system-architecture.md)、[工程/注释/文档规范](docs/03-engineering-governance.md)、[需求追踪矩阵](docs/04-requirement-design-test-traceability.md)、[ADR](docs/adr/README.md) |

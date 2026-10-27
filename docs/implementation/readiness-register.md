@@ -334,3 +334,10 @@
 - 既有页面增加显式目录、共享实时分页及固定卡片；选择Id后重新GET当前详情，不将目录行当最新授权。切类型/过滤/scope立即取消清行，503同查询陈旧禁选，401/403/404或非法页清行；详情与目录403双向清理。离线不发送/排队、不自动恢复重读，无新增业务本机缓存。
 - 新增**30真实owner+18 HTTP+28客户端**；前端全套**306 passed**及严格构建。真实HTTPS/MySQL/Chromium覆盖双目录/选择后重读/三种宽度/Tab/Enter/200%桌面字体/独立owner撤字段403清双侧。完整.NET Architecture29/Modules543/Persistence599/Route228共**1399 passed**后补两个SQL物化后取消反例，修正后主数据owner86+HTTP/浏览器30+Architecture29共**145 passed / 0 failed / 0 skipped**，Release重建**0警告/0错误**；两轮结果精确归属不叠加。见[设计](123-t08-authorized-master-data-catalog.md)/[证据](124-t08-authorized-master-data-catalog-tests.md)。
 - 无迁移/依赖/默认授权/生产许可变化，旧单资源GET shape不变；**T08及其他四包仍partial**。树/层巷、当前创建授权、编辑启停/活动占用预约锁、容器、受权库存/流水/固定快照导出、规则集成、Outbox及运输完成仍待；真实Pack/现场/终端门禁不变。
+
+### T08 当前授权的默认禁用创建应用边界
+
+- 新公开WMS writer强制显式当前authority/schema/clock/logs，不自动迁移或注册Host写入口。主体tenant/actor/session仅来自可信上下文；当前`wms.warehouses.write` Code/Name或`wms.locations.write`全部五字段复验，库位另需当前父仓完整read，后续schema不可用/拒绝保持显式结果，不提供default-success adapter。
+- 既有核心输入规则提取共享校验而不改语义；授权在永久operation重放/写事务之前，撤权后重放也Forbidden且无Id/Version。新scope显式恢复、CodeConflict/IdempotencyConflict不泄漏winner，资源与永久创建事实原子写；默认禁用不代表分配/现场安全，无库存、跨模块伪原子审计或Outbox新增效果。
+- 新增**38项真实owner**，包含Own/Departments/All、逐字段/精确case/错误集合比较器、当前role/成员/session/字段撤销后的重放拒绝、真实foreign tenant父仓、schema/authority取消与安全DB错误、并发同operation/同code单效果。最终全部主数据 **124**、领域/配置/只读HTTP/真实HTTPS WMS浏览器 **50**、Architecture **29**，共**203 passed / 0 failed / 0 skipped**，Release全solution构建**0警告/0错误**；见[设计](125-t08-current-authorized-master-data-creation.md)/[证据](126-t08-current-authorized-master-data-creation-tests.md)。
+- 本片无前端/HTTP/配置/模型/迁移/依赖变化，仅跑相关回归，不冒充再次完整.NET或Vitest。**T08及T04–T07仍partial**：真实Pack适配器与Host创建接线/表单、树、编辑启停/占用预约锁活动证据、容器、库存/流水/固定快照导出、规则与Outbox/运输完成等未验收。真实schema使用合同fixture，不代签Pack或生产/现场。

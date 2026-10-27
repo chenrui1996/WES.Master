@@ -38,6 +38,8 @@
 
 后续已补[当前受权实时目录](../implementation/123-t08-authorized-master-data-catalog.md)：逐字段creator范围交集、先授权过滤再有界分页，无total；固定卡片支持代码/名称/UUID/主数据状态发现，选择后重新读取详情，两个方向403清旧。精确Code/Enabled及库位Warehouse筛选、共享分页、严格响应/迟到与离线边界见[证据](../implementation/124-t08-authorized-master-data-catalog-tests.md)。仍非完整树/层巷、创建/启停/绑定或父DTC验收，不将实时目录当固定快照。
 
+创建已增加[当前授权应用writer](../implementation/125-t08-current-authorized-master-data-creation.md)：仓库Code/Name需`wms.warehouses.write`，库位Code/Name/WarehouseId/PackId/SchemaVersion需独立`wms.locations.write`，并当前可读父仓及显式schema验证；creator仅为可信actor、永久operation重放也复验权限、默认禁用。见[证据](../implementation/126-t08-current-authorized-master-data-creation-tests.md)。该应用边界尚未装配HTTP/表单或真实Pack，不声称已交付页面新建/启停/完整生命周期。
+
 ## 2. 功能/契约
 
 | FUNC定义 | PAGE/REQ/原TC | 编号主流程、状态和拒绝 |

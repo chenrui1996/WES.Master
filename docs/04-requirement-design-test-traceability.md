@@ -9,6 +9,7 @@
 
 | 切片 | 范围/设计 | 测试/证据状态 |
 |---|---|---|
+| T07具名实体附件读取 | REQ-PLAT-007..012/FUNC-PLAT-005，DTC-PLAT-007/008/014读取子集；[设计](implementation/165-t07-entity-authorized-file-reads.md) | [证据](implementation/166-t07-entity-authorized-file-reads-tests.md)：新增26真实MySQL/21 HTTP，相关Release221含五套既有HTTPS浏览器/架构29、构建0/0；精确绑定+当前WMS实体+文件权限交集，复用IO后复验/审计/清零。无绑定/解绑应用入口、业务目录/客户端或真实病毒库/ACL，不代签父DTC/整包 |
 | T08禁用库位创建客户端 | PAGE-WMS-001/FUNC-WMS-001、REQ-WMS-001..004创建子集、UI-001..012适用子集；[设计](implementation/163-t08-disabled-location-creation-client.md) | [证据](implementation/164-t08-disabled-location-creation-client-tests.md)：新增35前端，全套730/严格构建、相关.NET158含五套真实HTTPS浏览器、Release0/0。完整tuple/二次确认/原键未知恢复、显式当前GET及真实owner单效果；无真实Pack/完整层级链/启停/容器或父DTC验收 |
 | T08当前授权库位创建HTTP | REQ-WMS-001..004、PAGE-WMS-001/FUNC-WMS-001创建子集；[设计](implementation/161-t08-authorized-location-creation-http.md) | [证据](implementation/162-t08-authorized-location-creation-http-tests.md)：新增65 HTTP/启动及8配置；六项实际行为RED后最终Release128含四套真实HTTPS浏览器+238主数据owner+29架构=395通过、构建0/0。独立默认关闭、具名schema启动门禁/当前授权/永久幂等及原子Outbox；无真实Pack/表单/完整生命周期或父DTC验收 |
 | T05 WMS默认关闭托管发布 | REQ-NTF-004..008/FUNC-NTF-001、DTC-NTF-001/002调度子集；[设计](implementation/159-t05-hosted-wms-publisher.md) | [证据](implementation/160-t05-hosted-wms-publisher-tests.md)：新增27 Host/真实进程和1真实MySQL runner；最终Release 85含四套HTTPS浏览器+33发布owner+29架构=147通过、构建0/0。严格allowlist/batch/周期、新owner、60秒合作取消；实际Program仍拒绝未登记Broker运行能力，无实际adapter/Inbox/统一快照或整包验收 |

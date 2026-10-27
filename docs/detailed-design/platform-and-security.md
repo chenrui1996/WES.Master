@@ -7,6 +7,8 @@
 
 ## 1. 页面与字段
 
+T07读取增量见[具名业务附件](../implementation/165-t07-entity-authorized-file-reads.md)/[证据](../implementation/166-t07-entity-authorized-file-reads-tests.md)：固定仓库/库位类型、实际精确引用及当前实体/文件权限交集，复用已验证的审计下载；仅既有绑定的元数据/内容，暂存仍拒绝绑定。未建立绑定/解绑应用入口或业务附件区/目录，不能将当前内部fixture当作PAGE-PLAT-007全流程；真实扫描/病毒库/ACL仍未验收。
+
 以下路径是客户端设计路由。身份与授权均由Platform拥有；所有字段默认作用于当前受信租户，不从URL采信TenantId。
 
 | PAGE定义 | 角色/入口/返回 | 文本线框及字段/校验 | 查询/操作与关联 |

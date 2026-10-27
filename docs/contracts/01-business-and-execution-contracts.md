@@ -23,6 +23,8 @@
 
 ## 2. 结果、错误、取消与时限
 
+已实施具名附件读取增量：GET `/api/wms/warehouses/{entityId}/files/{fileId}` 及 `/content`，另有固定 `locations` 两路径；仅WMS读装配与Files两个既有开关均开启。固定owner/type不从请求采信，必须精确持久绑定、当前实体完整read及Platform文件九字段read/Content交集。沿用200安全投影或attachment/no-store/nosniff字节、403拒绝/404缺文件/400非法ID/409状态/412版本/503依赖/500完整性错误；下载IO后复验且审计先于交付。详见[实体附件读取](../implementation/165-t07-entity-authorized-file-reads.md)，无绑定/解绑写合同或业务目录，旧泛owner值不自动迁为具名类型。
+
 同步读取200；完成创建201并给Location；异步接收202返回`{operationId,status,version,correlationId}`及操作查询Location。`status`仅`Accepted/Running/Succeeded/Rejected/Unknown`；具体领域状态另在DTO表达。Accepted不是实物完成。GET operation只对原租户/授权主体开放；不存在或无可见范围不泄露对象。
 
 拒绝用ProblemDetails并扩展`code/correlationId`，禁止堆栈/SQL/设备payload/秘密。400 `ValidationFailed`，401 `AuthenticationRequired`，403 `PermissionDenied`，404 `ResourceNotFound`，409 `InvalidState/IdempotencyPayloadMismatch/ResourceConflict`，412 `VersionConflict`，422 `UnsupportedCapability`，428 `VersionRequired`，429 `RateLimited`，503 `DependencyUnavailable/ControlUnconfigured`。未知执行结果为可查询operation的Unknown，不包装成成功或“未执行”。

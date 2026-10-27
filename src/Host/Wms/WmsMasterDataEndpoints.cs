@@ -1,4 +1,5 @@
 using Wes.Host.Identity;
+using Wes.Host.Platform;
 using Wes.Platform.Features.Tenancy;
 using Wes.Wms;
 using Wes.Wms.Features.Ledger;
@@ -51,6 +52,7 @@ public static partial class WmsMasterDataEndpoints
             string? from, string? before, HttpContext http, StockLedgerDatabase database, CancellationToken ct) =>
             QueryStockLedgerAsync(new(new(offset ?? 0, limit ?? 25, warehouseId, locationId, itemId, containerId, batch),
                 sourceDocumentId, correlationId, kind.HasValue ? (StockLedgerKind)kind.Value : null), from, before, http, database, ct));
+        if (app.Services.GetRequiredService<PlatformFileSettings>().Enabled) MapMasterDataFiles(group);
         if (app.Services.GetRequiredService<WmsMasterDataSettings>().WarehouseCreationEnabled)
             group.MapPost("/warehouses", CreateWarehouseAsync);
         if (app.Services.GetRequiredService<WmsMasterDataSettings>().LocationCreationEnabled)

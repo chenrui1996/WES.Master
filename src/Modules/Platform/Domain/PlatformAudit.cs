@@ -25,7 +25,7 @@ public enum PlatformAuditAction
     TenantChanged,
     /// <summary>A stable dictionary entry, translation or reference changed.</summary>
     DictionaryChanged,
-    /// <summary>Verified unbound file bytes were authorized for delivery after a current scope check.</summary>
+    /// <summary>Verified file bytes were authorized for delivery after current file and, when bound, entity scope checks.</summary>
     FileDownloaded,
     /// <summary>A permanent quarantined upload identity was committed before external storage.</summary>
     FileUploadCreated,

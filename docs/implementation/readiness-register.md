@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+最新T07读取：[具名实体附件](165-t07-entity-authorized-file-reads.md)/[证据](166-t07-entity-authorized-file-reads-tests.md)已交付仓/位固定类型、精确实际引用、当前WMS实体与Platform文件权限交集、存储IO后复验/审计/清零。新增26真实MySQL/21 HTTP，相关Release106+86含五套既有HTTPS浏览器+29架构=221通过，构建0/0。历史“所有业务附件无实体授权读取”由本片替代；无绑定/解绑应用入口、业务目录/客户端或真实病毒库/ACL，不关闭T07。
+
 最新T08客户端：[禁用库位创建](163-t08-disabled-location-creation-client.md)/[证据](164-t08-disabled-location-creation-client-tests.md)已交付当前完整write及父仓read按钮、完整tuple预览/二次确认、原key/body未知恢复、创建/查询互锁与显式GET回执。新增35前端，全套730/严格构建、相关.NET129含五套真实HTTPS浏览器+架构29=158与Release0/0通过；真实201及最终禁用位置/事实/事件单效果已核验。历史“库位创建无表单”已替代；真实Pack、完整层级/候选链、启停/容器/固定快照/完整生命周期及整包仍缺。
 
 最新T08：[当前授权库位创建HTTP](161-t08-authorized-location-creation-http.md)/[证据](162-t08-authorized-location-creation-http-tests.md)已交付独立默认关闭LocationCreationEnabled、唯一具名singleton schema启动门禁、当前五字段/父仓read、严格body/header及永久key、原子禁用位置/事实/Outbox，65 HTTP/启动与8配置新增。最终Release 128含四套真实HTTPS浏览器+238主数据owner+29架构=395通过，构建0/0。历史“库位创建无HTTP”已替代；无真实schema adapter/Pack验收、创建表单/启停/完整生命周期及整包不关闭。
@@ -26,7 +28,7 @@
 | T04 | 父DTC全变体/页面与命令适用矩阵及剩余集成验收，日志→Outbox→job全链路 | 生产最小权限/保留容量与运维验收 |
 | T05 | 实际Broker adapter/运行能力登记、WMS消费Inbox、跨owner统一快照与完整聚合、完整投递恢复接线；默认关闭WMS调度桥已验证 | 批准隔离Broker、ACK丢失/崩溃窗口实测 |
 | T06 | 全具名页面DTC矩阵、其他owner固定核对快照与相关客户端 | 真实PDA/OS/扫码枪矩阵 |
-| T07 | 业务实体授权附件、绑定/解绑及完整业务文件目录 | 真实ClamAV/病毒库/识别/健康、部署ACL |
+| T07 | 绑定/解绑应用入口、完整业务文件目录/客户端；仓/位已有绑定的授权读取已验证 | 真实ClamAV/病毒库/识别/健康、部署ACL |
 | T08 | 完整主数据启停/层级/容器、固定核对快照/导出、流水来源业务跳转及运输完成闭环 | 实际Pack schema/资源归属及相应现场门禁 |
 
 上述缺口不能由现有自动化测试数量或本轮切片完成代签；当前实现可继续按依赖推进，但T04–T08整体仍为partial。

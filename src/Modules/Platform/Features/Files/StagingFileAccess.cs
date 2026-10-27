@@ -35,7 +35,7 @@ public enum FileAccessDecision
     IdempotencyConflict
 }
 
-/// <summary>Authorized staging metadata without object paths, content digests or business references.</summary>
+/// <summary>Fixed safe file metadata without object paths, content digests or business references.</summary>
 public sealed record StagingFileView(Guid Id, string FileName, string ContentType, long ByteCount,
     QuarantinedFileState State, bool Stored, string Version, DateTimeOffset CreatedAt, bool ProcessingProblem);
 
@@ -85,8 +85,8 @@ public sealed class FileAccessException(bool transient = false) : Exception("Pla
 }
 
 /// <summary>
-/// Current-authorized access to unbound staging files only. Business attachments require their entity owner's
-/// additional authority and are deliberately rejected here, even for an All file grant.
+/// The public staging factory rejects business attachments even for an All file grant.
+/// BusinessFileAccess reuses the read/download implementation with mandatory exact binding and entity authority.
 /// </summary>
 public sealed partial class StagingFileAccess
 {
@@ -98,21 +98,27 @@ public sealed partial class StagingFileAccess
     private readonly TimeProvider _clock;
     private readonly ILoggerFactory _logs;
     private readonly ILogger<StagingFileAccess> _logger;
+    private readonly FileEntityReference? _entity;
+    private readonly IBusinessFileAuthorization? _entityAuthorization;
 
     internal StagingFileAccess(PlatformDbContext database, IQuarantineStore storage, IFileScanner scanner,
-        TimeProvider clock, ILoggerFactory logs)
+        TimeProvider clock, ILoggerFactory logs, FileEntityReference? entity = null, IBusinessFileAuthorization? entityAuthorization = null)
     {
         ArgumentNullException.ThrowIfNull(storage);
         ArgumentNullException.ThrowIfNull(scanner);
+        if ((entity is null) != (entityAuthorization is null))
+            throw new ArgumentException("Business file access requires both an exact entity and its current authorization.");
         _database = database;
         _storage = storage;
         _scanner = scanner;
         _clock = clock;
         _logs = logs;
         _logger = logs.CreateLogger<StagingFileAccess>();
+        _entity = entity;
+        _entityAuthorization = entityAuthorization;
     }
 
-    /// <summary>Reads one fully authorized unbound file projection after current session and resource-scope checks.</summary>
+    /// <summary>Reads one fully authorized file projection after current session, binding and resource-scope checks.</summary>
     public Task<FileAccessResult> ReadAsync(TenantContext context, Guid fileId, CancellationToken ct = default) =>
         RunAsync(async () =>
         {
@@ -218,8 +224,17 @@ public sealed partial class StagingFileAccess
     private async Task<bool> AllowedAsync(TenantContext context, QuarantinedFile file, string permission, string[] fields, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(context);
-        if (context.TenantId != _database.TenantId || context.ActorId == Guid.Empty || context.SessionId == Guid.Empty
-            || file.ReferenceCount != 0 || await _database.FileReferences.AsNoTracking().AnyAsync(item => item.FileId == file.Id, ct))
+        if (context.TenantId != _database.TenantId || context.ActorId == Guid.Empty || context.SessionId == Guid.Empty)
+            return false;
+        if (_entity is null)
+        {
+            if (file.ReferenceCount != 0 || await _database.FileReferences.AsNoTracking().AnyAsync(item => item.FileId == file.Id, ct))
+                return false;
+        }
+        else if (file.ReferenceCount <= 0
+            || !await _database.FileReferences.AsNoTracking().AnyAsync(item =>
+                item.FileId == file.Id && item.Owner == _entity.Owner && item.EntityId == _entity.EntityId, ct)
+            || !await _entityAuthorization!.CanReadAsync(context, _entity, ct))
             return false;
         var creator = await _database.DirectoryUsers.AsNoTracking().SingleOrDefaultAsync(item => item.Id == file.CreatorId, ct);
         if (creator is null) return false;
@@ -233,7 +248,7 @@ public sealed partial class StagingFileAccess
 
     private FileAccessResult Denied()
     {
-        _logger.LogWarning("Staging file access denied by current authority or business binding.");
+        _logger.LogWarning("File access denied by current authority or binding.");
         return new(FileAccessDecision.Forbidden);
     }
 

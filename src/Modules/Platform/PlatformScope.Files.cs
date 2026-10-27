@@ -10,4 +10,9 @@ public sealed partial class PlatformScope
     /// </summary>
     public StagingFileAccess StagingFiles(IQuarantineStore storage, IFileScanner scanner) =>
         new(_database, storage, scanner, _clock, _logs);
+
+    /// <summary>Reads an exact existing business attachment with mandatory current entity authority and explicit private ports.</summary>
+    public BusinessFileAccess BusinessFiles(FileEntityReference entity, IBusinessFileAuthorization authorization,
+        IQuarantineStore storage, IFileScanner scanner) =>
+        new(_database, entity, authorization, storage, scanner, _clock, _logs);
 }

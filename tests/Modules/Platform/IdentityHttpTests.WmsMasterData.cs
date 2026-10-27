@@ -147,12 +147,13 @@ public sealed partial class IdentityHttpTests
     }
 
     private async Task<(Guid Warehouse, Guid Location)> WmsHostAsync(bool warehouseCreation = false,
-        bool locationCreation = false, Action<Microsoft.Extensions.DependencyInjection.IServiceCollection>? locationSchemas = null)
+        bool locationCreation = false, Action<Microsoft.Extensions.DependencyInjection.IServiceCollection>? locationSchemas = null,
+        string? filesRoot = null)
     {
         _client.Dispose();
         await _factory.DisposeAsync();
         _factory = new Factory(_connection, _corpus, _clock, wmsMasterData: true, wmsWarehouseCreation: warehouseCreation,
-            wmsLocationCreation: locationCreation, locationSchemas: locationSchemas);
+            wmsLocationCreation: locationCreation, locationSchemas: locationSchemas, filesRoot: filesRoot);
         _client = Client();
         await using (var seed = OpenWmsMasterData())
         {

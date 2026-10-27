@@ -20,6 +20,8 @@ public sealed partial class IdentityHttpTests
     {
         using var response = await _client.GetAsync($"/api/wms/inbound/{Guid.NewGuid():D}");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        using var catalog = await _client.GetAsync("/api/wms/inbound");
+        Assert.Equal(HttpStatusCode.NotFound, catalog.StatusCode);
     }
 
     [Fact]
@@ -77,6 +79,8 @@ public sealed partial class IdentityHttpTests
         }
         using var response = await _client.GetAsync($"/api/wms/inbound/{id:D}");
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        using var catalog = await _client.GetAsync("/api/wms/inbound");
+        Assert.Equal(HttpStatusCode.Forbidden, catalog.StatusCode);
         Assert.DoesNotContain("IN-HTTP", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
 
@@ -108,6 +112,8 @@ public sealed partial class IdentityHttpTests
         }
         using var allowed = await _client.GetAsync($"/api/wms/inbound/{id:D}");
         Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
+        using var allowedPage = await _client.GetAsync("/api/wms/inbound");
+        Assert.Single((await allowedPage.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("rows").EnumerateArray());
         await using (var platform = Open())
         {
             var user = await platform.DirectoryUsers.SingleAsync(item => item.Id == creator);
@@ -116,6 +122,55 @@ public sealed partial class IdentityHttpTests
         }
         using var denied = await _client.GetAsync($"/api/wms/inbound/{id:D}");
         Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+        using var deniedPage = await _client.GetAsync("/api/wms/inbound");
+        Assert.Empty((await deniedPage.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("rows").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task WmsInboundCatalogFiltersOwnCreatorsBeforePagingAndExposesOnlyMetadata()
+    {
+        var id = await InboundHostAsync();
+        await using (var seed = OpenWmsMasterData())
+        {
+            var original = await seed.InboundDocuments.SingleAsync();
+            var line = new InboundPlanLine(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "", 0, 1m);
+            for (var index = 0; index < 26; index++)
+                seed.InboundDocuments.Add(new(_tenant, Guid.NewGuid(), Guid.NewGuid(), original.WarehouseId,
+                    $"A-{index:D2}", [line], _clock.GetUtcNow()));
+            await seed.SaveChangesAsync();
+        }
+        using var response = await _client.GetAsync("/api/wms/inbound?code=in-http&state=0");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(new[] { "rows", "offset", "limit" }, page.EnumerateObject().Select(property => property.Name));
+        var row = Assert.Single(page.GetProperty("rows").EnumerateArray());
+        Assert.Equal(id, row.GetProperty("id").GetGuid());
+        Assert.Equal(new[] { "id", "code", "warehouseId", "state", "version", "createdAt" },
+            row.EnumerateObject().Select(property => property.Name));
+        using var all = await _client.GetAsync("/api/wms/inbound");
+        Assert.Single((await all.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("rows").EnumerateArray());
+        using var changed = await _client.GetAsync("/api/wms/inbound?state=1");
+        Assert.Empty((await changed.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("rows").EnumerateArray());
+        using var write = await _client.PostAsJsonAsync("/api/wms/inbound", new { code = "invented" });
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, write.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("?offset=-1")]
+    [InlineData("?offset=10001")]
+    [InlineData("?limit=1")]
+    [InlineData("?code=%20bad")]
+    [InlineData("?code=")]
+    [InlineData("?state=4")]
+    [InlineData("?state=Draft")]
+    [InlineData("?warehouseId=bad")]
+    [InlineData("?warehouseId=00000000-0000-0000-0000-000000000000")]
+    public async Task WmsInboundCatalogRejectsInvalidQuery(string query)
+    {
+        await InboundHostAsync();
+        using var response = await _client.GetAsync("/api/wms/inbound" + query);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
@@ -132,6 +187,8 @@ public sealed partial class IdentityHttpTests
             await platform.SaveChangesAsync();
             using var response = await _client.GetAsync($"/api/wms/inbound/{id:D}");
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            using var catalog = await _client.GetAsync("/api/wms/inbound");
+            Assert.Equal(HttpStatusCode.Forbidden, catalog.StatusCode);
         }
     }
 

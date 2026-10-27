@@ -212,7 +212,18 @@ public sealed partial class WmsLedgerTests
         internal int Calls { get; private set; }
         internal bool RevokeAfterFirst { get; init; }
         internal string? Missing { get; init; }
+        internal bool NoCreators { get; init; }
+        internal bool NoCreatorsAfterFirst { get; init; }
         internal Action? OnSecond { get; init; }
+        public Task<InboundCreatorAccess> ReadCreatorsAsync(InboundSubject subject, IReadOnlyCollection<string> required, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            Assert.Equal(InboundFields, required);
+            Calls++;
+            if (Calls == 2) OnSecond?.Invoke();
+            return Task.FromResult(new InboundCreatorAccess(!(RevokeAfterFirst && Calls > 1) && Missing is null,
+                NoCreators || NoCreatorsAfterFirst && Calls > 1 ? new HashSet<Guid>() : new HashSet<Guid> { creator }));
+        }
         public Task<IReadOnlySet<string>> ReadFieldsAsync(InboundSubject subject, Guid actualCreator, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();

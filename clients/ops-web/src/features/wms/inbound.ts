@@ -11,10 +11,13 @@ export interface InboundReceipt {
   id: string; lineId: string; containerId: string; receiptLocationId: string; targetLocationId: string;
   quantity: string; requiresTransport: boolean; arrived: boolean; transportId: string | null;
 }
-export interface InboundDetail {
+export interface InboundSummary {
   id: string; code: string; warehouseId: string; state: 0 | 1 | 2 | 3; version: string; createdAt: string;
+}
+export interface InboundDetail extends InboundSummary {
   lines: InboundLine[]; receipts: InboundReceipt[];
 }
+export interface InboundFilters { code?: string; warehouseId?: string; state?: number }
 export class InboundResponseError extends Error {
   constructor() { super("入库响应无效、身份或数量不符，已丢弃；请重新读取。"); }
 }
@@ -29,6 +32,13 @@ function amount(value: unknown): value is string {
   return typeof value === "string" && /^(?:0|[1-9]\d{0,21})\.\d{6}$/.test(value);
 }
 function scaled(value: string): bigint { return BigInt(value.replace(".", "")); }
+function parseHeader(value: Record<string, unknown>, id?: string): InboundSummary {
+  if (!validIdentity(value.id) || id !== undefined && value.id.toLowerCase() !== id.toLowerCase() || !validIdentity(value.warehouseId)
+    || typeof value.code !== "string" || !/^[A-Z0-9_.-]{1,64}$/.test(value.code)
+    || value.state !== 0 && value.state !== 1 && value.state !== 2 && value.state !== 3
+    || !validIdentity(value.version) || !validUtc(value.createdAt)) throw new InboundResponseError();
+  return { id: value.id, code: value.code, warehouseId: value.warehouseId, state: value.state, version: value.version, createdAt: value.createdAt };
+}
 function parseLine(value: unknown): InboundLine {
   if (!exact(value, ["id", "itemId", "unitId", "batch", "precision", "planned", "received", "remaining"])
     || !validIdentity(value.id) || !validIdentity(value.itemId) || !validIdentity(value.unitId) || !validBatch(value.batch)
@@ -61,11 +71,9 @@ export async function readInbound(id: string, signal: AbortSignal): Promise<Inbo
   try { value = await api(`/api/wms/inbound/${id}`, { signal }); }
   catch (error) { if (error instanceof SyntaxError) throw new InboundResponseError(); throw error; }
   if (!exact(value, ["id", "code", "warehouseId", "state", "version", "createdAt", "lines", "receipts"])
-    || !validIdentity(value.id) || value.id.toLowerCase() !== id.toLowerCase() || !validIdentity(value.warehouseId)
-    || typeof value.code !== "string" || !/^[A-Z0-9_.-]{1,64}$/.test(value.code)
-    || value.state !== 0 && value.state !== 1 && value.state !== 2 && value.state !== 3
-    || !validIdentity(value.version) || !validUtc(value.createdAt) || !Array.isArray(value.lines) || !Array.isArray(value.receipts)
+    || !Array.isArray(value.lines) || !Array.isArray(value.receipts)
     || value.lines.length < 1 || value.lines.length > 100) throw new InboundResponseError();
+  const header = parseHeader(value, id);
   const lines = value.lines.map(parseLine); const receipts = value.receipts.map(parseReceipt);
   const ids = new Set(lines.map(line => line.id.toLowerCase()));
   if (ids.size !== lines.length || new Set(receipts.map(unit => unit.id.toLowerCase())).size !== receipts.length) throw new InboundResponseError();
@@ -77,8 +85,36 @@ export async function readInbound(id: string, signal: AbortSignal): Promise<Inbo
     if (scaled(line.received) !== receipts.filter(unit => unit.lineId.toLowerCase() === line.id.toLowerCase())
       .reduce((sum, unit) => sum + scaled(unit.quantity), 0n)) throw new InboundResponseError();
   const completed = lines.every(line => scaled(line.remaining) === 0n) && receipts.every(unit => unit.arrived);
-  if (value.state <= 1 && receipts.length > 0 || value.state >= 2 && receipts.length === 0
-    || (value.state === 3) !== completed) throw new InboundResponseError();
-  return { id: value.id, code: value.code, warehouseId: value.warehouseId, state: value.state, version: value.version,
-    createdAt: value.createdAt, lines, receipts };
+  if (header.state <= 1 && receipts.length > 0 || header.state >= 2 && receipts.length === 0
+    || (header.state === 3) !== completed) throw new InboundResponseError();
+  return { ...header, lines, receipts };
+}
+export async function queryInbound(offset: number, limit: number, filters: InboundFilters, signal: AbortSignal): Promise<InboundSummary[]> {
+  if (!Number.isInteger(offset) || offset < 0 || offset > 10000 || ![25, 50, 100].includes(limit))
+    throw new Error("入库目录页范围无效，请从第一页重新读取。");
+  if (filters.code !== undefined && !/^[a-z0-9_.-]{1,64}$/i.test(filters.code))
+    throw new Error("单号须为 1 至 64 个 ASCII 字母、数字、-、_ 或 .，不自动去除空白。");
+  if (filters.warehouseId !== undefined && !validIdentity(filters.warehouseId))
+    throw new Error("仓库筛选须为有效的非空 UUID。");
+  if (filters.state !== undefined && ![0, 1, 2, 3].includes(filters.state)) throw new Error("入库状态筛选无效。");
+  const query = new URLSearchParams({ offset: String(offset), limit: String(limit) });
+  if (filters.code !== undefined) query.set("code", filters.code.toUpperCase());
+  if (filters.warehouseId !== undefined) query.set("warehouseId", filters.warehouseId);
+  if (filters.state !== undefined) query.set("state", String(filters.state));
+  let value: unknown;
+  try { value = await api(`/api/wms/inbound?${query}`, { signal }); }
+  catch (error) { if (error instanceof SyntaxError) throw new InboundResponseError(); throw error; }
+  if (!exact(value, ["rows", "offset", "limit"]) || !Array.isArray(value.rows) || value.offset !== offset
+    || value.limit !== limit || value.rows.length > limit) throw new InboundResponseError();
+  const rows = value.rows.map(row => {
+    if (!exact(row, ["id", "code", "warehouseId", "state", "version", "createdAt"])) throw new InboundResponseError();
+    return parseHeader(row);
+  });
+  if (new Set(rows.map(row => row.id.toLowerCase())).size !== rows.length) throw new InboundResponseError();
+  for (const [index, row] of rows.entries()) {
+    if (index > 0 && rows[index - 1]!.code >= row.code || filters.code !== undefined && row.code !== filters.code.toUpperCase()
+      || filters.warehouseId !== undefined && row.warehouseId.toLowerCase() !== filters.warehouseId.toLowerCase()
+      || filters.state !== undefined && row.state !== filters.state) throw new InboundResponseError();
+  }
+  return rows;
 }

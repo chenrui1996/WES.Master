@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, shallowRef, useId, watch } from "vue";
 import QueryState from "../../components/QueryState.vue";
+import InboundCatalog from "./InboundCatalog.vue";
 import { ApiError, sessionState } from "../identity/identity-api";
 import { InboundResponseError, mayReadInbound, readInbound, type InboundDetail } from "./inbound";
 
@@ -12,6 +13,7 @@ const scope = computed(() => JSON.stringify(sessionState.subject));
 const record = shallowRef<InboundDetail>();
 const busy = ref(false); const fresh = ref(false); const error = ref(""); const loadedAt = ref("");
 const online = ref(navigator.onLine);
+const catalogKey = ref(0);
 const states = ["草稿", "已审核", "执行中（部分收货或待上架）", "已完成"] as const;
 const state = computed(() => busy.value ? record.value ? "stale" : "loading"
   : record.value ? fresh.value ? "ready" : "stale" : error.value ? "error" : "empty");
@@ -35,16 +37,21 @@ async function load() {
     if (!current()) return;
     if (failure instanceof InboundResponseError || failure instanceof ApiError && [401, 403, 404].includes(failure.status)) {
       record.value = undefined; loadedAt.value = "";
+      if (failure instanceof ApiError && [401, 403].includes(failure.status)) ++catalogKey.value;
     }
     error.value = failure instanceof Error ? failure.message : "入库读取未确认，请显式重试。";
   } finally { if (ticket === sequence) busy.value = false; }
+}
+function select(id: string) {
+  if (!readable.value || !online.value || busy.value) return;
+  orderId.value = id; clear(); void load();
 }
 </script>
 
 <template>
   <section class="inbound-page" aria-labelledby="inbound-title">
     <h1 id="inbound-title">入库收货详情</h1>
-    <p class="notice">只读查询已知入库单；数量按各行基础单位精确显示，不跨单位求和。
+    <p class="notice">只读目录与详情；数量按各行基础单位精确显示，不跨单位求和。
       收货成功不等于目标到位；异址未关联运输时仍待运输，不显示假上架完成。创建、审核与收货入口尚未开放。</p>
     <p v-if="!readable" role="alert">缺少入库完整字段读取权限，不能查询。</p>
     <p v-if="!online" class="notice" role="status">当前离线，已加载详情仅为陈旧参考；恢复连接后请手工重新读取。</p>
@@ -53,6 +60,7 @@ async function load() {
         <input :id="inputId" v-model="orderId" name="orderId" maxlength="36" autocomplete="off" spellcheck="false" /></div>
       <button type="submit" :disabled="!readable || !online || busy">读取当前入库单</button>
     </form>
+    <InboundCatalog :key="catalogKey" :readable="readable" :blocked="busy" @select="select" @denied="clear" />
     <p v-if="error && record" class="error" role="alert">{{ error }}</p>
     <QueryState label="入库详情" :state="state" :busy="busy" :error-message="error"
       :stale-message="`陈旧详情，仅供参考；上次成功读取：${loadedAt || '未确认'}`" @retry="load">

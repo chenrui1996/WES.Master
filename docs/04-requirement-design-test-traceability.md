@@ -9,6 +9,7 @@
 
 | 切片 | 范围/设计 | 测试/证据状态 |
 |---|---|---|
+| T09 当前受权入库目录 | FUNC-WMS-002/PAGE-WMS-003，DTC-WMS-002/003读取子集，TC-T09-CAT-01..05；[设计及证据](implementation/173-t09-inbound-basic-flow.md) | 新增24owner/10HTTP/32前端；最终owner167、Modules147含24HTTP/118领域/5真实浏览器、前端856/严格构建、架构29/Release0/0通过。SQL分页前creator逐字段交集、精确筛选、读后范围复验、实际选择重读及双侧403清旧；替代上一片相关回归但不重复累计，不关闭公开写/运营主数据/运输或T09 |
 | T09 当前授权只读入库详情 | FUNC-WMS-002/PAGE-WMS-003，DTC-WMS-002/003及UI读取适用子集；[设计及证据](implementation/173-t09-inbound-basic-flow.md) | 新增23owner/14HTTP/54前端及1真实HTTPS浏览器；最终owner143、Modules137含领域118及五WMS浏览器、前端824/严格构建通过。独立字段/真实creator与部门、读后核验、完整一致快照/精确数量及待运输；已知UUID详情不等于目录/公开写/运营主数据或完整T09 |
 | T09 入库持久事务续片 | FUNC-WMS-002/PAGE-WMS-003，DTC-WMS-002/003、VAL-01 事务子集；[设计及证据](implementation/173-t09-inbound-basic-flow.md) | 最终真实MySQL账本120、WMS领域118/架构29、Release0/0及模型无漂移；较早联合主数据353通过，重叠不累计。单据/事实/ledger同事务、原回执、同单不同balance并发与故障/取消回滚；仅内部primitive，运营主数据/当前授权HTTP/页面/Outbox运输及最终到达持久移账仍待实施 |
 | T09 入库领域首片 | FUNC-WMS-002/PAGE-WMS-003，DTC-WMS-002/003、VAL-01 领域子集；[设计及证据](implementation/173-t09-inbound-basic-flow.md) | 新增6项，WMS领域118/架构29通过、Release0/0；多行/部分收货/超收拒绝/同址无运输/异址待确认及精确到达。尚无持久 owner、当前授权 HTTP 或页面，不宣称 T09 基本链路已完成 |

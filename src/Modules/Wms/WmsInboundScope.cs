@@ -26,6 +26,10 @@ public sealed class WmsInboundScope : IAsyncDisposable
     public Task<InboundReadResult> ReadAsync(InboundSubject subject, Guid id, CancellationToken cancellationToken = default) =>
         _access.ReadAsync(subject, id, cancellationToken);
 
+    /// <summary>Reads one realtime bounded page after current complete-field creator filtering.</summary>
+    public Task<InboundPage> QueryAsync(InboundSubject subject, InboundQuery query, CancellationToken cancellationToken = default) =>
+        _access.QueryAsync(subject, query, cancellationToken);
+
     /// <summary>Disposes the private owner without modifying retained facts.</summary>
     public ValueTask DisposeAsync() => _database.DisposeAsync();
 }

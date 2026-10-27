@@ -10,7 +10,7 @@ using Wes.Wms.Infrastructure.Persistence;
 
 namespace Wes.Wms.Features.Inbound;
 
-internal sealed class InboundAccess(WmsDbContext database, IInboundAuthorization authorization, ILogger<InboundAccess> logger)
+internal sealed partial class InboundAccess(WmsDbContext database, IInboundAuthorization authorization, ILogger<InboundAccess> logger)
 {
     internal static readonly string[] Fields = ["Id", "Code", "WarehouseId", "State", "Version", "CreatedAt", "Lines", "Receipts"];
 

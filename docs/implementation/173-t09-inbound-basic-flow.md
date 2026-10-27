@@ -1,6 +1,6 @@
 # T09 入库基本流程
 
-- 状态：实施中；领域、内部持久收货事务及当前授权只读 HTTP/详情页面已验证，运营主数据依赖、公开写与最终运输持久接线未完成。
+- 状态：实施中；领域、内部持久收货事务及当前授权只读 HTTP/目录与详情页面已验证，运营主数据依赖、公开写与最终运输持久接线未完成。
 - 需求：FUNC-WMS-002 / PAGE-WMS-003；DTC-WMS-002/003，VAL-01。
 - 基线：[WMS 规格](../modules/wms-and-ledger.md)、[规则](../detailed-design/05-approved-rules-and-defaults.md)、[交付顺序](TodoList.md)。
 
@@ -57,6 +57,26 @@
 
 具名只读客户端同时接通 `/wms/inbound` 与 `/:id`：Wms模块/独立read入口门禁、完整八字段客户端提示、已知UUID显式读取（无目录/无自动提交）。计划与收货卡片精确显示string数量，使用BigInt验证计划=已收+待收及收货逐行合计/状态一致，不用Number计算数量。严格拒绝额外字段/重复身份/错误目标/非法精度或假运输状态。换ID/会话/字段权限清旧并取消请求，迟到丢弃；离线/503只保留明确陈旧的同单详情，401/403/404/合同错误清空；重连不自动查询。只读无预览确认/写动作，不把查不到当空单或提供假创建入口。该UUID详情不是完整目录或写表单。
 
+## 当前受权目录续片设计
+
+复用 PAGE-WMS-003 单号/仓库/状态筛选，增加 `GET /api/wms/inbound` 与详情页内实时目录。offset 0..10000、limit 25/50/100，code 精确规范大写、warehouse 非空UUID、state 仅公开四态；按 Code/Id 稳定升序，无total或跨页快照声明。列表只返回 Id/Code/WarehouseId/State/Version/CreatedAt，不暴露计划、收货/创建人或隐藏总量。
+
+需当前 `wms.inbound.read` 完整八字段才具备选择后读详情能力。Platform 公开 owned-resource creator 查询先逐字段求可见creator交集，WMS以真实header.CreatorId在SQL分页前过滤；MySQL Guid集合采用既有typed表达式模式，不在内存分页或从request接受creator。查询后再核当前creator集合，任何已取行越出当前集合则整页403不返回旧行。空授权集合为成功空目录，不等于缺权403。无新数据库表/写入口。
+
+前端独立目录组件复用 QueryState/RealtimePager，显式查询、过滤/会话变化清旧、迟到取消、陈旧/离线不可选择、403双侧清旧。选择目录行只发出ID，父页重新GET受权详情；目录不是库存/运营写许可。验证分页前范围交集、精确筛选、撤权/取消/数据库错误、严格页面shape与排序、实际浏览器目录选择→详情重读。
+
+目录续片用例追踪（PAGE-WMS-003 / DTC-WMS-002/003 读取适用子集，不关闭父用例）：
+
+| 用例 | 输入与步骤 | 必须结果 / 自动化定位 |
+|---|---|---|
+| TC-T09-CAT-01 | 26个隐藏creator的单号排在可见单据前，查询默认25条 | 授权在SQL分页前，可见单据仍出现；`InboundCatalogFiltersRealCreatorBeforePagingAndCanSelectTheCurrentDetail` |
+| TC-T09-CAT-02 | 31条可见行，读取offset0/25并精确筛选单号/仓库/状态 | 25+6、不重复、稳定排序；`InboundCatalogPagesInStableCodeOrderAndUsesExactFilters` |
+| TC-T09-CAT-03 | 任一完整字段缺失，或物化后撤权/creator集合收缩 | 403且无旧行；`InboundCatalogRequiresCurrentCompleteProjection` / `InboundCatalogCurrentCreatorScopeShrinkDiscardsPreviouslyVisibleRows`，HTTP逐字段及真实部门迁移 |
+| TC-T09-CAT-04 | 取消、数据库故障、非法分页/响应、离线或迟到 | 不泄漏敏感错误/旧范围，不将失败当成功空目录；真实owner与`InboundCatalog.spec.ts` |
+| TC-T09-CAT-05 | 真实父页目录选择、详情403、目录403；HTTPS浏览器键盘选择 | 选择后重新GET、双侧清旧；`InboundCatalog.spec.ts`实际父子组合和既有五变体WMS浏览器 |
+
+本片复用现有默认关闭开关和部署入口，无依赖、模型、迁移或写合同变化；回退到前版应用仅移除目录读取能力，不需回滚库存/事实数据。真实Pack/Broker、SQL Server/PostgreSQL及现场验收仍按TodoList后置。
+
 ## 已执行证据
 
 ### 领域首片结果
@@ -88,3 +108,13 @@
 - 最终Modules相关137通过，包含14 HTTP、118 WMS领域、5个真实WMS浏览器变体；与143 owner/824前端不混算独立需求覆盖。既有四个浏览器变体全部重跑。
 - 最终架构29项通过；完整Release构建0警告/0错误，相关C# whitespace与git diff检查通过，EF模型无漂移。
 - 当前页是已知UUID只读详情，不是完整目录或草稿/审核/收货表单；未重跑无关Route/附件专用浏览器/全部Platform套件，未验证其他Provider或真实Pack/Broker/设备。无新迁移，不宣称T09整包完成。
+
+### 当前授权只读目录续片结果
+
+- 缺失 InboundCreatorAccess 的编译 RED 已实际执行。实现完整八字段creator交集、WMS真实creator的SQL分页前过滤、读取后二次核权、稳定顺序及精确筛选；无隐藏total/计划/收货或私有创建人投影。
+- 新增24项真实MySQL owner、10项HTTP、32项前端；最终账本/入库读联合167、相关Modules147（24 HTTP、118 WMS领域、5个真实HTTPS Chromium变体）、全前端38文件/856项通过，均0失败/跳过。历史143/137/824被此轮相关回归替代，不重复累计。
+- 覆盖隐藏行排在可见行前的分页反例、25+6页、逐字段缺权、允许空creator集合、物化后撤权/仍有权限但creator范围收缩、取消及数据库异常清洗。HTTP验证当前Own/真实部门范围和完整字段，列表选择不跳过详情授权。
+- 首轮测试定位测试方法误嵌入fake及父页选择函数误嵌入catch作用域，分别修正作用域并保持原断言。实际父子组合已验证选择重新GET及两侧403清旧；不是只验证子组件emit。
+- 五个WMS真实浏览器变体全部重跑通过；入库变体实际查询目录并以键盘选择重读详情，再完成精确数量、响应式/200%文字、离线与当前字段撤权验证。无整页重载或认证持久策略变更。
+- vue-tsc/Vite严格生产构建、架构29项、完整Release构建0警告/0错误、相关C# whitespace和git diff检查通过。无持久模型变更，因此此片不新增迁移或再次应用数据库迁移。
+- 本片替代上一片“无目录”边界；仍无公开草稿/审核/收货写表单、运营主数据启停/容器、运输投递和最终到达持久移账。不关闭T09；未重跑无关Route、附件专用浏览器或全部Platform套件，未把外部验证记为通过。

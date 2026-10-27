@@ -10,7 +10,19 @@ public interface IInboundAuthorization
 {
     /// <summary>Revalidates the session and exact current wms.inbound.read fields for the real creator.</summary>
     Task<IReadOnlySet<string>> ReadFieldsAsync(InboundSubject subject, Guid creator, CancellationToken cancellationToken);
+    /// <summary>Resolves the real currently visible creators for all required fields before WMS pages its own data.</summary>
+    Task<InboundCreatorAccess> ReadCreatorsAsync(InboundSubject subject, IReadOnlyCollection<string> requiredFields,
+        CancellationToken cancellationToken);
 }
+
+/// <summary>Current full-projection authority; an allowed empty creator set is not a forbidden request.</summary>
+public sealed record InboundCreatorAccess(bool Authorized, IReadOnlySet<Guid> CreatorIds);
+/// <summary>Exact optional filters and realtime paging; not a fixed reconciliation snapshot.</summary>
+public sealed record InboundQuery(int Offset = 0, int Limit = 25, string? Code = null, Guid? WarehouseId = null, InboundState? State = null);
+/// <summary>Safe list metadata without private provenance or receipt payloads.</summary>
+public sealed record InboundSummary(Guid Id, string Code, Guid WarehouseId, InboundState State, string Version, DateTimeOffset CreatedAt);
+/// <summary>Only Success carries current authorized rows, with echoed explicit bounds and no hidden total.</summary>
+public sealed record InboundPage(InboundReadDecision Decision, ImmutableArray<InboundSummary> Rows, int Offset, int Limit);
 
 /// <summary>Public document progress; executing does not imply arrival or successful transport creation.</summary>
 public enum InboundState

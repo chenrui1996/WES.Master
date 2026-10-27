@@ -44,6 +44,7 @@ public static partial class WmsMasterDataEndpoints
         group.MapGet("/locations/{id:guid}", (Guid id, HttpContext http, MasterDataDatabase database, CancellationToken ct) =>
             ReadAsync(id, http, database, location: true, ct));
         group.MapGet("/inbound/{id:guid}", ReadInboundAsync);
+        group.MapGet("/inbound", QueryInboundAsync);
         group.MapGet("/master-data-events", (int? offset, int? limit, HttpContext http, MasterDataDatabase database, CancellationToken ct) =>
             ReadCreationEventsAsync(new(offset ?? 0, limit ?? 25), http, database, ct));
         group.MapGet("/master-data-events/summary", ReadCreationEventSummaryAsync);

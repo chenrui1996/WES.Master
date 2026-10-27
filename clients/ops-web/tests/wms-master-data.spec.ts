@@ -362,17 +362,23 @@ test("real WMS definitions and explicitly enabled creation retain current author
     if (!await navigation.isVisible()) await page.getByTestId("navigation-toggle").click();
     await navigation.getByRole("link", { name: "入库收货详情", exact: true }).click();
     await expect(page.getByRole("heading", { name: "入库收货详情", exact: true })).toBeVisible();
-    await page.getByLabel("入库单 UUID", { exact: true }).fill(inboundId);
-    await expect(page.getByLabel("入库单 UUID", { exact: true })).toHaveValue(inboundId);
     const read = page.getByRole("button", { name: "读取当前入库单", exact: true });
-    await page.getByLabel("入库单 UUID", { exact: true }).click(); await page.keyboard.press("Tab");
-    await expect(read).toBeFocused();
-    expect(await read.evaluate(element => element.matches(":focus-visible"))).toBe(true);
+    await page.getByLabel("入库状态筛选", { exact: true }).focus(); await page.keyboard.press("Tab");
+    const catalogRead = page.getByRole("button", { name: "读取入库目录", exact: true });
+    await expect(catalogRead).toBeFocused();
+    const catalogResponse = page.waitForResponse(response => new URL(response.url()).pathname === "/api/wms/inbound");
+    await page.keyboard.press("Enter"); expect((await catalogResponse).status()).toBe(200);
+    await expect(page.getByTestId("inbound-catalog")).toContainText("IN-HTTP");
+    await page.keyboard.press("Tab");
+    const select = page.getByRole("button", { name: "读取入库单 IN-HTTP 当前详情", exact: true });
+    await expect(select).toBeFocused();
+    expect(await select.evaluate(element => element.matches(":focus-visible"))).toBe(true);
     const readResponse = page.waitForResponse(response => new URL(response.url()).pathname === `/api/wms/inbound/${inboundId}`);
     await page.keyboard.press("Enter");
     const actual = await readResponse;
     expect(actual.status()).toBe(200);
     expect(actual.headers()["cache-control"]).toBe("no-store");
+    await expect(page.getByLabel("入库单 UUID", { exact: true })).toHaveValue(inboundId);
     const inbound = page.getByTestId("inbound-detail");
     for (const text of ["IN-HTTP", "999999999.999999", "0.000001", "999999999.999998", "尚未关联，待运输", "不能视为已到位"])
       await expect(inbound).toContainText(text);
@@ -404,7 +410,7 @@ test("real WMS definitions and explicitly enabled creation retain current author
   for (const row of eventRows) expect(stored).not.toContain(row.eventId);
   if (inventoryId) expect(stored).not.toContain(inventoryId);
   if (inboundId) expect(stored).not.toContain(inboundId);
-  expect(methods.length).toBe(creation || locationCreation ? 12 : inventoryId ? 13 : inboundId ? 11 : 9);
+  expect(methods.length).toBe(creation || locationCreation ? 12 : inventoryId ? 13 : inboundId ? 12 : 9);
   expect(methods.filter(method => method === "POST")).toHaveLength(creation || locationCreation ? 1 : 0);
   expect(methods.every(method => method === "GET" || (creation || locationCreation) && method === "POST")).toBe(true);
   expect(failures).toEqual([]);

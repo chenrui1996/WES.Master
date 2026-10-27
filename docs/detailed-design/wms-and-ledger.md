@@ -42,6 +42,8 @@
 
 ## 2. 功能/契约
 
+PAGE-WMS-003当前[入库实施](../implementation/173-t09-inbound-basic-flow.md)已交付受权实时目录/详情和具名多行草稿创建。草稿需当前`wms.inbound.write`完整Code/WarehouseId/Lines与真实父仓完整读取；独立默认关闭POST，严格数量string/原operation，永久回执仅Id、当前版本另读，预览确认及同键未知恢复。保存后复验撤权/取消回滚；草稿允许禁用仓但不改库存/容器/占位/运输、不代表审核或收货许可。原只读目录/详情行为保留；来源深化/草稿修订、运营主数据生命周期、受权审核/收货及最终运输持久移账仍待实现，父DTC和T09未关闭。
+
 库位创建后续[客户端](../implementation/163-t08-disabled-location-creation-client.md)/[证据](../implementation/164-t08-disabled-location-creation-client-tests.md)已接通当前五字段/父仓read、完整UUID/Pack/schema显式输入与冻结预览、二次确认、原key/body未知恢复和手工GET回执；复用原仓库状态机，不生成通用CRUD。新增35前端，全套730/严格构建、相关.NET158含五套真实HTTPS浏览器通过、Release0/0；替代历史“库位无表单”。已知UUID输入不是完整授权候选/层级选择链；真实Pack/启停/容器及完整父DTC仍缺。
 
 库位创建后续[当前授权HTTP](../implementation/161-t08-authorized-location-creation-http.md)/[证据](../implementation/162-t08-authorized-location-creation-http-tests.md)已接通独立默认关闭LocationCreationEnabled、唯一非keyed singleton schema启动门禁、当前五字段及父仓read、严格输入/永久key、原子禁用位置/事实/Outbox。新增65 HTTP/启动及8配置，最终Release395项含四套真实HTTPS浏览器通过，构建0/0；替代历史“库位无HTTP”，不默认装配schema/授予权限，不包含库位创建表单、真实Pack、启停/层级/容器或完整父DTC。

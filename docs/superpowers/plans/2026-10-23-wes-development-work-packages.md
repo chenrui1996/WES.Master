@@ -195,6 +195,7 @@
 - [x] [内部持久收货事务](../../implementation/173-t09-inbound-basic-flow.md)：header/append-only事实/ledger同次提交，永久回执、父单锁+版本防不同balance并发超收，保存后故障/取消全回滚。最终真实账本120、领域118/架构29、Release0/0及模型无漂移；较早联合主数据353通过，重叠不累计。仅内部primitive；仓/位启停/容器/账维度、当前授权HTTP/页面、Outbox运输及精确最终到达持久移账仍待实施，不关闭本包。
 - [x] [当前授权只读HTTP/入库详情页](../../implementation/173-t09-inbound-basic-flow.md)：真实creator/部门及完整八字段、读后核验、一致快照/精确数量和待运输；新增23owner/14HTTP/54前端及1真实HTTPS浏览器。最终owner143、Modules137含领域118与五WMS浏览器、前端824/严格构建通过。已知UUID只读不等于目录/多行草稿/审核/收货表单；运营主数据、公开写及最终运输仍待实施，不关闭本包。
 - [x] [当前受权实时入库目录](../../implementation/173-t09-inbound-basic-flow.md)：完整八字段creator交集在SQL分页前过滤、读后复验、精确筛选与稳定分页；真实父页选择后重新GET及双侧403清旧。新增24owner/10HTTP/32前端；最终owner167、Modules147（24HTTP/118领域/5真实HTTPS浏览器）、前端856/严格构建、架构29/Release0/0通过，替代上一片相关回归而不重复累计。无新迁移/写入口，运营主数据、草稿/审核/收货写与最终运输仍待实施，不关闭本包。
+- [x] [当前受权草稿创建owner/HTTP/多行表单](../../implementation/173-t09-inbound-basic-flow.md)：完整写字段/真实父仓读取与保存后复验回滚、永久原Id-only回执，独立默认关闭POST、严格decimal string、预览确认/同tuple同键Unknown恢复和手工读回。新增46owner/33HTTP/8配置/41前端；最终owner213、相关Modules188含5真实HTTPS浏览器、前端897/严格构建、架构29/Release0/0通过，替代167/147/856而不重复累计。无新迁移/库存/运输效果；修订及来源深化、受权审核/收货、运营主数据与最终运输仍待实施，不关闭本包。
 
 **Files:** `src\Modules\Wms\Features\Inbound\{SaveInbound.cs,ApproveInbound.cs,ReceiveGoods.cs,RequestPutaway.cs,ApplyArrival.cs}`；`clients\ops-web\src\features\wms\InboundPage.vue`；`tests\Modules\Wms\InboundTests.cs`。
 

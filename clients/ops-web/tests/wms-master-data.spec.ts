@@ -21,6 +21,58 @@ test("real WMS definitions and explicitly enabled creation retain current author
   const methods: string[] = [];
   page.on("pageerror", error => failures.push(error.message));
   page.on("request", request => { if (new URL(request.url()).pathname.startsWith("/api/wms/")) methods.push(request.method()); });
+  if (inboundId) {
+    // Create before this scenario deliberately revokes parent warehouse read authority.
+    const draftPage = await context.newPage();
+    const draftMethods: string[] = [];
+    draftPage.on("pageerror", error => failures.push(error.message));
+    draftPage.on("request", request => { if (new URL(request.url()).pathname.startsWith("/api/wms/")) draftMethods.push(request.method()); });
+    await draftPage.goto("/login");
+    await draftPage.getByLabel("租户标识").fill(tenant);
+    await draftPage.getByLabel("账号", { exact: true }).fill("fixture");
+    await draftPage.getByLabel("密码", { exact: true }).fill("WES reference fixture password");
+    await draftPage.getByRole("button", { name: "登录", exact: true }).click();
+    await expect(draftPage.getByRole("heading", { name: "会话与安全", exact: true })).toBeVisible();
+    await draftPage.getByTestId("navigation-toggle").click();
+    await draftPage.getByRole("navigation", { name: "管理导航" }).getByRole("link", { name: "入库收货详情", exact: true }).click();
+    await draftPage.getByRole("button", { name: "准备入库草稿", exact: true }).click();
+    await draftPage.getByLabel("新入库单号", { exact: true }).fill("browser-in");
+    await draftPage.getByLabel("计划仓库 UUID", { exact: true }).fill(warehouse);
+    await draftPage.getByLabel("物料 UUID", { exact: true }).fill(warehouse);
+    await draftPage.getByLabel("基础单位 UUID", { exact: true }).fill(location);
+    await draftPage.getByLabel("计划数量", { exact: true }).fill("5");
+    await draftPage.getByRole("button", { name: "增加计划行", exact: true }).click();
+    const secondLine = draftPage.getByRole("group", { name: "计划行 2", exact: true });
+    await secondLine.getByLabel("物料 UUID", { exact: true }).fill(location);
+    await secondLine.getByLabel("基础单位 UUID", { exact: true }).fill(warehouse);
+    await secondLine.getByLabel("单位精度", { exact: true }).selectOption("6");
+    await secondLine.getByLabel("计划数量", { exact: true }).fill("0.000001");
+    await draftPage.getByRole("button", { name: "预览入库草稿", exact: true }).click();
+    await expect(draftPage.getByTestId("inbound-draft-preview")).toContainText("BROWSER-IN");
+    expect(draftMethods).toEqual([]);
+    for (const width of [375, 768, 1440]) {
+      await draftPage.setViewportSize({ width, height: 900 });
+      expect(await draftPage.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    }
+    await draftPage.setViewportSize({ width: 375, height: 900 });
+    await draftPage.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+    expect(await draftPage.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await draftPage.evaluate(() => { document.documentElement.style.fontSize = ""; });
+    const createdResponse = draftPage.waitForResponse(response => new URL(response.url()).pathname === "/api/wms/inbound" && response.request().method() === "POST");
+    await draftPage.getByTestId("confirm-inbound-draft").focus(); await draftPage.keyboard.press("Enter");
+    const createdDraft = await createdResponse;
+    expect(createdDraft.status()).toBe(201);
+    const draftReceipt = await createdDraft.json();
+    expect(Object.keys(draftReceipt)).toEqual(["decision", "id"]);
+    const draftRead = draftPage.waitForResponse(response => new URL(response.url()).pathname === `/api/wms/inbound/${draftReceipt.id}`);
+    await draftPage.getByTestId("read-created-inbound").click(); expect((await draftRead).status()).toBe(200);
+    await expect(draftPage.getByTestId("inbound-detail")).toContainText("BROWSER-IN");
+    await expect(draftPage.getByTestId("inbound-detail")).toContainText("0.000001");
+    expect(draftMethods).toEqual(["POST", "GET"]);
+    const draftStored = await draftPage.evaluate(() => JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage)]));
+    expect(draftStored).not.toContain("BROWSER-IN"); expect(draftStored).not.toContain(draftReceipt.id);
+    await draftPage.close();
+  }
   await page.goto("/login");
   await page.getByLabel("租户标识").fill(tenant);
   await page.getByLabel("账号", { exact: true }).fill("fixture");
@@ -366,11 +418,11 @@ test("real WMS definitions and explicitly enabled creation retain current author
     await page.getByLabel("入库状态筛选", { exact: true }).focus(); await page.keyboard.press("Tab");
     const catalogRead = page.getByRole("button", { name: "读取入库目录", exact: true });
     await expect(catalogRead).toBeFocused();
-    const catalogResponse = page.waitForResponse(response => new URL(response.url()).pathname === "/api/wms/inbound");
+    const catalogResponse = page.waitForResponse(response => new URL(response.url()).pathname === "/api/wms/inbound" && response.request().method() === "GET");
     await page.keyboard.press("Enter"); expect((await catalogResponse).status()).toBe(200);
     await expect(page.getByTestId("inbound-catalog")).toContainText("IN-HTTP");
-    await page.keyboard.press("Tab");
     const select = page.getByRole("button", { name: "读取入库单 IN-HTTP 当前详情", exact: true });
+    await page.keyboard.press("Tab"); await page.keyboard.press("Tab");
     await expect(select).toBeFocused();
     expect(await select.evaluate(element => element.matches(":focus-visible"))).toBe(true);
     const readResponse = page.waitForResponse(response => new URL(response.url()).pathname === `/api/wms/inbound/${inboundId}`);

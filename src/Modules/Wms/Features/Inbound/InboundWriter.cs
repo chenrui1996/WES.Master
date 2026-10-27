@@ -8,24 +8,40 @@ using Wes.Wms.Infrastructure.Persistence;
 
 namespace Wes.Wms.Features.Inbound;
 
-internal enum InboundWriteDecision { Committed, Replayed, Invalid, NotFound, Conflict, VersionConflict, DimensionMismatch }
+internal enum InboundWriteDecision { Committed, Replayed, Invalid, NotFound, Conflict, VersionConflict, DimensionMismatch, Forbidden }
 internal sealed record InboundWriteResult(InboundWriteDecision Decision, Guid? Id = null, string? Version = null);
 
 /// <summary>Internal WMS transaction primitive; public callers must first establish current field/resource and operational authority.</summary>
 internal sealed class InboundWriter(WmsDbContext database, TimeProvider clock)
 {
     internal async Task<InboundWriteResult> CreateAsync(Guid operation, Guid actor, Guid warehouse, string code,
-        IReadOnlyList<InboundPlanLine> lines, CancellationToken ct = default)
+        IReadOnlyList<InboundPlanLine> lines, CancellationToken ct = default,
+        Func<CancellationToken, Task<bool>>? beforeCommit = null)
     {
         Clean(ct);
         var proposed = new InboundDocument(database.TenantId, operation, actor, warehouse, code, lines, clock.GetUtcNow());
         var existing = await database.InboundDocuments.AsNoTracking().SingleOrDefaultAsync(item => item.CreationOperationId == operation, ct);
         if (existing is not null) return SameCreation(existing, proposed);
         if (!await database.Warehouses.AnyAsync(item => item.Id == warehouse, ct)) return new(InboundWriteDecision.NotFound);
+        await using var transaction = await database.Database.BeginTransactionAsync(ct);
         database.InboundDocuments.Add(proposed);
-        try { await database.SaveChangesAsync(ct); return new(InboundWriteDecision.Committed, proposed.Id, proposed.Version); }
+        try
+        {
+            await database.SaveChangesAsync(ct);
+            if (beforeCommit is not null && !await beforeCommit(ct))
+            {
+                await transaction.RollbackAsync(ct);
+                database.ChangeTracker.Clear();
+                return new(InboundWriteDecision.Forbidden);
+            }
+            ct.ThrowIfCancellationRequested();
+            await transaction.CommitAsync(ct);
+            return new(InboundWriteDecision.Committed, proposed.Id, proposed.Version);
+        }
         catch (DbUpdateException error) when (error.InnerException is MySqlException { Number: 1062 })
         {
+            await transaction.RollbackAsync(ct);
+            await transaction.DisposeAsync();
             database.ChangeTracker.Clear();
             existing = await database.InboundDocuments.AsNoTracking().SingleOrDefaultAsync(item => item.CreationOperationId == operation, ct);
             return existing is null ? new(InboundWriteDecision.Conflict) : SameCreation(existing, proposed);

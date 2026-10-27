@@ -63,6 +63,8 @@ WMS发布调度细项见[默认关闭托管设计](../implementation/159-t05-hos
 
 WMS库位创建有独立默认关闭的`Wes:WmsMasterData:LocationCreationEnabled`，与仓库创建开关互不隐式开启；需要master-data/Identity读装配及唯一具名非keyed singleton schema，开启但依赖未装配时启动失败。关闭时不解析adapter/映射写端点；已有位置、永久事实及Outbox保留。UI模块开关不替代当前五字段/父仓授权或真实Pack门禁。详见[库位创建HTTP](../implementation/161-t08-authorized-location-creation-http.md)。
 
+WMS入库草稿另有独立默认关闭的`Wes:WmsMasterData:InboundDraftCreationEnabled`；要求同一master-data/Identity读装配，不由仓库/库位创建开关开启。提供非法bool或开启但读装配缺失时启动失败。关闭不映射POST，不改已有草稿/永久operation及库存；不影响既有入库GET。客户端当前字段入口不是部署开关证明，关闭时POST沿用创建端点未装配合同，显示明确不可用且不自动重试。开启仍逐次核当前完整入库写/真实父仓读取；不会自动开放审核/收货、启用仓位、创建运输或声称现场许可。正在提交后关闭/响应中断按原操作恢复，不能删除持久身份或换新键盲发。详见[入库设计与证据](../implementation/173-t09-inbound-basic-flow.md)。
+
 1. Host 在组合根绑定 `FeaturesOptions`、校验每一项及依赖关系，并创建不可变运行快照。
 2. 每项运行能力由其 owner 显式声明启动注册、健康/ready 影响、关闭行为、请求错误语义及 in-flight/shutdown 策略；没有声明的能力不能被任意字符串开关控制。
 3. 匿名 `GET /api/config/features` 只返回前端允许公开的模块代码与启用布尔值，不返回运行能力、Provider/连接、Secret、内部依赖状态或按租户/用户定制的数据。端点输出采用显式白名单 DTO。

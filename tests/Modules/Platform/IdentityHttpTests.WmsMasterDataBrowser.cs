@@ -24,13 +24,15 @@ public sealed partial class IdentityHttpTests
     {
         var schema = new LocationHttpSchema();
         var ids = await WmsHostAsync(warehouseCreation, locationCreation, locationCreation
-            ? services => services.AddSingleton<Wes.Wms.Features.MasterData.IWarehouseLocationSchema>(schema) : null);
+            ? services => services.AddSingleton<Wes.Wms.Features.MasterData.IWarehouseLocationSchema>(schema) : null,
+            inboundDraftCreation: inboundRead);
         if (warehouseCreation) await GrantWarehouseCreationAsync();
         if (locationCreation) await GrantLocationCreationAsync();
         await GrantCreationEventReadAsync();
         await GrantCreationEventCountsAsync();
         var balance = inventoryRead ? await SeedInventoryAsync(ids) : null;
         var inbound = inboundRead ? await SeedInboundAsync(ids, receive: true) : (Guid?)null;
+        if (inboundRead) await GrantInboundDraftAsync(includeRead: false);
         if (inventoryRead) await GrantStockLedgerReadAsync();
         if (!warehouseCreation && !locationCreation)
         {
@@ -54,7 +56,8 @@ public sealed partial class IdentityHttpTests
         using var certificate = X509CertificateLoader.LoadPkcs12(generated.Export(X509ContentType.Pfx), password: null);
         await using var server = new Factory(_connection, _corpus, _clock, Path.Combine(web, "dist"), wmsMasterData: true,
             wmsWarehouseCreation: warehouseCreation, wmsLocationCreation: locationCreation,
-            locationSchemas: locationCreation ? services => services.AddSingleton<Wes.Wms.Features.MasterData.IWarehouseLocationSchema>(schema) : null);
+            locationSchemas: locationCreation ? services => services.AddSingleton<Wes.Wms.Features.MasterData.IWarehouseLocationSchema>(schema) : null,
+            wmsInboundDraftCreation: inboundRead);
         server.UseKestrel(options => options.Listen(IPAddress.Loopback, 0, listener => listener.UseHttps(certificate)));
         server.StartServer();
         var address = Assert.Single(server.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses);
@@ -111,6 +114,19 @@ public sealed partial class IdentityHttpTests
                 catch (OperationCanceledException) when (deadline.IsCancellationRequested) { /* Stop only this fixture's pending coordination wait. */ }
             }
             Assert.True(process.ExitCode == 0, await output + Environment.NewLine + await errors);
+            if (inboundRead)
+            {
+                await using var draftVerification = OpenWmsMasterData();
+                var draft = await draftVerification.InboundDocuments.SingleAsync(item => item.Code == "BROWSER-IN");
+                Assert.Equal(Wes.Wms.Domain.InboundOrderState.Draft, draft.State);
+                Assert.Equal(_user, draft.CreatorId);
+                var plan = draft.Restore([]).Lines;
+                Assert.Equal(2, plan.Count);
+                Assert.Equal(5m, plan[0].PlannedQuantity);
+                Assert.Equal(0.000001m, plan[1].PlannedQuantity);
+                Assert.Single(await draftVerification.Postings.ToListAsync());
+                Assert.Equal(2, await draftVerification.InboundFacts.CountAsync());
+            }
             Assert.True(File.Exists(Path.Combine(coordination, "revoke.confirmed")), "The real current role must have been revoked.");
             Assert.True(File.Exists(Path.Combine(coordination, "events-revoke.confirmed")), "The real message-field role must have been revoked.");
             if (inboundRead)
@@ -202,7 +218,8 @@ public sealed partial class IdentityHttpTests
         {
             Assert.Equal(0.000001m, (await verify.Balances.SingleAsync()).Quantity);
             Assert.Equal(2, await verify.InboundFacts.CountAsync());
-            Assert.Equal(Wes.Wms.Domain.InboundOrderState.Executing, (await verify.InboundDocuments.SingleAsync()).State);
+            Assert.Equal(Wes.Wms.Domain.InboundOrderState.Executing,
+                (await verify.InboundDocuments.SingleAsync(item => item.Id == inbound)).State);
         }
         if (inventoryRead)
         {

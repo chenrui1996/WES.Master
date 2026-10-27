@@ -2,6 +2,8 @@
 import { computed, onMounted, onUnmounted, ref, shallowRef, useId, watch } from "vue";
 import QueryState from "../../components/QueryState.vue";
 import InboundCatalog from "./InboundCatalog.vue";
+import InboundDraftCreation from "./InboundDraftCreation.vue";
+import { mayCreateInboundDraft } from "./inbound-drafts";
 import { ApiError, sessionState } from "../identity/identity-api";
 import { InboundResponseError, mayReadInbound, readInbound, type InboundDetail } from "./inbound";
 
@@ -9,6 +11,8 @@ const props = defineProps<{ id?: string }>();
 const inputId = useId();
 const orderId = ref(props.id ?? "");
 const readable = computed(mayReadInbound);
+const creatable = computed(mayCreateInboundDraft);
+const creating = ref(false);
 const scope = computed(() => JSON.stringify(sessionState.subject));
 const record = shallowRef<InboundDetail>();
 const busy = ref(false); const fresh = ref(false); const error = ref(""); const loadedAt = ref("");
@@ -46,13 +50,16 @@ function select(id: string) {
   if (!readable.value || !online.value || busy.value) return;
   orderId.value = id; clear(); void load();
 }
+function attempted() { clear(); ++catalogKey.value; }
 </script>
 
 <template>
   <section class="inbound-page" aria-labelledby="inbound-title">
     <h1 id="inbound-title">入库收货详情</h1>
-    <p class="notice">只读目录与详情；数量按各行基础单位精确显示，不跨单位求和。
-      收货成功不等于目标到位；异址未关联运输时仍待运输，不显示假上架完成。创建、审核与收货入口尚未开放。</p>
+    <p class="notice">目录与详情数量按各行基础单位精确显示，不跨单位求和。
+      收货成功不等于目标到位；异址未关联运输时仍待运输，不显示假上架完成。草稿另需当前写权限及部署开关；审核与收货入口尚未开放。</p>
+    <button v-if="creatable && !creating" type="button" :disabled="!online || busy" @click="creating = true">准备入库草稿</button>
+    <InboundDraftCreation v-if="creating" @attempted="attempted" @read="select" @close="creating = false" />
     <p v-if="!readable" role="alert">缺少入库完整字段读取权限，不能查询。</p>
     <p v-if="!online" class="notice" role="status">当前离线，已加载详情仅为陈旧参考；恢复连接后请手工重新读取。</p>
     <form class="inbound-query" @submit.prevent="load">

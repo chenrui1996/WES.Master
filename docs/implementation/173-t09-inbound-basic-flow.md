@@ -1,6 +1,6 @@
 # T09 入库基本流程
 
-- 状态：实施中；领域、内部持久收货事务及当前授权只读 HTTP/目录与详情页面已验证，运营主数据依赖、公开写与最终运输持久接线未完成。
+- 状态：实施中；领域、内部持久收货事务、当前受权目录/详情和草稿创建 owner/HTTP/多行表单已验证。运营主数据依赖、公开审核/收货与最终运输持久接线未完成；草稿创建不等于完整单据生命周期。
 - 需求：FUNC-WMS-002 / PAGE-WMS-003；DTC-WMS-002/003，VAL-01。
 - 基线：[WMS 规格](../modules/wms-and-ledger.md)、[规则](../detailed-design/05-approved-rules-and-defaults.md)、[交付顺序](TodoList.md)。
 
@@ -77,6 +77,33 @@
 
 本片复用现有默认关闭开关和部署入口，无依赖、模型、迁移或写合同变化；回退到前版应用仅移除目录读取能力，不需回滚库存/事实数据。真实Pack/Broker、SQL Server/PostgreSQL及现场验收仍按TodoList后置。
 
+## 当前受权草稿创建续片设计
+
+按已批准FUNC-WMS-002/PAGE-WMS-003先接通草稿创建，不与审核/收货合并。永久创建回执只返回原Id及Created/Replayed，不返回可变Version；需当前详情权限另读最新版本。原operation绑定可信actor、规范单号、仓库和有序完整计划（稳定行Id/item/unit/batch/precision/精确数量），不同tuple冲突，correlation不改变业务语义。当前内部primitive返回版本的行为保持兼容，但不透传为公共永久创建版本。
+
+写owner需当前 `wms.inbound.write` 完整 Code/WarehouseId/Lines 字段，按新creator=可信actor求资源范围；父仓从WMS取真实creator，需当前 `wms.warehouses.read` 完整 Id/Code/Name/Enabled/Version/CreatedAt 字段。不存在/跨租户不创建；草稿允许禁用仓（无库存/容器/位置占用/设备/运输效果），审核/收货仍必须另外建立运营校验。输入1..100有序唯一行、合法非空身份、ASCII单号、批次与单位0..6精度、正decimal(28,6) string，不接受舍入、科学计数或隐式默认单位。
+
+新公共写owner独立于只读scope；在原创建primitive的同次事务保存后、提交前再次复验写和父仓权限。撤权或取消回滚，故障显式传播；原operation恢复同样核当前权，不允许凭旧键绕权。同键真实并发由唯一约束恢复胜者；不存在原键的唯一冲突为Conflict，不冒成功。原创建header保留不可变计划和创建身份，无新表/迁移，库存/事实/Outbox不得增加。数据库异常复用安全清洗及日志，拒绝结果不泄漏Id。
+
+先运行缺失创建合同的编译RED；真实MySQL验证创建→内部审核推进→原键稳定Id、改actor/计划冲突、逐字段及真实父仓、两时点撤权/取消/保存后故障、同键并发、租户隔离与无库存副作用。HTTP与具名多行表单随后接线；未接通前不宣称完整创建交付。
+
+HTTP续接：`POST /api/wms/inbound`受独立默认false的 `Wes:WmsMasterData:InboundDraftCreationEnabled` 控制，要求WMS/Identity读装配。与仓库/库位创建开关互不隐式开启，不装配审核/收货。沿用HTTPS、当前认证、no-store、唯一D格式非空Idempotency-Key及X-WES-Client=ops-web/pda。严格body只含Code/WarehouseId/Lines，行只含Id/ItemId/UnitId/Batch/Precision/Planned（数量string）；未知成员、null行/超100/非法身份拒绝。201+Location或200原回执仅decision/id；拒绝400/403/404/409，安全数据库503/500。无UI入口前不改只读页，后续多行表单单独接线。
+
+客户端续接：在既有入库页增加具名多行草稿面板，不注册另一套CRUD路由。入口需当前完整写字段及父仓完整读取字段；选择已知仓UUID不是启用许可或完整仓候选链。显式1..100行，稳定行UUID、物料/单位UUID、批次、显式精度、精确数量string；编辑→全量预览冻结tuple/operation→二次确认，绝不预览即POST。取消/超时/离线/503/坏成功响应均Unknown，10秒计时、仅在线手工同键同body恢复；401/403/404/405/409是本次明确拒绝，先前Unknown事实仍保留提示。不写本地存储、不排队/自动重试。换主体/当前字段清旧并取消，迟到丢弃；返回Id只是创建确认，手动重读详情才取得当前版本，不自动审核或收货。面板独立于详情QueryState，不因离线/详情刷新卸载丢失原tuple。尝试创建使父详情/目录失效，原Id重读复用现有详情入口。
+
+草稿续片用例追踪（DTC-WMS-002/003创建适用子集）：
+
+| 用例 | 操作/故障 | 必须结果 / 自动化定位 |
+|---|---|---|
+| TC-T09-DRAFT-01 | 创建后内部审核推进，再以原operation/body恢复 | 永久只返回原Id，无原/当前Version混淆；`InboundDraftPublicReceiptRetainsOnlyOriginalIdAfterApproval`、`WmsInboundDraftCreatesAndRecoversOnlyStableIdAfterInternalApproval` |
+| TC-T09-DRAFT-02 | 逐写/父仓字段缺失、真实父仓creator非当前actor、撤权后原键恢复 | 当前403且无Id；同键不能绕权；`InboundDraftRequiresEveryExactWriteAndParentReadField`、`WmsInboundDraftRequiresRealWarehouseCreatorRatherThanRequestActor`及当前撤权HTTP变体 |
+| TC-T09-DRAFT-03 | 保存后撤权/取消/抛异常、同operation双并发、同码不同键 | 拒绝/取消全回滚；同键仅一次创建，异tuple409；`InboundDraftReauthorizationAfterSaveRollsBackOnRevocationOrCancellation` / `InboundDraftSameOperationConcurrentRequestsHaveOneCreationAndStableId` |
+| TC-T09-DRAFT-04 | 非法分页外的创建body、未知成员、缺显式precision、数量数字/指数/超精度/溢出及实际外租户父仓 | 400/404、无新草稿/库存；owner严格计划测试及HTTP严格body/伪造租户测试 |
+| TC-T09-DRAFT-05 | 多行预览、二次确认、503/超时/离线/401、换主体及迟到响应 | 原tuple冻结、只手工同键恢复、当前主体清旧；`InboundDraftCreation.spec.ts`含实际父子组合 |
+| TC-T09-DRAFT-06 | HTTPS Chromium双行5与0.000001、键盘确认、显式GET读回 | 201和Id-only回执、草稿精确两行且无新增posting/fact，375/768/1440及200%文字无横溢、无业务存储缓存；既有五WMS浏览器变体 |
+
+数量输入按语义规范成固定六位再存有序计划，`5`/`5.000`或规范单号大小写恢复同一请求，不因JSON decimal scale不同制造假冲突；不改变行顺序、单位、批次或数量。新增草稿不需要库位/容器/Pack，因为不运营执行；当前物料/单位仍为明确身份与精度计划，不宣称已完成完整主数据生命周期，审核/收货接线必须另核合法当前主数据。
+
 ## 已执行证据
 
 ### 领域首片结果
@@ -118,3 +145,15 @@
 - 五个WMS真实浏览器变体全部重跑通过；入库变体实际查询目录并以键盘选择重读详情，再完成精确数量、响应式/200%文字、离线与当前字段撤权验证。无整页重载或认证持久策略变更。
 - vue-tsc/Vite严格生产构建、架构29项、完整Release构建0警告/0错误、相关C# whitespace和git diff检查通过。无持久模型变更，因此此片不新增迁移或再次应用数据库迁移。
 - 本片替代上一片“无目录”边界；仍无公开草稿/审核/收货写表单、运营主数据启停/容器、运输投递和最终到达持久移账。不关闭T09；未重跑无关Route、附件专用浏览器或全部Platform套件，未把外部验证记为通过。
+
+### 当前受权草稿创建 owner/HTTP/客户端续片结果
+
+- 缺失 InboundDraftCreation/IInboundDraftAuthorization/WmsInboundDraftWriter 的编译RED已实际执行。接通独立写owner、真实当前Platform权限adapter、默认关闭POST与具名多行表单；永久回执只有decision/id，无易变Version。内部原创建调用仍可取当前版本，但不作为公开永久版本。
+- 新增46项真实MySQL owner、33项HTTP、8项部署配置、41项前端用例。最终账本/入库owner213、相关Modules188（57入库HTTP、126 WMS领域/配置、5真实HTTPS浏览器）、全前端39文件/897通过，均0失败/跳过。历史167/147/856由本轮相关结果替代，不重复累计；46个新增owner不包含原有草稿不可收货用例。
+- MySQL覆盖审核推进后原Id、改actor/完整tuple冲突、逐字段及真实父仓provenance、保存后二次核权/撤权/取消/抛异常回滚、同operation双并发、22位整数/六位精度与规范数量重放。草稿不新增库存、posting、receipt fact或Outbox，不启用父仓；真实单据创建身份保留在不可变header。
+- HTTP验证严格必填/未知root及行成员、缺显式precision拒绝而非默认0、JSON数字/指数/超精度拒绝、精确Idempotency-Key/X-WES-Client、HTTPS/当前会话/逐字段、真实父仓creator及伪造租户无法使用外租户父仓；201+Location、200原Id和409冲突均验证。
+- 首轮HTTP59通过/1失败是fixture默认已附X-WES-Client，补为真正移除默认header后60通过；随后加入缺precision/实际外租户两例，相关HTTP/配置62通过。前端首轮120通过/2失败分别为401会立即清身份而失效、GET省略method的测试预期不符；保留既有认证/请求策略，改为核验实际失效和新GET结果，最终897通过。
+- 五WMS真实HTTPS Chromium变体重跑通过。入库变体先在独立新页登录、双行5/0.000001、键盘预览确认201、原Id显式GET读回；再执行原目录/精确收货/离线/当前撤权链路。预览0写、确认仅1POST+1手工GET；持久核两行Draft且无新增posting/fact。375/768/1440及375叠加200%文字无横溢、无业务存储缓存。
+- 首轮扩大Modules291项为290通过/1浏览器失败：创建步骤误放在场景已撤销父仓read之后，服务端正确403。改为撤权前的独立页真实创建，不恢复权限/放宽断言；修正多单后用原Id定位既有执行单。最终相关188及独立五浏览器通过；291中其余仓/位创建103项已通过，重叠不重复累计。另修正新增浏览器局部变量遮蔽的编译错误。
+- 最终架构29、完整Release构建0警告/0错误、相关C# whitespace及git diff检查通过，vue-tsc/Vite严格生产构建通过。无模型/迁移/依赖变化；不重复执行迁移。关闭新开关保留草稿和operation，仅移除POST，已有GET不受影响。
+- 仅交付创建，不包括既有草稿修订/来源类型深化、受权审核/收货、运营仓/位启停与合法容器/物料单位主数据生命周期，亦不包括运输投递/最终到达持久移账。无关Route/附件专用浏览器/全部Platform未重跑；SQL Server/PostgreSQL、真实Pack/Broker/PDA/设备仍无本片验收，不关闭T09或项目。

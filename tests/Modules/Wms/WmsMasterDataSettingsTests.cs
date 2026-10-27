@@ -76,6 +76,33 @@ public sealed class WmsMasterDataSettingsTests
             ["Wes:WmsMasterData:WarehouseCreationEnabled"] = creation
         }).Build();
 
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("false", false)]
+    [InlineData("true", true)]
+    public void InboundDraftCreationIsIndependentDefaultDisabled(string? creation, bool expected)
+    {
+        var configuration = CreationConfiguration("false", "true", "true");
+        configuration["Wes:WmsMasterData:InboundDraftCreationEnabled"] = creation;
+        var settings = WmsMasterDataSettings.Load(configuration);
+        Assert.Equal(expected, settings.InboundDraftCreationEnabled);
+        Assert.False(settings.WarehouseCreationEnabled);
+        Assert.False(settings.LocationCreationEnabled);
+    }
+
+    [Theory]
+    [InlineData("yes", "true", "true")]
+    [InlineData("", "true", "true")]
+    [InlineData("1", "true", "true")]
+    [InlineData("true", "false", "true")]
+    [InlineData("true", "true", "false")]
+    public void InvalidOrUnassembledInboundDraftCreationIsRejected(string creation, string reads, string identity)
+    {
+        var configuration = CreationConfiguration("false", reads, identity);
+        configuration["Wes:WmsMasterData:InboundDraftCreationEnabled"] = creation;
+        Assert.Throws<InvalidOperationException>(() => WmsMasterDataSettings.Load(configuration));
+    }
+
     private static IConfiguration Configuration(string enabled, string identity) =>
         new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {

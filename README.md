@@ -17,6 +17,8 @@ T09 后续[当前授权只读入库详情](docs/implementation/173-t09-inbound-b
 
 T09 目录续片：[当前受权实时入库目录](docs/implementation/173-t09-inbound-basic-flow.md)已接通SQL分页前完整字段creator交集、精确单号/仓库/状态筛选和读取后二次核验，页面选择重新GET、双侧403清旧。新增24owner/10HTTP/32前端；最终owner167、Modules147含五WMS浏览器、前端856/严格构建、架构29及Release0/0通过，替代上一片143/137/824而不重复累计。目录已补齐；多行草稿/审核/收货写表单、运营主数据及最终运输仍是主体待办，T09未关闭。
 
+T09 草稿续片：[当前受权创建owner/严格POST/具名多行表单](docs/implementation/173-t09-inbound-basic-flow.md)已交付，原Id-only永久回执、当前完整写/真实父仓权限和保存后复验回滚、独立默认关闭开关、全量预览/二次确认/原tuple未知恢复及手工详情读回。新增46owner/33HTTP/8配置/41前端；最终owner213、相关Modules188含5真实HTTPS浏览器、前端897/严格构建、架构29/Release0/0通过，替代167/147/856，不重复累计。草稿不改库存/启用仓位/发运输；修订及来源深化、受权审核/收货、运营主数据与最终运输仍未完成，不关闭T09。
+
 T07目录续片：[当前实体附件目录](docs/implementation/169-t07-current-entity-attachment-catalog.md)/[证据](docs/implementation/170-t07-current-entity-attachment-catalog-tests.md)实现仓/位固定集合GET、当前实体两时点核验、精确实际引用及九字段scope在SQL分页前交集，复用暂存查询且不触碰物理存储/扫描。新增30真实owner/28 HTTP，相关333项含既有HTTPS文件浏览器、精确最终28项新API/架构29及Release0/0通过，不重复累计。历史“无业务附件目录API”由本片替代；附件客户端、真实病毒库/ACL及T04–T08整包仍缺。
 
 T07写续片：[永久具名附件绑定/解绑](docs/implementation/167-t07-durable-business-file-bindings.md)/[证据](docs/implementation/168-t07-durable-business-file-bindings-tests.md)实现当前双owner明确Attach/Detach、全部持久来源实体read、引用/计数/版本/审计/永久回执原子提交及严格PUT/DELETE。新增30真实owner/32 HTTP，首轮620项、来源权限RED修正后的最终相关282项含六套既有HTTPS浏览器及Release0/0通过（不重复累计）。真实MySQL1213由父文件锁顺序根治；来源撤权/未登记旧owner不允许另绑绕权，同键恢复只返回原事实。复用两个默认关闭开关；业务附件目录/客户端、真实病毒库/ACL及T04–T08整包仍缺。

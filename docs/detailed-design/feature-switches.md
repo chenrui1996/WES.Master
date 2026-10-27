@@ -53,6 +53,8 @@
 - 运行时状态区分 `Ready`、`Disabled`、`Degraded/Unavailable`。必需依赖失败按 readiness/控制门禁失败处理；可选能力故障可以不终止进程，但其能力必须明确不可用并返回稳定错误，不能有成功型 fallback。
 - 模块 UI 开关可在页面重载/重新获取 catalog 后生效。它不动态卸载 Host 模块、不撤销已签发身份、不更改数据库结构或历史数据。
 
+WMS发布调度细项见[默认关闭托管设计](../implementation/159-t05-hosted-wms-publisher.md)：`Wes:WmsPublisher:Enabled=false`，禁用时不注册worker/runner或打开owner；提供的非法配置仍拒绝。启用需要Identity、Outbox、MessageQueue以及具名singleton transport的AND依赖，UI `Modules:Wms`不控制该worker或替代权限。当前Program更早拒绝未登记的Outbox/MessageQueue runtime owner，不能只设布尔值或注入测试transport就声称可用；后续实际adapter/运行能力注册须验收依赖闭包。停止保留耐久lease/未确认事实，重启复用原EventId按owner恢复，不自动迁移/排空或将ACK当业务完成。
+
 ## 3. 服务端注册与客户端读取
 
 1. Host 在组合根绑定 `FeaturesOptions`、校验每一项及依赖关系，并创建不可变运行快照。

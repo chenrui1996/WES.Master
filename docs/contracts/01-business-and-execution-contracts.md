@@ -53,7 +53,7 @@ WMS创建事件[范围计数](../implementation/149-t05-wms-creation-event-count
 
 已实施路径增量：POST `/api/wms/warehouses`只在单独默认关闭创建装配下开放，精确`{code,name}`和可信身份/永久key，201+Location或200精确重放；安全拒绝及版本兼容见[仓库HTTP合同](../implementation/137-t08-authorized-warehouse-creation-http.md)。不将既有未版本化路径自行迁移到规划v1，不新增位置/启停或运输实现。
 
-局部实现事件 `wms.master-data.created`/schemaVersion=1，Owner=`Wms`；仅默认禁用仓/位新创建事实，非启用/库存/物理控制命令。envelope与安全payload、tenant/operation事件身份、不可变/回放及迁移兼容详见[WMS创建Outbox](../implementation/135-t05-t08-wms-creation-outbox.md)。后续[owner发布器](../implementation/157-t05-wms-owner-outbox-publisher.md)不改envelope，只扩展耐久delivery及九字段Status=0..3；旧Pending由原EventId/OccurredAt初始化CAS/到期，不生成历史事实。新客户端须先与四态合同同步，再显式启用未来托管/transport；当前默认不外发，无consumer/Inbox或历史事实回填，不能将下表运输合同标作已实现。
+局部实现事件 `wms.master-data.created`/schemaVersion=1，Owner=`Wms`；仅默认禁用仓/位新创建事实，非启用/库存/物理控制命令。envelope与安全payload、tenant/operation事件身份、不可变/回放及迁移兼容详见[WMS创建Outbox](../implementation/135-t05-t08-wms-creation-outbox.md)。后续[owner发布器](../implementation/157-t05-wms-owner-outbox-publisher.md)不改envelope，只扩展耐久delivery及九字段Status=0..3；旧Pending由原EventId/OccurredAt初始化CAS/到期，不生成历史事实。[默认关闭托管调度](../implementation/159-t05-hosted-wms-publisher.md)已有严格tenant/batch/周期及新owner runner；新客户端须先与四态合同同步，再经真实adapter/运行能力登记与门禁验收显式启用。当前Program仍拒绝未登记的Outbox/MessageQueue运行能力，默认不外发，无consumer/Inbox或历史事实回填，不能将下表运输合同标作已实现。
 
 | 契约/路径规划 | 请求必填（另含适用context） | 输出/owner与不变量 |
 |---|---|---|

@@ -9,6 +9,7 @@
 
 | 切片 | 范围/设计 | 测试/证据状态 |
 |---|---|---|
+| T05 WMS默认关闭托管发布 | REQ-NTF-004..008/FUNC-NTF-001、DTC-NTF-001/002调度子集；[设计](implementation/159-t05-hosted-wms-publisher.md) | [证据](implementation/160-t05-hosted-wms-publisher-tests.md)：新增27 Host/真实进程和1真实MySQL runner；最终Release 85含四套HTTPS浏览器+33发布owner+29架构=147通过、构建0/0。严格allowlist/batch/周期、新owner、60秒合作取消；实际Program仍拒绝未登记Broker运行能力，无实际adapter/Inbox/统一快照或整包验收 |
 | T05 WMS owner发布器 | REQ-NTF-004..008、PAGE-NTF-003/FUNC-NTF-001、RULE-14/PAR-05；[设计](implementation/157-t05-wms-owner-outbox-publisher.md) | [证据](implementation/158-t05-wms-owner-outbox-publisher-tests.md)：新增33真实owner/3HTTP/4前端；最终238+HTTP/四套HTTPS浏览器32+架构29=299、前端695/严格构建及Release0/0。原envelope不变、耐久claim/CAS/有限预算/未确认恢复、四态九字段/精确PendingCount；无默认Host worker或Broker/Inbox，父DTC和整包不关闭 |
 | T08授权流水/T06文字放大 | PAGE-WMS-008/FUNC-WMS-007、REQ-WMS-005..011、UI-001..004/007/008/011/012；[设计](implementation/153-t08-authorized-stock-ledger-query.md) | [证据](implementation/154-t08-authorized-stock-ledger-query-tests.md)：新增32真实owner/28HTTP/85前端；最终owner106+HTTP46+四套HTTPS浏览器4+架构29=185、前端691/严格构建及Release0/0。375px+200%原阈值实测修共享最小宽度，非全页面DTC/固定快照/导出/业务原单跳转或整包验收 |
 | T04用户新建加载门禁 | PAGE-PLAT-003/FUNC-PLAT-002、REQ-PLAT-004；[设计](implementation/155-t04-user-create-loading-gate.md) | [证据](implementation/156-t04-user-create-loading-gate-tests.md)：新增2组件测试实际先红，按钮disabled对齐原busy/stale guard；最终前端691及真实HTTPS全Platform创建/凭据/角色流程通过，非完整父DTC验收 |

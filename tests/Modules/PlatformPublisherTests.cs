@@ -158,7 +158,7 @@ public sealed class PlatformPublisherTests
     [Fact]
     public async Task TenantDeadlineIsExplicitAndContinuesWithFreshBudgetForNextTenant()
     {
-        var clock = new DeadlineClock();
+        var clock = new PublisherDeadlineClock();
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var logs = new Logs();
         var runner = new Runner(async (tenant, _, ct) =>
@@ -236,25 +236,4 @@ public sealed class PlatformPublisherTests
         }
     }
 
-    private sealed class DeadlineClock : TimeProvider
-    {
-        public List<DeadlineTimer> Timers { get; } = [];
-        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
-        {
-            Assert.Equal(TimeSpan.FromSeconds(60), dueTime);
-            Assert.Equal(Timeout.InfiniteTimeSpan, period);
-            var timer = new DeadlineTimer(callback, state);
-            Timers.Add(timer);
-            return timer;
-        }
-    }
-
-    private sealed class DeadlineTimer(TimerCallback callback, object? state) : ITimer
-    {
-        public bool Disposed { get; private set; }
-        public void Fire() => callback(state);
-        public bool Change(TimeSpan dueTime, TimeSpan period) => true;
-        public void Dispose() => Disposed = true;
-        public ValueTask DisposeAsync() { Dispose(); return ValueTask.CompletedTask; }
-    }
 }

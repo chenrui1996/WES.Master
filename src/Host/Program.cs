@@ -18,6 +18,7 @@ builder.Services.AddWesPlatformFiles(builder.Environment);
 builder.Services.AddWesPlatformRetention(builder.Configuration);
 builder.Services.AddWesPlatformPublisher(builder.Configuration);
 builder.Services.AddWesWmsMasterData();
+builder.Services.AddWesWmsPublisher(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddCheck("ApplicationNotAssembled",
         () => HealthCheckResult.Unhealthy("Business persistence and control modules have not been assembled."),

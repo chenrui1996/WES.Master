@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Wes.Platform.Domain;
 using Xunit;
 
@@ -10,6 +11,31 @@ namespace Wes.Modules.Tests.Platform;
 
 public sealed partial class IdentityHttpTests
 {
+    [Fact]
+    public async Task WmsHostedPublisherRunnerUsesANewRealOwnerForEachBoundedTenantPassWithoutEnablingDefaultWorker()
+    {
+        await WmsHostAsync();
+        Assert.DoesNotContain(_factory.Services.GetServices<Microsoft.Extensions.Hosting.IHostedService>(),
+            service => service is Wes.Host.Wms.WmsPublisherWorker);
+        Guid[] events;
+        await using (var before = OpenWmsMasterData())
+            events = await before.OutboxMessages.Select(message => message.EventId).ToArrayAsync();
+        var runner = new Wes.Host.Wms.WmsPublisherRunner(_factory.Services.GetRequiredService<Wes.Host.Identity.IdentitySettings>(),
+            new CreationEventTransport(2), _clock, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+
+        Assert.Equal(new Wes.Wms.WmsPublishBatchResult(1, 0, 0, 0, 0), await runner.RunAsync(_tenant, 1, default));
+        Assert.Equal(new Wes.Wms.WmsPublishBatchResult(1, 0, 0, 0, 0), await runner.RunAsync(_tenant, 1, default));
+        Assert.Equal(new Wes.Wms.WmsPublishBatchResult(0, 0, 0, 0, 0), await runner.RunAsync(_tenant, 1, default));
+        Assert.Equal(new Wes.Wms.WmsPublishBatchResult(0, 0, 0, 0, 0), await runner.RunAsync(_wmsForeignTenant, 1, default));
+
+        await using var verify = OpenWmsMasterData();
+        var messages = await verify.OutboxMessages.ToListAsync();
+        Assert.Equal(events.Order(), messages.Select(message => message.EventId).Order());
+        Assert.All(messages, message => Assert.Equal((Wes.Wms.Domain.WmsOutboxStatus.Published, 1), (message.Status, message.Attempts)));
+        Assert.All(await verify.Warehouses.ToListAsync(), warehouse => Assert.False(warehouse.Enabled));
+        Assert.Empty(await verify.Entries.ToListAsync());
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(2)]

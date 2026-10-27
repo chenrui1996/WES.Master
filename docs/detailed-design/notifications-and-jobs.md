@@ -20,6 +20,8 @@
 
 ## 2. 功能与契约
 
+后续[WMS默认关闭托管调度](../implementation/159-t05-hosted-wms-publisher.md)/[证据](../implementation/160-t05-hosted-wms-publisher-tests.md)替代下述历史“无Host worker接线”：显式tenant/batch/周期、60秒合作取消、新owner runner及未确认警告，新增27 Host/真实进程和1真实MySQL runner，最终Release相关147项含四套真实HTTPS浏览器通过、构建0/0。默认不注册worker；真实Program仍拒绝未登记的Outbox/MessageQueue runtime owner。本片没有实际adapter/消费Inbox、跨owner统一快照或完整Broker/父DTC验收，不将服务集合中的测试transport当实际运行能力。
+
 后续[WMS owner发布器](../implementation/157-t05-wms-owner-outbox-publisher.md)/[证据](../implementation/158-t05-wms-owner-outbox-publisher-tests.md)替代下述历史Pending-only/publisher未实现部分：耐久90秒lease、claim计数最多6次/15分钟预算、有限退避与隔离、提交后发送前复验、原event未确认恢复。原列表九字段扩展真实四态，统计仍三字段且只计Pending，客户端同步标签，不将Published当业务完成。新增33owner/3HTTP/4前端，最终238+32含四套真实浏览器+29=299、前端695和严格构建通过，Release0/0；默认无Host worker/transport外发，Inbox/真实Broker/统一快照/父DTC未关闭。
 
 后续[WMS创建事件范围统计](../implementation/149-t05-wms-creation-event-counts.md)/[证据](../implementation/150-t05-wms-creation-event-counts-tests.md)已接通独立统计字段当前creator交集、SQL全量LongCount与共享计数组件；替代下述历史“WMS统计未接入”。WMS只返回Owner/ObservedAt/PendingCount，不伪造Inbox/投递状态，不与Platform相加；两owner仍独立观察，不构成统一快照。前端604、主数据205+HTTP/三套浏览器36+架构29=270及严格构建通过，WMS发布/消费和真实Broker仍未完成。

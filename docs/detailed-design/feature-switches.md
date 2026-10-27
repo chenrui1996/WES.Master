@@ -67,6 +67,8 @@ WMS入库草稿另有独立默认关闭的`Wes:WmsMasterData:InboundDraftCreatio
 
 草稿修订独立使用`Wes:WmsMasterData:InboundDraftRevisionEnabled=false`，不隐式开启创建、审核或收货，且创建开关不隐式开启修订；仍要求WMS/Identity读装配并拒绝非法配置。关闭不映射`PUT /api/wms/inbound/{id}/draft`（404），不删除既有revision、改变库存或关闭GET。开启后每次核真实单据creator的当前完整写/read权限，ExpectedVersion与Draft状态仍是必须条件；原操作恢复也不得绕权。原修订回执版本不等于最新版本，客户端须另读；结果不明保留完整原键/body，不自动换键。新增事实kind为`Revised`，旧版读应用不支持其恢复；产生revision之后即使关闭入口，也只能回退到理解该kind的版本，不能通过删除历史或恢复旧Plan完成回滚。数量/HTTP/恢复合同及TC-T09-REV-01..06见[入库设计](../implementation/173-t09-inbound-basic-flow.md)。
 
+仓库逻辑启停独立使用`Wes:WmsMasterData:WarehouseStateEnabled=false`，不由仓库/库位创建或入库草稿开关隐式开启；需要master-data/Identity读装配，非法bool/依赖缺失启动失败。关闭不映射`PUT /api/wms/warehouses/{id}/state`（404），保留既有Enabled/Version及永久启停事实，不自动禁用仓或撤销已提交操作。开启仍逐次核真实creator的完整read六字段和write的Enabled；Code/Name创建权限不授予启停。部署前单独评审新表迁移，Host/owner不自动迁移；关闭后未知操作只能在兼容入口恢复后以原key/body手工核验。仅改仓库逻辑状态，不开放子库位、库存/收货、分配、运输或设备控制；活动阻断/回退及测试见[设计与证据](../implementation/174-t08-warehouse-operational-state.md)。
+
 1. Host 在组合根绑定 `FeaturesOptions`、校验每一项及依赖关系，并创建不可变运行快照。
 2. 每项运行能力由其 owner 显式声明启动注册、健康/ready 影响、关闭行为、请求错误语义及 in-flight/shutdown 策略；没有声明的能力不能被任意字符串开关控制。
 3. 匿名 `GET /api/config/features` 只返回前端允许公开的模块代码与启用布尔值，不返回运行能力、Provider/连接、Secret、内部依赖状态或按租户/用户定制的数据。端点输出采用显式白名单 DTO。

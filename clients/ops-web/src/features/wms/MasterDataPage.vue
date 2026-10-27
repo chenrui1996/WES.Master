@@ -4,6 +4,8 @@ import QueryState from "../../components/QueryState.vue";
 import MasterDataCatalog from "./MasterDataCatalog.vue";
 import MasterDataCreation from "./MasterDataCreation.vue";
 import EntityAttachments from "./EntityAttachments.vue";
+import WarehouseStateChange from "./WarehouseStateChange.vue";
+import { mayChangeWarehouseState } from "./warehouse-state";
 import { ApiError, sessionState } from "../identity/identity-api";
 import { locationFields, MasterDataResponseError, mayCreateLocation, mayCreateWarehouse, readMasterData, validIdentity, warehouseFields, type MasterData, type ResourceKind } from "./master-data";
 import { mayReadBusinessFiles } from "./business-files";
@@ -12,6 +14,8 @@ const resourceKind = ref<ResourceKind>(mayRead("warehouses") ? "warehouses" : "l
 const resourceId = ref("");
 const catalogRevision = ref(0);
 const creationOpen = ref<ResourceKind | null>(null);
+const stateOpen = shallowRef<Extract<MasterData, { kind: "warehouses" }>>();
+const canChangeState = computed(mayChangeWarehouseState);
 const canCreate = computed(mayCreateWarehouse); const canCreateLocation = computed(mayCreateLocation);
 const record = shallowRef<MasterData | null>(null);
 const busy = ref(false); const fresh = ref(false); const error = ref(""); const notFound = ref(false);
@@ -34,7 +38,7 @@ function reset() {
   cancel(); record.value = null; loadedAt.value = ""; error.value = ""; notFound.value = false;
 }
 watch([resourceKind, resourceId], reset, { flush: "sync" });
-watch(scope, () => { reset(); resourceId.value = ""; }, { flush: "sync" });
+watch(scope, () => { reset(); resourceId.value = ""; stateOpen.value = undefined; }, { flush: "sync" });
 function connection() {
   online.value = navigator.onLine;
   if (!online.value) cancel();
@@ -42,7 +46,7 @@ function connection() {
 onMounted(() => { addEventListener("online", connection); addEventListener("offline", connection); });
 onUnmounted(() => { cancel(); removeEventListener("online", connection); removeEventListener("offline", connection); });
 async function read() {
-  if (attachmentLocked.value || !readable.value || !online.value || busy.value || creationOpen.value) return;
+  if (attachmentLocked.value || stateOpen.value || !readable.value || !online.value || busy.value || creationOpen.value) return;
   const id = resourceId.value.trim();
   if (!validIdentity(id)) { error.value = "请输入有效的非空 UUID。"; return; }
   cancel(); busy.value = true; error.value = ""; notFound.value = false;
@@ -65,12 +69,12 @@ async function read() {
   } finally { if (ticket === sequence) busy.value = false; }
 }
 function selectCatalogResource(id: string) {
-  if (attachmentLocked.value) return;
+  if (attachmentLocked.value || stateOpen.value) return;
   reset(); resourceId.value = id; void read();
 }
 function creationAttempted() { reset(); ++catalogRevision.value; }
 function openCreation(kind: ResourceKind) {
-  if (attachmentLocked.value) return;
+  if (attachmentLocked.value || stateOpen.value) return;
   creationAttempted(); creationOpen.value = kind;
 }
 function readCreatedDefinition(id: string) {
@@ -78,27 +82,35 @@ function readCreatedDefinition(id: string) {
   resourceKind.value = creationOpen.value; creationOpen.value = null; selectCatalogResource(id);
 }
 function attachLocked(value: boolean) { attachmentLocked.value = value; }
+function openState() {
+  if (attachmentLocked.value || creationOpen.value || !fresh.value || busy.value || !online.value
+    || !canChangeState.value || record.value?.kind !== "warehouses") return;
+  stateOpen.value = record.value;
+  reset();
+}
+function readStateWarehouse(id: string) { stateOpen.value = undefined; resourceKind.value = "warehouses"; selectCatalogResource(id); }
 </script>
 
 <template>
   <section class="page" aria-labelledby="master-data-heading">
     <header class="page-heading"><div><p class="eyebrow">WMS · 主数据定义</p><h1 id="master-data-heading">仓库与库位详情</h1></div></header>
-    <p class="hint">通过实时目录或已知 UUID 读取当前授权的主数据。不代表可分配、位置空闲或物理安全许可；创建须独立部署装配，层级树和启停尚未开放。</p>
-    <button v-if="canCreate && !creationOpen" type="button" :disabled="attachmentLocked" @click="openCreation('warehouses')">新建禁用仓库</button>
-    <button v-if="canCreateLocation && !creationOpen" type="button" :disabled="attachmentLocked" @click="openCreation('locations')">新建禁用库位</button>
+    <p class="hint">通过实时目录或已知 UUID 读取当前授权的主数据。不代表可分配、位置空闲或物理安全许可；创建及仓库逻辑启停须独立部署装配，层级树和库位启停尚未开放。</p>
+    <button v-if="canCreate && !creationOpen && !stateOpen" type="button" :disabled="attachmentLocked" @click="openCreation('warehouses')">新建禁用仓库</button>
+    <button v-if="canCreateLocation && !creationOpen && !stateOpen" type="button" :disabled="attachmentLocked" @click="openCreation('locations')">新建禁用库位</button>
     <MasterDataCreation v-if="creationOpen" :kind="creationOpen" @attempted="creationAttempted" @read="readCreatedDefinition" @close="creationOpen = null" />
+    <WarehouseStateChange v-if="stateOpen" :warehouse="stateOpen" @attempted="creationAttempted" @read="readStateWarehouse" @close="stateOpen = undefined" />
     <template v-if="!creationOpen">
     <form class="master-data-query" @submit.prevent="read">
       <div class="master-data-kind"><label for="master-data-kind">资源类型</label>
-        <select id="master-data-kind" v-model="resourceKind" name="resourceKind" :disabled="attachmentLocked"><option value="warehouses">仓库</option><option value="locations">库位</option></select></div>
+        <select id="master-data-kind" v-model="resourceKind" name="resourceKind" :disabled="attachmentLocked || !!stateOpen"><option value="warehouses">仓库</option><option value="locations">库位</option></select></div>
       <div class="master-data-id"><label for="master-data-id">资源 UUID</label>
-        <input id="master-data-id" v-model="resourceId" name="resourceId" autocomplete="off" spellcheck="false" maxlength="36" :disabled="attachmentLocked" /></div>
-      <button type="submit" :disabled="!readable || !online || busy || attachmentLocked">读取当前详情</button>
+        <input id="master-data-id" v-model="resourceId" name="resourceId" autocomplete="off" spellcheck="false" maxlength="36" :disabled="attachmentLocked || !!stateOpen" /></div>
+      <button type="submit" :disabled="!readable || !online || busy || attachmentLocked || !!stateOpen">读取当前详情</button>
     </form>
     <p v-if="!readable" role="alert" class="error">缺少当前资源类型的完整读取字段权限。菜单可见不等于资源授权。</p>
     <p v-if="!online" role="status" class="notice">当前离线：仅显示已加载的陈旧定义；恢复后请手工重新读取，不排队或重放。</p>
     <p v-if="error && record" role="alert" class="error">{{ error }}</p>
-    <MasterDataCatalog v-if="readable" :key="catalogRevision" :kind="resourceKind" :readable="readable && !attachmentLocked"
+    <MasterDataCatalog v-if="readable" :key="catalogRevision" :kind="resourceKind" :readable="readable && !attachmentLocked && !stateOpen"
       @select="selectCatalogResource" @denied="reset" />
     <QueryState v-if="readable" label="主数据详情" :state="queryState" :busy="busy" :error-message="error"
       :stale-message="`陈旧定义，仅供参考；当前读取未确认。上次成功读取：${loadedAt || '未确认'}`" @retry="read">
@@ -108,6 +120,8 @@ function attachLocked(value: boolean) { attachmentLocked.value = value; }
       </template>
       <article v-if="record" data-test="master-data-details" :aria-label="record.kind === 'warehouses' ? '仓库定义' : '库位定义'">
         <h2>{{ record.kind === "warehouses" ? "仓库" : "库位" }}定义</h2>
+        <button v-if="record.kind === 'warehouses' && canChangeState" type="button" data-test="prepare-warehouse-state"
+          :disabled="!fresh || !online || busy || attachmentLocked" @click="openState">准备{{ record.definition.enabled ? "禁用" : "启用" }}仓库</button>
         <p v-if="fresh" role="status">当前读取已确认 · 上次成功读取：<time :datetime="loadedAt">{{ loadedAt }}</time></p>
         <dl class="master-data-definition">
           <div><dt>资源 UUID</dt><dd>{{ record.definition.id }}</dd></div>

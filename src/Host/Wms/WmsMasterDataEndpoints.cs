@@ -65,6 +65,8 @@ public static partial class WmsMasterDataEndpoints
         if (app.Services.GetRequiredService<PlatformFileSettings>().Enabled) MapMasterDataFiles(group);
         if (app.Services.GetRequiredService<WmsMasterDataSettings>().WarehouseCreationEnabled)
             group.MapPost("/warehouses", CreateWarehouseAsync);
+        if (app.Services.GetRequiredService<WmsMasterDataSettings>().WarehouseStateEnabled)
+            group.MapPut("/warehouses/{id:guid}/state", ChangeWarehouseStateAsync);
         if (app.Services.GetRequiredService<WmsMasterDataSettings>().LocationCreationEnabled)
         {
             _ = app.Services.GetRequiredService<LocationCreationSchema>();
@@ -148,6 +150,8 @@ public static partial class WmsMasterDataEndpoints
         internal WmsMasterDataScope Open(Guid tenant) => new(settings.ConnectionString, tenant, authorization, logs, clock);
         internal WmsMasterDataWriter OpenWarehouseWriter(Guid tenant) =>
             new(settings.ConnectionString, tenant, authorization, WarehouseOnlySchema.Instance, clock, logs);
+        internal WmsWarehouseStateWriter OpenWarehouseStateWriter(Guid tenant) =>
+            new(settings.ConnectionString, tenant, authorization, clock, logs);
         internal WmsMasterDataWriter OpenLocationWriter(Guid tenant, IWarehouseLocationSchema schema) =>
             new(settings.ConnectionString, tenant, authorization, schema, clock, logs);
     }

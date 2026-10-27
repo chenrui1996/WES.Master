@@ -42,6 +42,8 @@
 
 ## 2. 功能/契约
 
+PAGE-WMS-001后续[仓库逻辑启停](../implementation/174-t08-warehouse-operational-state.md)已实现当前真实creator完整read六字段/独立Enabled写、ExpectedVersion/永久原版本回执、父仓串行化、禁用实际活动阻断及保存后复验回滚。独立默认关闭PUT、从新鲜详情准备/原因预览/二次确认、原tuple Unknown恢复与显式GET，不改库存/子位或发运输；不把状态伪造为创建Outbox。相关owner527、最终Release本片38/HTTP配置与五浏览器41、前端956/严格构建、架构29/Release0/0及模型无漂移通过，重叠不合计。替代历史“仓库启停未实现”的子集；库位启停/容器/合法账维度和物料单位、公开审核收货及最终运输仍待实施，不关闭父DTC或T08/T09。
+
 PAGE-WMS-003当前[入库实施](../implementation/173-t09-inbound-basic-flow.md)已交付受权实时目录/详情和具名多行草稿创建。草稿需当前`wms.inbound.write`完整Code/WarehouseId/Lines与真实父仓完整读取；独立默认关闭POST，严格数量string/原operation，永久回执仅Id、当前版本另读，预览确认及同键未知恢复。保存后复验撤权/取消回滚；草稿允许禁用仓但不改库存/容器/占位/运输、不代表审核或收货许可。后续草稿修订owner/独立默认关闭PUT复用多行表单，仅Draft全量替换行计划，原创建Plan不覆盖、修订事实/原版本回执永久保留；真实creator完整写/read、提交前复验回滚与父单版本并发守卫，真实创建→修订→另读已验证。最新owner252、相关Modules230含5真实HTTPS浏览器、前端922/严格构建、架构29/Release0/0及模型无漂移通过，不重复累计。原只读行为保留；来源深化、运营主数据生命周期、受权审核/收货及最终运输持久移账仍待实现，父DTC和T09未关闭。
 
 库位创建后续[客户端](../implementation/163-t08-disabled-location-creation-client.md)/[证据](../implementation/164-t08-disabled-location-creation-client-tests.md)已接通当前五字段/父仓read、完整UUID/Pack/schema显式输入与冻结预览、二次确认、原key/body未知恢复和手工GET回执；复用原仓库状态机，不生成通用CRUD。新增35前端，全套730/严格构建、相关.NET158含五套真实HTTPS浏览器通过、Release0/0；替代历史“库位无表单”。已知UUID输入不是完整授权候选/层级选择链；真实Pack/启停/容器及完整父DTC仍缺。

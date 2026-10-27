@@ -1720,7 +1720,7 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
     private sealed class Factory(string connection, string corpus, TimeProvider clock, string? webRoot = null, string? keyRing = null,
         string? filesRoot = null, int scannerPort = 3310, bool wmsMasterData = false, bool wmsWarehouseCreation = false,
         bool wmsLocationCreation = false, Action<IServiceCollection>? locationSchemas = null,
-        bool wmsInboundDraftCreation = false, bool wmsInboundDraftRevision = false) : WebApplicationFactory<Program>
+        bool wmsInboundDraftCreation = false, bool wmsInboundDraftRevision = false, bool wmsWarehouseState = false) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -1740,6 +1740,7 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
                 ["Wes:WmsMasterData:LocationCreationEnabled"] = wmsLocationCreation.ToString(),
                 ["Wes:WmsMasterData:InboundDraftCreationEnabled"] = wmsInboundDraftCreation.ToString(),
                 ["Wes:WmsMasterData:InboundDraftRevisionEnabled"] = wmsInboundDraftRevision.ToString(),
+                ["Wes:WmsMasterData:WarehouseStateEnabled"] = wmsWarehouseState.ToString(),
                 ["Features:Modules:Wms"] = wmsMasterData.ToString()
             }));
             if (filesRoot is not null)

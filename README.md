@@ -9,6 +9,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 ## 文档工作区
 
+最新T08/T09依赖片：[仓库逻辑启停](docs/implementation/174-t08-warehouse-operational-state.md)已接通当前真实creator/完整字段、独立默认关闭PUT与页面，版本/永久原回执、活动阻断、保存后撤权回滚及原键Unknown恢复已验证。相关owner527、最终Release本片38及HTTP/配置/五套真实HTTPS浏览器41、前端956/严格构建、架构29、Release0/0及模型无漂移通过（重叠不合计）。仅新增状态事实表，修正design-time脚本与runtime的owner迁移历史一致性；不启用子位/改库存/发运输。仓库逻辑状态子集已补齐，库位启停/容器/合法账维度、来源深化、受权审核收货及最终运输仍是主体待办，T08/T09未整体关闭。
+
 2026-10-27 起按[基本功能优先与 TodoList](docs/implementation/TodoList.md)推进：外部验证关闭本轮阻断而非记录通过，非主体增强后置。前置已实现软件本轮验证为前端770/严格构建、真实MySQL owner482、HTTP/既有HTTPS浏览器/WMS领域178、架构29通过（有重叠不重复累计）。[实体附件客户端](docs/implementation/171-t07-current-entity-attachment-client.md)/[证据](docs/implementation/172-t07-current-entity-attachment-client-tests.md)已基本交付；继续T09，不将缺失主体代码或现场验收标为完成。
 
 T09 [入库领域与内部持久收货事务](docs/implementation/173-t09-inbound-basic-flow.md)已接通单据/事实/唯一账本同事务、永久原回执、父单版本防并发超收与故障/取消回滚；最终真实账本120、领域118、架构29通过，Release0/0及EF无漂移，较早联合主数据353通过（不重复累计）。当前为内部primitive，运营启停/容器、当前授权HTTP/页面和运输最终持久移账仍待实施，异址保留真实收货并明确待运输。

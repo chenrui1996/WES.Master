@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+最新T08/T09依赖：[仓库逻辑启停](174-t08-warehouse-operational-state.md)子集已验证。当前真实creator/完整read六字段和Enabled独立写、父仓锁/版本与永久原回执、实际活动阻断及保存后撤权回滚；独立默认关闭PUT/具名页面的Unknown同键恢复和显式GET已接通。相关owner527、最终Release本片38/HTTP配置与五浏览器41、前端956/严格构建、架构29/Release0/0及EF无漂移通过（不重复合计）。新迁移仅在wes_test应用；design-time脚本历史修正为runtime的`__WesWmsMigrations`，无生产连接。历史“仓库启停未实现”仅该子集被替代；库位/容器/账维度与物料单位、当前受权审核收货、最终运输仍未完成，T08/T09不整包关闭，Enabled不代表物理或运营写许可。
+
 2026-10-27 基本功能优先授权：外部验证项移出本轮软件推进门槛，关闭本轮阻断但不记录为已验证或生产放行；非主体增强转入[TodoList](TodoList.md)。先验证 T08 及以前主体链路，再按依赖推进 T09。以下历史 partial/外部缺口记录保留为事实，不再单独阻断基本软件实施；缺失的主体代码、权限/库存不变量及真实结果合同仍需实现和验证。
 
 本轮基本验证已通过：前端 36 文件/770 项及严格生产构建；真实 MySQL 账本/主数据/附件 owner 482 项；HTTP/既有六个 HTTPS Chromium 变体/WMS 领域 178 项；架构 29 项。不重复累计重叠用例。[实体附件客户端](171-t07-current-entity-attachment-client.md)/[证据](172-t07-current-entity-attachment-client-tests.md)已完成基本接线，修复实际父子组合预览失效和离线未知恢复；完整组合浏览器矩阵在 TodoList。上述证据允许继续实施 T09，不代表未实现的主数据生命周期、真实 Broker 或完整父 DTC 已存在。

@@ -9,6 +9,7 @@
 
 | 切片 | 范围/设计 | 测试/证据状态 |
 |---|---|---|
+| T08/T09 仓库逻辑启停 | FUNC-WMS-001/PAGE-WMS-001、REQ-WMS-001..004、DTC-WMS-001状态子集、TC-T08-WSTATE-01..06；[设计及证据](implementation/174-t08-warehouse-operational-state.md) | 新增38owner/28HTTP/8配置/34前端；相关owner527、最终Release本片38/HTTP配置与五真实HTTPS浏览器41、前端956/严格构建、架构29/Release0/0/模型无漂移通过，重叠不合计。真实creator当前read/Enabled写、永久原版本回执/父仓并发、实际活动阻断/回滚、默认关闭PUT、预览及原键Unknown恢复；新增状态表并校正设计时owner迁移历史。不关闭库位/容器/公开审核收货/最终运输或T08/T09 |
 | T09 当前受权草稿修订 | FUNC-WMS-002/PAGE-WMS-003，DTC-WMS-002/003草稿保存子集，TC-T09-REV-01..06；[设计及证据](implementation/173-t09-inbound-basic-flow.md) | 新增39owner/34HTTP/8配置/25前端；最终owner252、相关Modules230含91HTTP/134领域与配置/5真实浏览器、前端922/严格构建、架构29/Release0/0/模型无漂移通过。不可变原Plan+revision事实、永久原版本回执、真实creator当前完整写/read和提交前复验、Draft/父单并发守卫、独立默认关闭PUT、实际创建→修订→另读及原tupleUnknown恢复；不关闭来源深化/运营主数据/审核收货/最终运输或T09 |
 | T09 当前受权草稿创建 | FUNC-WMS-002/PAGE-WMS-003，DTC-WMS-002/003创建子集，TC-T09-DRAFT-01..06；[设计及证据](implementation/173-t09-inbound-basic-flow.md) | 新增46owner/33HTTP/8配置/41前端；最终owner213、相关Modules188含57HTTP/126领域与配置/5真实浏览器、前端897/严格构建、架构29/Release0/0通过。当前写/真实父仓与提交前复验、原Id-only回执、严格默认关闭POST、多行预览确认/原操作未知恢复；不关闭修订/来源深化、审核/收货、运营主数据、运输或T09 |
 | T09 当前受权入库目录 | FUNC-WMS-002/PAGE-WMS-003，DTC-WMS-002/003读取子集，TC-T09-CAT-01..05；[设计及证据](implementation/173-t09-inbound-basic-flow.md) | 新增24owner/10HTTP/32前端；最终owner167、Modules147含24HTTP/118领域/5真实浏览器、前端856/严格构建、架构29/Release0/0通过。SQL分页前creator逐字段交集、精确筛选、读后范围复验、实际选择重读及双侧403清旧；替代上一片相关回归但不重复累计，不关闭公开写/运营主数据/运输或T09 |

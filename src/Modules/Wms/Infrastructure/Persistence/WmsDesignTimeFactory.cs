@@ -8,6 +8,7 @@ public sealed class WmsDesignTimeFactory : IDesignTimeDbContextFactory<WmsDbCont
 {
     /// <inheritdoc />
     public WmsDbContext CreateDbContext(string[] args) =>
-        new(new DbContextOptionsBuilder<WmsDbContext>().UseMySQL().Options,
+        new(new DbContextOptionsBuilder<WmsDbContext>()
+                .UseMySQL(mysql => mysql.MigrationsHistoryTable("__WesWmsMigrations")).Options,
             new Guid("00000000-0000-0000-0000-000000000001"));
 }

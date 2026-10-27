@@ -633,6 +633,63 @@ namespace Wes.Wms.Infrastructure.Persistence.Migrations
                     b.ToTable("wms_locations", (string)null);
                 });
 
+            modelBuilder.Entity("Wes.Wms.Domain.WarehouseStateChange", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("OperationId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("ActorId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("AfterVersion")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<bool>("BeforeEnabled")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("BeforeVersion")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("CorrelationId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("WarehouseId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "OperationId");
+
+                    b.HasIndex("TenantId", "WarehouseId", "AfterVersion")
+                        .IsUnique();
+
+                    b.ToTable("wms_warehouse_state_changes", (string)null);
+                });
+
             modelBuilder.Entity("Wes.Wms.Domain.WmsOutboxMessage", b =>
                 {
                     b.Property<string>("TenantId")
@@ -809,6 +866,15 @@ namespace Wes.Wms.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("Wes.Wms.Domain.WarehouseLocation", b =>
+                {
+                    b.HasOne("Wes.Wms.Domain.Warehouse", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Wes.Wms.Domain.WarehouseStateChange", b =>
                 {
                     b.HasOne("Wes.Wms.Domain.Warehouse", null)
                         .WithMany()

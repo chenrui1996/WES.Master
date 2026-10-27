@@ -47,6 +47,7 @@ public sealed partial class WmsDbContext
             .OnDelete(DeleteBehavior.Restrict);
         change.HasOne<WarehouseLocation>().WithMany().HasForeignKey(item => new { item.TenantId, Id = item.LocationId })
             .OnDelete(DeleteBehavior.Restrict);
+        ConfigureWarehouseState(builder);
     }
 
     private void ValidateMasterDataWrites()
@@ -55,9 +56,10 @@ public sealed partial class WmsDbContext
         var locations = ChangeTracker.Entries<WarehouseLocation>().Where(item => item.State == EntityState.Added).Select(item => item.Entity).ToArray();
         var changes = ChangeTracker.Entries<MasterDataChange>().Where(item => item.State == EntityState.Added).Select(item => item.Entity).ToArray();
         foreach (var entry in ChangeTracker.Entries().Where(item =>
-            item.Entity is Warehouse or WarehouseLocation or MasterDataChange
+            item.Entity is WarehouseLocation or MasterDataChange
             && item.State is EntityState.Modified or EntityState.Deleted))
             throw new InvalidOperationException("Master-data identities and creation facts cannot be changed or deleted by the creation unit of work.");
+        ValidateWarehouseStateWrites();
         foreach (var warehouse in warehouses)
             if (warehouse.Enabled || changes.Count(change => Matches(change, warehouse)) != 1)
                 throw new InvalidOperationException("Every disabled warehouse creation requires exactly one matching new creation fact.");

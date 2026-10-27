@@ -23,12 +23,19 @@ public sealed class Warehouse
     public string Code { get; private set; } = "";
     /// <summary>Safe display name, never interpreted as code or a Pack address.</summary>
     public string Name { get; private set; } = "";
-    /// <summary>Remains false until a separately authorized operational activation is implemented.</summary>
+    /// <summary>Logical availability only; never proves location, inventory or physical safety authority.</summary>
     public bool Enabled { get; private set; }
-    /// <summary>Opaque version used by future controlled updates, not an authorization cache.</summary>
+    /// <summary>Opaque owner version for controlled updates, never an authorization cache.</summary>
     public string Version { get; private set; } = Guid.NewGuid().ToString("D");
     /// <summary>Owner UTC creation time.</summary>
     public DateTimeOffset CreatedAt { get; private set; }
+
+    internal void ChangeState(bool enabled)
+    {
+        if (Enabled == enabled) throw new InvalidOperationException("Warehouse state must actually change.");
+        Enabled = enabled;
+        Version = Guid.NewGuid().ToString("D");
+    }
 }
 
 internal static class MasterDataValue

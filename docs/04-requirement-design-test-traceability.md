@@ -9,6 +9,8 @@
 
 | 切片 | 范围/设计 | 测试/证据状态 |
 |---|---|---|
+| T09 入库领域首片 | FUNC-WMS-002/PAGE-WMS-003，DTC-WMS-002/003、VAL-01 领域子集；[设计及证据](implementation/173-t09-inbound-basic-flow.md) | 新增6项，WMS领域118/架构29通过、Release0/0；多行/部分收货/超收拒绝/同址无运输/异址待确认及精确到达。尚无持久 owner、当前授权 HTTP 或页面，不宣称 T09 基本链路已完成 |
+| T07 当前实体附件客户端基本软件 | PAGE-PLAT-007/FUNC-PLAT-005，DTC-UI 与引用写适用子集；[设计](implementation/171-t07-current-entity-attachment-client.md) | [证据](implementation/172-t07-current-entity-attachment-client-tests.md)：新增40前端，全前端770及严格构建、真实MySQL owner482、HTTP/既有浏览器/WMS领域178、架构29通过，重叠不累加；原元组二次确认/未知恢复及实际父子组合验证，专用组合浏览器和外部证据按[TodoList](implementation/TodoList.md)后置 |
 | T07当前实体附件目录 | REQ-PLAT-007..012/FUNC-PLAT-005，PAGE-PLAT-007及DTC-PLAT-005/007/014目录子集；[设计](implementation/169-t07-current-entity-attachment-catalog.md) | [证据](implementation/170-t07-current-entity-attachment-catalog-tests.md)：新增30真实owner/28 HTTP，相关333含既有HTTPS文件浏览器、精确最终新API28/架构29、Release0/0，不重复累计；当前实体两时点、精确引用和逐字段scope SQL分页前交集，无物理IO/新迁移。客户端/真实病毒库/ACL及整包仍缺 |
 | T07持久具名附件绑定/解绑 | REQ-PLAT-007..012/FUNC-PLAT-005，DTC-PLAT-007/008/014引用写子集；[设计](implementation/167-t07-durable-business-file-bindings.md) | [证据](implementation/168-t07-durable-business-file-bindings-tests.md)：明确双owner写字段、全部来源实体当前read、永久同键恢复及引用/计数/版本/审计/回执单事务；真实1213由父文件锁顺序根治。严格PUT/DELETE复用默认双开关，无完整目录/客户端或真实病毒库/ACL，不代签父DTC/整包 |
 | T07具名实体附件读取 | REQ-PLAT-007..012/FUNC-PLAT-005，DTC-PLAT-007/008/014读取子集；[设计](implementation/165-t07-entity-authorized-file-reads.md) | [证据](implementation/166-t07-entity-authorized-file-reads-tests.md)：新增26真实MySQL/21 HTTP，相关Release221含五套既有HTTPS浏览器/架构29、构建0/0；精确绑定+当前WMS实体+文件权限交集，复用IO后复验/审计/清零。无绑定/解绑应用入口、业务目录/客户端或真实病毒库/ACL，不代签父DTC/整包 |

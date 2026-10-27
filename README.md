@@ -9,6 +9,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 ## 文档工作区
 
+2026-10-27 起按[基本功能优先与 TodoList](docs/implementation/TodoList.md)推进：外部验证关闭本轮阻断而非记录通过，非主体增强后置。前置已实现软件本轮验证为前端770/严格构建、真实MySQL owner482、HTTP/既有HTTPS浏览器/WMS领域178、架构29通过（有重叠不重复累计）。[实体附件客户端](docs/implementation/171-t07-current-entity-attachment-client.md)/[证据](docs/implementation/172-t07-current-entity-attachment-client-tests.md)已基本交付；继续T09，不将缺失主体代码或现场验收标为完成。
+
 T07目录续片：[当前实体附件目录](docs/implementation/169-t07-current-entity-attachment-catalog.md)/[证据](docs/implementation/170-t07-current-entity-attachment-catalog-tests.md)实现仓/位固定集合GET、当前实体两时点核验、精确实际引用及九字段scope在SQL分页前交集，复用暂存查询且不触碰物理存储/扫描。新增30真实owner/28 HTTP，相关333项含既有HTTPS文件浏览器、精确最终28项新API/架构29及Release0/0通过，不重复累计。历史“无业务附件目录API”由本片替代；附件客户端、真实病毒库/ACL及T04–T08整包仍缺。
 
 T07写续片：[永久具名附件绑定/解绑](docs/implementation/167-t07-durable-business-file-bindings.md)/[证据](docs/implementation/168-t07-durable-business-file-bindings-tests.md)实现当前双owner明确Attach/Detach、全部持久来源实体read、引用/计数/版本/审计/永久回执原子提交及严格PUT/DELETE。新增30真实owner/32 HTTP，首轮620项、来源权限RED修正后的最终相关282项含六套既有HTTPS浏览器及Release0/0通过（不重复累计）。真实MySQL1213由父文件锁顺序根治；来源撤权/未登记旧owner不允许另绑绕权，同键恢复只返回原事实。复用两个默认关闭开关；业务附件目录/客户端、真实病毒库/ACL及T04–T08整包仍缺。

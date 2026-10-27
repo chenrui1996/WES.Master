@@ -7,6 +7,10 @@
 
 ## 1. 范围与角色
 
+2026-10-27 基本功能优先授权：外部验证项移出本轮软件推进门槛，关闭本轮阻断但不记录为已验证或生产放行；非主体增强转入[TodoList](TodoList.md)。先验证 T08 及以前主体链路，再按依赖推进 T09。以下历史 partial/外部缺口记录保留为事实，不再单独阻断基本软件实施；缺失的主体代码、权限/库存不变量及真实结果合同仍需实现和验证。
+
+本轮基本验证已通过：前端 36 文件/770 项及严格生产构建；真实 MySQL 账本/主数据/附件 owner 482 项；HTTP/既有六个 HTTPS Chromium 变体/WMS 领域 178 项；架构 29 项。不重复累计重叠用例。[实体附件客户端](171-t07-current-entity-attachment-client.md)/[证据](172-t07-current-entity-attachment-client-tests.md)已完成基本接线，修复实际父子组合预览失效和离线未知恢复；完整组合浏览器矩阵在 TodoList。上述证据允许继续实施 T09，不代表未实现的主数据生命周期、真实 Broker 或完整父 DTC 已存在。
+
 最新T07目录：[当前实体附件目录](169-t07-current-entity-attachment-catalog.md)/[证据](170-t07-current-entity-attachment-catalog-tests.md)已验证固定仓/位集合GET、实际精确引用/计数、当前实体两时点和逐字段文件scope SQL过滤后分页，暂存仍拒绝绑定。新增30真实owner/28 HTTP，相关166+138含既有HTTPS文件浏览器+29架构=333；随后精确最终新API28/架构29及Release0/0通过，不重复累计。历史“无目录API”已替代；客户端、真实扫描/病毒库/ACL及T07整包仍缺。
 
 最新T07写：[永久具名绑定/解绑](167-t07-durable-business-file-bindings.md)/[证据](168-t07-durable-business-file-bindings-tests.md)实现当前双owner Attach/Detach和全部既有来源实体read、精确引用/计数/版本/审计/永久操作回执单事务、锁后复验与严格PUT/DELETE。新增30真实owner/32 HTTP，首轮620项、来源RED修正后最终282项含六套既有HTTPS浏览器、Release0/0通过，不重复累计。MySQL1213通过先锁父文件根治；来源撤权/未登记owner不允许另绑，恢复只返回原提交事实。历史“无绑定/解绑应用入口”已由本片替代；仍无完整业务附件目录/客户端或真实病毒库/ACL，不关闭T07。
@@ -32,7 +36,7 @@ T07读取记录：[具名实体附件](165-t07-entity-authorized-file-reads.md)/
 | T04 | 父DTC全变体/页面与命令适用矩阵及剩余集成验收，日志→Outbox→job全链路 | 生产最小权限/保留容量与运维验收 |
 | T05 | 实际Broker adapter/运行能力登记、WMS消费Inbox、跨owner统一快照与完整聚合、完整投递恢复接线；默认关闭WMS调度桥已验证 | 批准隔离Broker、ACK丢失/崩溃窗口实测 |
 | T06 | 全具名页面DTC矩阵、其他owner固定核对快照与相关客户端 | 真实PDA/OS/扫码枪矩阵 |
-| T07 | 当前实体附件客户端及完整页面验收；仓/位当前目录/读取和持久绑定/解绑owner/API已验证 | 真实ClamAV/病毒库/识别/健康、部署ACL |
+| T07 | 实体附件客户端基本软件已验；完整组合页面验收后置，仓/位当前目录/读取和持久绑定/解绑owner/API已验证 | 真实ClamAV/病毒库/识别/健康、部署ACL（本轮阻断关闭，部署前仍需验证） |
 | T08 | 完整主数据启停/层级/容器、固定核对快照/导出、流水来源业务跳转及运输完成闭环 | 实际Pack schema/资源归属及相应现场门禁 |
 
 上述缺口不能由现有自动化测试数量或本轮切片完成代签；当前实现可继续按依赖推进，但T04–T08整体仍为partial。

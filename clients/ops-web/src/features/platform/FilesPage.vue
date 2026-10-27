@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, shallowRef, watch } from "vue";
 import QueryState from "../../components/QueryState.vue";
-import { api, apiBlob, ApiError, isRecord, sessionState } from "../identity/identity-api";
+import { api, ApiError, isRecord, sessionState } from "../identity/identity-api";
+import { downloadAuthorizedFile } from "./file-download";
 import StagingFileCatalog from "./StagingFileCatalog.vue";
 import { labels, maximum, parseStagingFile, readFields, types, uuid, validName, type StagingFile } from "./staging-file";
 const record = ref<StagingFile | null>(null);
@@ -142,17 +143,9 @@ async function downloadFile() {
   if (!usable.value || !file || file.state !== 1 || !file.stored || !mayDownload.value || !mayRead.value) return;
   const run = begin();
   try {
-    const content = await apiBlob(`/api/platform/files/staging/${file.id}/content`, { signal: run.signal });
-    if (!run.current() || record.value?.id !== file.id || record.value.version !== file.version) return;
-    if (content.size !== file.byteCount || content.type.split(";")[0] !== file.contentType)
-      throw new Error("下载内容证据与当前文件不符，未交付。");
-    const url = URL.createObjectURL(content);
-    const anchor = document.createElement("a");
-    try {
-      anchor.href = url; anchor.download = file.fileName; anchor.hidden = true;
-      document.body.append(anchor); anchor.click();
+    if (await downloadAuthorizedFile(`/api/platform/files/staging/${file.id}/content`, file, run.signal,
+      () => run.current() && record.value?.id === file.id && record.value.version === file.version))
       message.value = "已发起受权下载；请在浏览器中确认接收结果。";
-    } finally { anchor.remove(); URL.revokeObjectURL(url); }
   } catch (failure) { if (run.current()) failed(failure); }
   finally { if (run.ticket === sequence) busy.value = false; }
 }

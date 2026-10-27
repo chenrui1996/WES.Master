@@ -3,6 +3,9 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import MasterDataPage from "./MasterDataPage.vue";
 import { forgetIdentity, sessionState, setAccessToken } from "../identity/identity-api";
 import WarehouseCreation from "./MasterDataCreation.vue";
+import EntityAttachments from "./EntityAttachments.vue";
+import MasterDataCatalog from "./MasterDataCatalog.vue";
+import { readFields } from "../platform/staging-file";
 
 const id = "77966ccd-f1dd-412d-8e45-adb475608842";
 const second = "a029ce52-d810-405c-b349-c0ac9ebad74b";
@@ -24,6 +27,69 @@ async function read(target = id) {
   await wrapper!.get('[name="resourceId"]').setValue(target);
   await wrapper!.get("form").trigger("submit"); await flushPromises();
 }
+
+it("mounts the exact current entity attachment workspace only after explicit detail read and does not autoquery files", async () => {
+  sessionState.subject!.grants.push({ permission: "platform.files.read", scope: 0, departments: [], fields: [...readFields] });
+  wrapper = mount(MasterDataPage);
+  expect(wrapper.findComponent(EntityAttachments).exists()).toBe(false);
+  await read();
+  expect(wrapper.getComponent(EntityAttachments).props()).toEqual({ kind: "warehouses", entityId: id, active: true });
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+it("locks all parent target-changing surfaces during an attachment preview or unknown operation", async () => {
+  sessionState.subject!.grants.push({ permission: "platform.files.read", scope: 0, departments: [], fields: [...readFields] },
+    { permission: "wms.warehouses.write", scope: 0, departments: [], fields: ["Code", "Name"] });
+  wrapper = mount(MasterDataPage); await read();
+  const attachments = wrapper.getComponent(EntityAttachments);
+  attachments.vm.$emit("locked", true); await flushPromises();
+  expect(wrapper.get('[name="resourceKind"]').attributes("disabled")).toBeDefined();
+  expect(wrapper.get('[name="resourceId"]').attributes("disabled")).toBeDefined();
+  expect(wrapper.findAll("button").find(button => button.text() === "新建禁用仓库")!.attributes("disabled")).toBeDefined();
+  expect(wrapper.getComponent(MasterDataCatalog).props("readable")).toBe(false);
+  wrapper.getComponent(MasterDataCatalog).vm.$emit("select", second);
+  await wrapper.get("form").trigger("submit"); await flushPromises();
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(wrapper.getComponent(EntityAttachments).props("entityId")).toBe(id);
+  vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+  dispatchEvent(new Event("offline")); await flushPromises();
+  expect(wrapper.getComponent(EntityAttachments).props("active")).toBe(false);
+  expect(wrapper.getComponent(EntityAttachments).element).toBe(attachments.element);
+});
+
+it("keeps the actual attachment preview confirmable and preserves the original operation across offline recovery", async () => {
+  const fileId = "66966ccd-f1dd-412d-8e45-adb475608842";
+  const file = { id: fileId, fileName: "note.txt", contentType: "text/plain", byteCount: 4, state: 1,
+    stored: true, version: second, createdAt: row.createdAt, processingProblem: false };
+  sessionState.subject!.grants.push(
+    { permission: "platform.files.read", scope: 0, departments: [], fields: [...readFields] },
+    { permission: "platform.files.write", scope: 0, departments: [], fields: ["Detach"] },
+    { permission: "wms.warehouses.write", scope: 0, departments: [], fields: ["Detach"] });
+  wrapper = mount(MasterDataPage); await read();
+  const attachments = wrapper.getComponent(EntityAttachments);
+  vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ decision: 0, rows: [file], offset: 0, limit: 25 })));
+  await attachments.get('[data-test="attachments-read"]').trigger("click"); await flushPromises();
+  vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ decision: 0, file })));
+  await attachments.get('[data-test="attachment-select"]').trigger("click"); await flushPromises();
+  await attachments.get('[data-test="attachment-prepare"]').trigger("click"); await flushPromises();
+  expect(attachments.get('[data-test="attachment-confirm"]').attributes("disabled")).toBeUndefined();
+  expect(wrapper.get('[name="resourceId"]').attributes("disabled")).toBeDefined();
+  vi.mocked(fetch).mockRejectedValueOnce(new TypeError("response lost"));
+  await attachments.get('[data-test="attachment-confirm"]').trigger("click"); await flushPromises();
+  const original = vi.mocked(fetch).mock.calls.at(-1)!;
+  const online = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+  dispatchEvent(new Event("offline")); await flushPromises();
+  expect(wrapper.getComponent(EntityAttachments).element).toBe(attachments.element);
+  expect(attachments.get('[data-test="attachment-retry"]').attributes("disabled")).toBeDefined();
+  online.mockReturnValue(true); dispatchEvent(new Event("online")); await flushPromises();
+  expect(attachments.get('[data-test="attachments-read"]').attributes("disabled")).toBeDefined();
+  expect(attachments.get('[data-test="attachment-retry"]').attributes("disabled")).toBeUndefined();
+  vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ id: fileId, version: second, attached: false })));
+  await attachments.get('[data-test="attachment-retry"]').trigger("click"); await flushPromises();
+  const retry = vi.mocked(fetch).mock.calls.at(-1)!;
+  expect(retry[0]).toBe(original[0]); expect(retry[1]?.body).toBe(original[1]?.body);
+  expect(new Headers(retry[1]?.headers).get("Idempotency-Key")).toBe(new Headers(original[1]?.headers).get("Idempotency-Key"));
+  expect(attachments.find('[data-test="attachment-receipt"]').exists()).toBe(true);
+});
 
 it("reads only after explicit submit and renders safe disabled warehouse details without write actions", async () => {
   wrapper = mount(MasterDataPage);

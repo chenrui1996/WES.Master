@@ -128,6 +128,8 @@
 
 ### T07：隔离文件与受权引用
 
+- [x] [当前实体附件客户端基本软件](../../implementation/171-t07-current-entity-attachment-client.md)/[证据](../../implementation/172-t07-current-entity-attachment-client-tests.md)：固定仓/位上下文、显式目录/重读、原 tuple 二次确认/未知恢复、父页目标互锁及共有下载。前端770/严格构建、相关MySQL owner482、HTTP/既有浏览器/WMS领域178、架构29通过；新组合浏览器全矩阵及外部项按 TodoList 后置，不代签完整父DTC。
+
 **Files:** `src\Modules\Platform\Features\Files\{UploadFile.cs,ScanFile.cs,DownloadFile.cs,CleanOrphans.cs}`、`Domain\FileRecord.cs`；`clients\ops-web\src\features\platform\FilesPage.vue`；`tests\Modules\Platform\FileLifecycleTests.cs`。
 
 **Interfaces:** 消费实体授权/存储扫描能力；产出FUNC-PLAT-005/PAGE-PLAT-007的隔离→扫描→Available引用，Workflow只存该受权引用，不接真实secret或任意URL。
@@ -186,6 +188,10 @@
 - [ ] 三Provider量化/约束/事务和固定快照导出测试，元数据/关联列/盲盘字段投影不泄露；账本append-only补偿，WCS只能消费契约；VAL-01/02/08。
 
 ### T09：入库收货与上架
+
+2026-10-27 执行优先级调整：按[基本功能与后置清单](../../implementation/TodoList.md)先验证前置主体程序，再交付本包最小完整软件链路；外部验收不阻断实施，但仍不伪造 Pack/运输到达或绕过库存不变量。三 Provider 要求继续按 ADR-0002 以 MySQL 为当前必需、其余延后。
+
+- [x] [入库领域首片](../../implementation/173-t09-inbound-basic-flow.md)：多行计划/审核/部分收货、原操作/执行身份去重、同址无运输、异址精确最终到达；新增6项，领域118/架构29/Release0/0通过。该片为内部状态机，持久事务、当前授权 HTTP 与具名页面仍待实施，不关闭本包。
 
 **Files:** `src\Modules\Wms\Features\Inbound\{SaveInbound.cs,ApproveInbound.cs,ReceiveGoods.cs,RequestPutaway.cs,ApplyArrival.cs}`；`clients\ops-web\src\features\wms\InboundPage.vue`；`tests\Modules\Wms\InboundTests.cs`。
 

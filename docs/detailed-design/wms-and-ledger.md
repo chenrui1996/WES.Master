@@ -42,6 +42,8 @@
 
 ## 2. 功能/契约
 
+仓/位创建现增加[owner原子Outbox](../implementation/135-t05-t08-wms-creation-outbox.md)/[证据](../implementation/136-t05-t08-wms-creation-outbox-tests.md)，与默认禁用资源及永久创建事实同事务，逐字段防伪、稳定事件身份、重放不重复，失败全部回滚。只非物理创建事实，不能推断资源已启用或库存/运输完成；不代签DTC-WMS-001的占用/绑定/活动任务变体。迁移不回填历史事件，无WMS publisher/Inbox/Host写入接线。
+
 | FUNC定义 | PAGE/REQ/原TC | 编号主流程、状态和拒绝 |
 |---|---|---|
 | FUNC-WMS-001 | 001/002；REQ-WMS-001..004；WMS-TC-002/011 | 1验证组织/仓库/Pack schema；2检查唯一代码与父子归属；3检查占用/预约/锁/活动任务；4版本化更新或拒绝。位置业务占位与容器归属在WMS事务内，禁位不能解除实际占用 |

@@ -41,6 +41,8 @@
 
 ## 4. WMS与运输协作
 
+局部实现事件 `wms.master-data.created`/schemaVersion=1，Owner=`Wms`；仅默认禁用仓/位新创建事实，非启用/库存/物理控制命令。envelope与安全payload、tenant/operation事件身份、不可变/回放及迁移兼容详见[WMS创建Outbox](../implementation/135-t05-t08-wms-creation-outbox.md)。该切片仅owner事务Pending暂存，无publisher/consumer/历史回填，不能将下表运输合同标作已实现。
+
 | 契约/路径规划 | 请求必填（另含适用context） | 输出/owner与不变量 |
 |---|---|---|
 | Wms.QueryStock / GET wms/stocks | warehouseId,已授权筛选,稳定排序,cursor?/snapshotId? | stockId,materialId,bookLocationId,quantity,reserved,inTransit,available,version；关联投影也受字段权限；保护数量按并集扣减 |

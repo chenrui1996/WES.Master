@@ -28,6 +28,7 @@ public sealed partial class WmsDbContext : DbContext
     {
         ConfigureReservations(modelBuilder);
         ConfigureMasterData(modelBuilder);
+        ConfigureOutbox(modelBuilder);
         var balance = modelBuilder.Entity<StockBalance>();
         balance.ToTable("wms_stock_balances");
         balance.HasKey(item => new { item.TenantId, item.Id });
@@ -118,6 +119,7 @@ public sealed partial class WmsDbContext : DbContext
         ValidateLedgerEffects();
         ValidateReservationEffects();
         ValidateMasterDataWrites();
+        StageMasterDataOutbox();
         foreach (var entry in ChangeTracker.Entries().Where(item =>
             item.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
         {

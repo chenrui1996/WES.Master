@@ -193,6 +193,7 @@ public sealed partial class IdentityHttpTests
         foreach (var tenant in new[] { _tenant, _wmsForeignTenant })
         {
             await using var owner = OpenWmsMasterData(tenant);
+            await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_outbox_messages WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_master_data_changes WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_locations WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_warehouses WHERE TenantId = {tenant.ToString("D")}");

@@ -20,6 +20,8 @@
 
 ## 2. 功能与契约
 
+T05/T08现增加[WMS创建原子Outbox](../implementation/135-t05-t08-wms-creation-outbox.md)/[证据](../implementation/136-t05-t08-wms-creation-outbox-tests.md)：仅新禁用仓/位创建事实在WMS owner事务派生`wms.master-data.created`/v1安全事件，operation重放不追加，旧事实不自动回填。不含WMS publisher/Inbox或跨owner诊断统计，Pending不是已投递/已启用/可分配；不代签DTC-NTF-001/002真实Broker窗口。
+
 | FUNC定义 | PAGE/REQ/原TC | 主流程与失败恢复 |
 |---|---|---|
 | FUNC-NTF-001 | 003；REQ-NTF-004..008；NTF-TC-001..005/015 | 1owner事务保存业务+Outbox；2publisher持久竞争发送；3consumer以MessageId/业务状态去重；4瞬时退避/永久隔离；5重放核版本/权限/期限/物理能力。ACK丢失可重复投递但不可重复逻辑效果；业务结果不从Broker ACK推导 |

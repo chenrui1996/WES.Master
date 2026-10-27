@@ -105,9 +105,11 @@ public sealed partial class WmsMasterDataTests : IAsyncLifetime
         Assert.Equal(MasterDataDecision.Created, (await new CreateMasterData(other, _clock, new Schema(LocationSchemaDecision.Unavailable))
             .ExecuteAsync(command)).Decision);
         Assert.Single(await other.Warehouses.ToListAsync());
+        Assert.Equal(command.OperationId, (await other.OutboxMessages.SingleAsync()).EventId);
         await using var original = Open(_tenant);
         Assert.Single(await original.Warehouses.ToListAsync());
         Assert.Single(await original.MasterDataChanges.ToListAsync());
+        Assert.Equal(command.OperationId, (await original.OutboxMessages.SingleAsync()).EventId);
     }
 
     [Theory]
@@ -123,6 +125,9 @@ public sealed partial class WmsMasterDataTests : IAsyncLifetime
         await using var verify = Open(_tenant);
         Assert.Single(await verify.Warehouses.ToListAsync());
         Assert.Single(await verify.MasterDataChanges.ToListAsync());
+        var message = await verify.OutboxMessages.SingleAsync();
+        Assert.Contains(message.EventId, new[] { command.OperationId, second.OperationId });
+        Assert.Equal(results[0].Id ?? results[1].Id, message.AggregateId);
     }
 
     [Fact]
@@ -154,6 +159,7 @@ public sealed partial class WmsMasterDataTests : IAsyncLifetime
         {
             Assert.Empty(await verify.Warehouses.ToListAsync());
             Assert.Empty(await verify.MasterDataChanges.ToListAsync());
+            Assert.Empty(await verify.OutboxMessages.ToListAsync());
         }
         Assert.Equal(MasterDataDecision.Created, (await ExecuteAsync(command)).Decision);
     }
@@ -228,6 +234,7 @@ public sealed partial class WmsMasterDataTests : IAsyncLifetime
         foreach (var tenant in new[] { _tenant, _other })
         {
             await using var owner = Open(tenant);
+            await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_outbox_messages WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_master_data_changes WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_locations WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_warehouses WHERE TenantId = {tenant.ToString("D")}");

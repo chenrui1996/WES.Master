@@ -9,6 +9,7 @@
 
 | 切片 | 范围/设计 | 测试/证据状态 |
 |---|---|---|
+| T05/T08 WMS创建原子Outbox | REQ-NTF-004..008/FUNC-NTF-001、REQ-WMS-001..004/FUNC-WMS-001；[设计](implementation/135-t05-t08-wms-creation-outbox.md) | [证据](implementation/136-t05-t08-wms-creation-outbox-tests.md)：新增17真实owner，主数据141+领域/HTTP/真实浏览器100+架构29=270通过；Release零警告错误，无模型漂移、实查DDL；仅创建原语，非DTC-NTF-001/002或DTC-WMS-001整体验收 |
 | T05 Platform owner消息计数 | REQ-NTF-004..008、PAGE-NTF-003；[设计](implementation/133-t05-owner-message-counts.md) | [证据](implementation/134-t05-owner-message-counts-tests.md)：新增20真实owner/8HTTP/31客户端；前端427/严格构建、MySQL38、HTTP/真实浏览器21、架构29通过；非Broker健康或业务效果累计，跨owner/父DTC不代签 |
 | T05 Platform消息筛选 | REQ-NTF-004..008、PAGE-NTF-003；[设计](implementation/131-t05-filtered-message-diagnostics.md) | [证据](implementation/132-t05-filtered-message-diagnostics-tests.md)：新增15真实owner/10HTTP/17客户端；前端396及严格构建、HTTP/真实浏览器13、MySQL18、架构29通过；不代签完整.NET、跨owner/Inbox/Broker |
 | T05 Platform受权重放客户端 | REQ-NTF-004..008、PAGE-NTF-003/FUNC-NTF-001局部；[设计](implementation/129-t05-authorized-message-replay-client.md) | [证据](implementation/130-t05-authorized-message-replay-client-tests.md)：前端379及严格构建、真实HTTPS浏览器/HTTP3与MySQL重放2通过；同事件/原键/理由/expected预览与未知结果重试；父DTC/跨owner/Broker不代签 |

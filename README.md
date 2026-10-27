@@ -9,6 +9,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 ## 文档工作区
 
+T05/T08最新续片：[WMS创建原子Outbox](docs/implementation/135-t05-t08-wms-creation-outbox.md)/[测试证据](docs/implementation/136-t05-t08-wms-creation-outbox-tests.md)，新增默认禁用主数据时同owner事务派生精确待发布事件，重放不重复、晚期失败三表均回滚。相关MySQL/领域/HTTP/真实浏览器/架构270通过，Release零警告错误；不含WMS publisher/Inbox、跨owner统计或真实Broker，T04–T08整包仍未关闭。
+
 页面/功能深化入口：[全模块页面、功能与详细测试设计](docs/detailed-design/README.md)。包含文本线框、字段/权限/状态、功能流程及逐步骤测试；已批准为软件实施基线，不代表实现或测试通过。
 
 实施排程：[开发与测试总计划](docs/superpowers/plans/2026-10-23-wes-development-and-testing.md)、[34个开发工作包](docs/superpowers/plans/2026-10-23-wes-development-work-packages.md)、[测试执行与证据计划](docs/superpowers/plans/2026-10-23-wes-test-execution.md)。当前进展与阻断见[实施就绪台账](docs/implementation/readiness-register.md)；跨owner接口见[契约基线](docs/contracts/01-business-and-execution-contracts.md)。数据库按[MySQL先行决策](docs/adr/ADR-0002-mysql-first-implementation.md)，其他两种延后验收。

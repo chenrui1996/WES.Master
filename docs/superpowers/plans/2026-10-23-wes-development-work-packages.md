@@ -70,6 +70,8 @@
 
 ### T05：owner事务Outbox/Inbox与可靠投递
 
+- [x] WMS主数据新增默认禁用仓/位由owner持久化门禁派生精确不可变Outbox，与永久创建事实同事务；重放不追加、晚期失败三表均回滚、不回填旧operation。新增17真实owner，主数据141+领域/HTTP/真实浏览器100+架构29=270通过，Release零警告错误，实际DDL/模型验证通过。[设计](../../implementation/135-t05-t08-wms-creation-outbox.md)/[证据](../../implementation/136-t05-t08-wms-creation-outbox-tests.md)。不包含WMS publisher/Inbox/跨owner统计或真实Broker，整包不关闭。
+
 **Files:** `src\Modules\Notifications\Features\Messaging\{PublishOutbox.cs,ReplayMessage.cs,QueryDelivery.cs}`；每写入owner的`Infrastructure\Messaging\{OutboxStore.cs,InboxStore.cs}`和本模块迁移；`clients\ops-web\src\features\notifications\MessagesPage.vue`；`tests\Modules\Notifications\MessagingTests.cs`、`tests\Contracts\MessagingContractTests.cs`。
 
 **Interfaces:** 消费稳定事件envelope和授权；产出FUNC-NTF-001/PAGE-NTF-003、模块本地事务适配器及message查询/重放。Notifications只管投递诊断，不持有各owner业务事务或通用跨库Outbox。
@@ -131,6 +133,8 @@
 ## B. 仓储与审批业务
 
 ### T08：WMS主数据与唯一账本
+
+- [x] 仓库/库位创建原语增加同事务owner-local唯一Outbox，相关270通过；见[T05/T08设计](../../implementation/135-t05-t08-wms-creation-outbox.md)/[证据](../../implementation/136-t05-t08-wms-creation-outbox-tests.md)。不改变默认禁用/当前授权/schema边界，Host写入/表单/其他业务Outbox/运输完成仍缺，不关闭T08。
 
 **Files:** `src\Modules\Wms\Domain\{StockBalance.cs,StockEntry.cs,StockProtection.cs,Location.cs,Container.cs}`、`Features\{MasterData\SaveLocation.cs,Inventory\QueryInventory.cs,Ledger\QueryLedger.cs}`、owner EF配置/迁移；`clients\ops-web\src\features\wms\{LocationsPage.vue,InventoryPage.vue,LedgerPage.vue}`；`tests\Modules\Wms\LedgerInvariantTests.cs`。
 

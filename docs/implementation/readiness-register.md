@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+最新T05/T08：[WMS创建原子Outbox](135-t05-t08-wms-creation-outbox.md)/[证据](136-t05-t08-wms-creation-outbox-tests.md)已交付owner持久化门禁由新创建事实派生唯一待发布事件；永久operation重放不追加，故障资源/事实/事件三表均回滚，旧operation不自动回填。新增17真实owner，最终主数据141+WMS领域/HTTP/真实HTTPS浏览器100+架构29=270通过，Release零警告错误；实际FK/索引/UTC列与模型无漂移通过。历史“WMS无Outbox”仅其余业务/发布消费部分仍适用；跨owner统计、WMS publisher/Inbox与真实Broker未完成，五个整包仍不关闭。
+
 最新T05计数：[设计](133-t05-owner-message-counts.md)/[证据](134-t05-owner-message-counts-tests.md)已交付Platform四状态与现存Inbox收据API/页面，新增20owner/8HTTP/31客户端。前端427/严格构建、MySQL38、HTTP/真实HTTPS浏览器21、架构29通过；显式统计字段，不自动授予原行读者，失败不转零、重放后陈旧且手工重读。此前“Inbox统计未完成”仅跨owner聚合部分仍适用；真实Broker/其他owner与五个整包仍未关闭。
 
 最新T05消息筛选：[设计](131-t05-filtered-message-diagnostics.md)/[证据](132-t05-filtered-message-diagnostics-tests.md)已交付Platform状态/UTC创建时间SQL过滤后分页与客户端筛选。前端396/严格构建、HTTP/真实HTTPS Chromium13、MySQL18、架构29通过，Release零警告错误；原参数兼容，非法400，补SQL物化完成时取消检查。以下历史“过滤未完成”仅跨owner部分仍适用；Inbox统计/真实Broker及五个整包仍未关闭。

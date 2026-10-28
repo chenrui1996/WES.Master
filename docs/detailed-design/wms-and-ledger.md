@@ -44,6 +44,8 @@ T09运输续片：[WMS耐久契约闭环](../implementation/179-t09-durable-inbo
 
 创建已增加[当前授权应用writer](../implementation/125-t08-current-authorized-master-data-creation.md)：仓库Code/Name需`wms.warehouses.write`，库位Code/Name/WarehouseId/PackId/SchemaVersion需独立`wms.locations.write`，并当前可读父仓及显式schema验证；creator仅为可信actor、永久operation重放也复验权限、默认禁用。见[证据](../implementation/126-t08-current-authorized-master-data-creation-tests.md)。该应用边界尚未装配HTTP/表单或真实Pack，不声称已交付页面新建/启停/完整生命周期。
 
+T11按[183设计](../implementation/183-t11-blind-count-and-local-lock.md)/[184证据](../implementation/184-t11-blind-count-tests.md)实施PAGE-WMS-006/FUNC-WMS-005：先位置级全部合法账维度盲盘、永久局部锁与非本人差异复核，后续再实现TransferOrder。计数与独立review不混同，人工失效后必须新快照/新行重盘；卡片全显，列偏好不适用，不跨单位汇总。原操作Unknown仅手工原tuple恢复；不从前端通过就关闭父DTC，实际当前验证状态以184为准。
+
 ## 2. 功能/契约
 
 PAGE-WMS-003后续[当前受权审核/收货与容器保护](../implementation/177-t09-authorized-inbound-execution.md)/[测试](../implementation/178-t09-authorized-inbound-execution-tests.md)已接通独立owner、默认关闭两个POST与具名预览确认/原键Unknown恢复/显式另读；真实多creator完整字段、保存后复验回滚、合法计划/维度、schema/Enabled及唯一容器账面位置/正库存/预留/待运输保护已验证。原请求身份与业务事实/ledger同事务，恢复原执行版本而非当前值；同键异址并发不能被自身赢家的保护误报为Blocked。最终owner127、旧账本/资源/库位相关529、HTTP/配置及六浏览器192、前端1051/严格构建通过，重叠不合计，最后发布门禁见测试记录。只新增执行请求身份表，未接耐久运输意图或最终到达移账；异址仍为源位实收/Executing/待运输。下列历史实现边界由本续片仅覆盖审核/收货与容器保护子集，T09/父DTC不整包关闭。

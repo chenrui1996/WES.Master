@@ -45,6 +45,8 @@ internal sealed partial class InboundTransportAccess
         var verified = Verification(await adapter.VerifyCompletionAsync(request, completion, ct));
         ct.ThrowIfCancellationRequested();
         if (verified is not null) return new(verified.Value);
+        if (originalEvent is { Applied: true })
+            return new(InboundTransportDecision.Replayed, intent.TransportId, originalEvent.PostingId);
         await using (var ingestion = await database.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct))
         {
             await ResourcesAsync(request, ct);

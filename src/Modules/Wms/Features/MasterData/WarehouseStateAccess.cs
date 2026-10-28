@@ -59,6 +59,9 @@ internal sealed class WarehouseStateAccess(WmsDbContext database, IMasterDataAut
                 }
                 if (version != request.ExpectedVersion) return Reject(WarehouseStateDecision.Conflict);
                 var row = await database.Warehouses.SingleAsync(item => item.Id == id, ct);
+                if (await database.Counts.AnyAsync(item => item.WarehouseId == id
+                    && (item.State == StockCountState.Counting || item.State == StockCountState.Ready), ct))
+                    return Reject(WarehouseStateDecision.Blocked);
                 if (row.Enabled == request.Enabled) return Reject(WarehouseStateDecision.Conflict);
                 if (!request.Enabled && await HasActivityAsync(id, ct)) return Reject(WarehouseStateDecision.Blocked);
                 var beforeEnabled = row.Enabled;

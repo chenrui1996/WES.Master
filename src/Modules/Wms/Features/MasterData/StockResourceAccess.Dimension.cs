@@ -33,12 +33,19 @@ internal sealed partial class StockResourceAccess
             if (!await Allowed()) return Reject(StockResourceDecision.Forbidden);
             if (container.WarehouseId != request.WarehouseId || location.WarehouseId != request.WarehouseId)
                 return Reject(StockResourceDecision.Blocked);
-            await WmsResourceLocks.AcquireAsync(database, request.WarehouseId, [request.LocationId], request.ContainerId, ct);
             var old = await database.DimensionRegistrations.AsNoTracking().SingleOrDefaultAsync(row => row.OperationId == request.OperationId, ct);
             if (old is not null)
                 return old.ActorId != subject.ActorId || old.WarehouseId != request.WarehouseId || old.LocationId != request.LocationId
                     || old.ItemId != request.ItemId || old.Batch != request.Batch || old.ContainerId != request.ContainerId
                     ? Reject(StockResourceDecision.Conflict) : await ReplayAsync(old.BalanceId, old.AfterVersion, Allowed);
+            await WmsResourceLocks.AcquireFencesAsync(database, request.WarehouseId, [request.LocationId], [request.ContainerId], ct);
+            old = await database.DimensionRegistrations.AsNoTracking().SingleOrDefaultAsync(row => row.OperationId == request.OperationId, ct);
+            if (old is not null)
+                return old.ActorId != subject.ActorId || old.WarehouseId != request.WarehouseId || old.LocationId != request.LocationId
+                    || old.ItemId != request.ItemId || old.Batch != request.Batch || old.ContainerId != request.ContainerId
+                    ? Reject(StockResourceDecision.Conflict) : await ReplayAsync(old.BalanceId, old.AfterVersion, Allowed);
+            if (await WmsResourceLocks.CountConflictAsync(database, request.WarehouseId, [request.LocationId], [request.ContainerId], ct))
+                return Reject(StockResourceDecision.Blocked);
             if (item.BatchRequired != (request.Batch.Length > 0)) return Reject(StockResourceDecision.Invalid);
             if (!await database.Warehouses.AnyAsync(row => row.Id == request.WarehouseId && row.Enabled, ct)
                 || !await database.Locations.AnyAsync(row => row.Id == request.LocationId && row.Enabled, ct))

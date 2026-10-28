@@ -31,11 +31,7 @@ internal sealed class ChangeStockReservation(WmsDbContext database, TimeProvider
             {
                 var dimension = await database.Balances.AsNoTracking().SingleOrDefaultAsync(item => item.Id == command.BalanceId, ct);
                 if (dimension is null) return new(ReservationDecision.NotFound);
-                if (await database.StockContainers.AnyAsync(row => row.Id == dimension.ContainerId, ct))
-                {
-                    var locations = await database.Locations.Where(row => row.Id == dimension.LocationId).Select(row => row.Id).ToArrayAsync(ct);
-                    await WmsResourceLocks.AcquireAsync(database, dimension.WarehouseId, locations, dimension.ContainerId, ct);
-                }
+                await WmsResourceLocks.AcquireBalanceResourcesAsync(database, [dimension], ct);
                 var balance = await database.Balances.SingleOrDefaultAsync(item => item.Id == command.BalanceId, ct);
                 if (balance is null) return new(ReservationDecision.NotFound);
                 if (!Guid.TryParseExact(command.ExpectedVersion, "D", out var version) || version == Guid.Empty)
@@ -100,6 +96,7 @@ internal sealed class ChangeStockReservation(WmsDbContext database, TimeProvider
                 return await FindReplayAsync(command, ct) ?? throw new InvalidOperationException("Reservation uniqueness conflict has no matching command identity.");
             }
         }
+        catch (CountLockConflictException) { return new(ReservationDecision.StateConflict); }
         catch (DbUpdateException error) when (error.InnerException is DbException)
         {
             ct.ThrowIfCancellationRequested();

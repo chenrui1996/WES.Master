@@ -22,6 +22,8 @@
 
 [T10出库基本链](../implementation/181-t10-outbound-basic-flow.md)新增独立默认关闭`Wes:WmsMasterData:OutboundEnabled`。仅在master-data/Identity依赖已满足、有效Provider/schema按既有owner装配时映射具名出库读写；true不授予任何字段/资源权限，不启动设备或T15运输。非法配置/缺依赖明确拒绝，不降级成可用；关闭入口不删出库事实、永久原回执、预留或已发库存流水，恢复按原tuple核对。Wms UI模块开关仍仅控制菜单/路由。
 
+[T11盲盘设计](../implementation/183-t11-blind-count-and-local-lock.md)定义独立默认关闭`Wes:WmsMasterData:CountsEnabled`，依赖master-data/Identity，非法配置拒绝启动。只映射具名盲盘/独立review及生命周期，不自动创建权限/启用设备；关闭HTTP入口不能关闭持久盘点锁的库存守卫、删计数历史或自动解锁。原锁必须保持保护直到按当前权限恢复/失效操作；部署回退不能移除仍有有效锁的schema/代码。实施及验证状态见[证据](../implementation/184-t11-blind-count-tests.md)，不因定义开关即宣称可部署。
+
 [T09耐久运输续片](../implementation/179-t09-durable-inbound-transport-design.md)不新增操作者可用的Completed接口，也不借`Outbox`开关装配默认可信适配器。既有入库审核/收货开关只许可对应当前授权操作；收货形成的耐久意图不等于运输已受理。实际Orchestration适配器、运行能力与生产门禁未接通前不启动运输dispatcher/consumer；关闭交付能力不能删除已收货库存、意图、可信完成Inbox或在途保护，恢复必须使用原身份对账。现有主数据Outbox开关和诊断仍只针对其原创建事件，不混入运输消息。
 
 [当前实体附件目录](../implementation/169-t07-current-entity-attachment-catalog.md)的两个固定集合GET沿用下述同一双开关AND；任一关闭不映射集合，关闭/恢复不改引用/文件/永久回执。没有新增目录开关、默认授权或扫描健康成功fallback。

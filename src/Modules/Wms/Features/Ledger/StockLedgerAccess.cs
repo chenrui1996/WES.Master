@@ -24,7 +24,11 @@ public enum StockLedgerKind
     /// <summary>Negative shipment entry.</summary>
     Shipment,
     /// <summary>One signed leg of a transfer.</summary>
-    Transfer
+    Transfer,
+    /// <summary>Authorized positive physical-count discrepancy.</summary>
+    AdjustmentIn,
+    /// <summary>Authorized negative physical-count discrepancy.</summary>
+    AdjustmentOut
 }
 /// <summary>Exact immutable dimension/provenance filters and UTC microsecond half-open occurrence bounds.</summary>
 public sealed record StockLedgerQuery(InventoryQuery Stock, Guid? SourceDocumentId = null, Guid? CorrelationId = null,
@@ -88,6 +92,8 @@ internal sealed class StockLedgerAccess(WmsDbContext database, IStockLedgerAutho
                     StockLedgerKind.Receipt => StockPostingKind.Receipt,
                     StockLedgerKind.Shipment => StockPostingKind.Shipment,
                     StockLedgerKind.Transfer => StockPostingKind.Transfer,
+                    StockLedgerKind.AdjustmentIn => StockPostingKind.AdjustmentIn,
+                    StockLedgerKind.AdjustmentOut => StockPostingKind.AdjustmentOut,
                     _ => throw new InvalidOperationException("Unknown ledger query kind.")
                 };
                 postings = postings.Where(item => item.Kind == postingKind);
@@ -132,8 +138,8 @@ internal sealed class StockLedgerAccess(WmsDbContext database, IStockLedgerAutho
     {
         var directionValid = posting.Kind switch
         {
-            StockPostingKind.Receipt => entry.Quantity > 0m && posting.SourceBalanceId is null && posting.TargetBalanceId == entry.BalanceId,
-            StockPostingKind.Shipment => entry.Quantity < 0m && posting.TargetBalanceId is null && posting.SourceBalanceId == entry.BalanceId,
+            StockPostingKind.Receipt or StockPostingKind.AdjustmentIn => entry.Quantity > 0m && posting.SourceBalanceId is null && posting.TargetBalanceId == entry.BalanceId,
+            StockPostingKind.Shipment or StockPostingKind.AdjustmentOut => entry.Quantity < 0m && posting.TargetBalanceId is null && posting.SourceBalanceId == entry.BalanceId,
             StockPostingKind.Transfer => posting.SourceBalanceId.HasValue && posting.TargetBalanceId.HasValue
                 && posting.SourceBalanceId != posting.TargetBalanceId
                 && (entry.Quantity < 0m ? posting.SourceBalanceId : posting.TargetBalanceId) == entry.BalanceId,
@@ -153,6 +159,8 @@ internal sealed class StockLedgerAccess(WmsDbContext database, IStockLedgerAutho
             StockPostingKind.Receipt => StockLedgerKind.Receipt,
             StockPostingKind.Shipment => StockLedgerKind.Shipment,
             StockPostingKind.Transfer => StockLedgerKind.Transfer,
+            StockPostingKind.AdjustmentIn => StockLedgerKind.AdjustmentIn,
+            StockPostingKind.AdjustmentOut => StockLedgerKind.AdjustmentOut,
             _ => throw new InvalidOperationException("Stored ledger kind is inconsistent.")
         };
         return new(entry.Id, posting.Id, balance.Id, balance.WarehouseId, balance.LocationId, balance.ItemId, balance.Batch,

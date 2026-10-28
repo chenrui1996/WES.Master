@@ -41,6 +41,8 @@ export const router = createRouter({
       meta: { moduleCode: "Wms", permission: "wms.outbound.read" } },
     { path: "/wms/picking/:id?", component: () => import("./features/wms/OutboundPage.vue"), props: route => ({ id: route.params.id, picking: true }),
       meta: { moduleCode: "Wms", permission: "wms.outbound.pick" } },
+    { path: "/wms/counts/:id?", component: () => import("./features/wms/CountsPage.vue"), props: true,
+      meta: { moduleCode: "Wms", permission: "wms.counts.read" } },
     { path: "/:pathMatch(.*)*", redirect: "/account/sessions" },
   ],
 });

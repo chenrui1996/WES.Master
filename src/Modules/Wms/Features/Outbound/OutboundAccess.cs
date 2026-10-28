@@ -1,7 +1,6 @@
 using System.Data;
 using System.Data.Common;
 using System.Globalization;
-using System.Linq.Expressions;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -64,7 +63,7 @@ internal sealed class OutboundAccess(WmsDbContext database, IMasterDataAuthoriza
 
             var requestedBalanceIds = request.Lines.Select(line => line.BalanceId).ToArray();
             var balances = await database.Balances.AsNoTracking()
-                .Where(MatchesAnyId<StockBalance>(requestedBalanceIds, row => row.Id)).ToArrayAsync(ct);
+                .Where(WmsIdentityPredicate.MatchesAnyId<StockBalance>(requestedBalanceIds, row => row.Id)).ToArrayAsync(ct);
             if (balances.Length != request.Lines.Count) return Reject(OutboundDecision.NotFound);
             var dimensionsByBalance = new Dictionary<Guid, Dimension>();
             foreach (var balance in balances)
@@ -116,6 +115,7 @@ internal sealed class OutboundAccess(WmsDbContext database, IMasterDataAuthoriza
             await transaction.CommitAsync(ct);
             return new(OutboundDecision.Committed, document.Id, document.Version);
         }
+        catch (CountLockConflictException) { return Reject(OutboundDecision.Blocked); }
         catch (DbUpdateException error) when (error.InnerException is MySqlException { Number: 1062 })
         {
             database.ChangeTracker.Clear();
@@ -344,7 +344,7 @@ internal sealed class OutboundAccess(WmsDbContext database, IMasterDataAuthoriza
                 if (!await ResourcesAllowedAsync(subject, dimensions, ct)) return new(OutboundReadDecision.Forbidden);
                 var executionIds = loaded.Document.Lines.Select(line => line.ExecutionId).ToArray();
                 var reservations = await database.Reservations.AsNoTracking()
-                    .Where(MatchesAnyId<StockReservation>(executionIds, row => row.ExecutionUnitId))
+                    .Where(WmsIdentityPredicate.MatchesAnyId<StockReservation>(executionIds, row => row.ExecutionUnitId))
                     .ToDictionaryAsync(row => row.ExecutionUnitId, ct);
                 record = BuildRecord(loaded.Document, loaded.Facts, reservations);
                 await transaction.CommitAsync(ct);
@@ -402,7 +402,7 @@ internal sealed class OutboundAccess(WmsDbContext database, IMasterDataAuthoriza
             decision = await ValidForNewOperationAsync(current, dimensions, ct);
             if (decision is not null) return Reject(decision.Value);
             var lineBalanceIds = current.Lines.Select(line => line.BalanceId).ToArray();
-            var balances = await database.Balances.Where(MatchesAnyId<StockBalance>(lineBalanceIds, row => row.Id))
+            var balances = await database.Balances.Where(WmsIdentityPredicate.MatchesAnyId<StockBalance>(lineBalanceIds, row => row.Id))
                 .OrderBy(row => row.Id).ToArrayAsync(ct);
             if (balances.Length != current.Lines.Count) return Reject(OutboundDecision.NotFound);
             var change = await mutate(current, facts, dimensions, balances, ct);
@@ -421,6 +421,7 @@ internal sealed class OutboundAccess(WmsDbContext database, IMasterDataAuthoriza
             await transaction.CommitAsync(ct);
             return new(OutboundDecision.Committed, id, current.Version);
         }
+        catch (CountLockConflictException) { return Reject(OutboundDecision.Blocked); }
         catch (DbUpdateConcurrencyException)
         {
             return await ReplayActionAsync(subject, id, operation, kind, input, permission, fields, ct);
@@ -644,14 +645,6 @@ internal sealed class OutboundAccess(WmsDbContext database, IMasterDataAuthoriza
 
     private static bool ValidVersion(string? value) => value is not null && VersionPattern.IsMatch(value)
         && Guid.TryParseExact(value, "D", out var id) && id != Guid.Empty;
-
-    private static Expression<Func<TEntity, bool>> MatchesAnyId<TEntity>(IReadOnlyCollection<Guid> ids,
-        Expression<Func<TEntity, Guid>> keySelector)
-    {
-        var body = ids.Select(id => (Expression)Expression.Equal(keySelector.Body, Expression.Constant(id)))
-            .Aggregate(Expression.OrElse);
-        return Expression.Lambda<Func<TEntity, bool>>(body, keySelector.Parameters);
-    }
 
     private static bool TryQuantity(string? text, out decimal quantity)
     {

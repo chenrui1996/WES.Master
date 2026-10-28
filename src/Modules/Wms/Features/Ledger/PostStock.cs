@@ -26,7 +26,7 @@ public sealed class WmsDatabaseException(bool transient) : Exception("WMS databa
     public bool IsTransient { get; } = transient;
 }
 
-internal sealed class PostStock(WmsDbContext database, TimeProvider clock)
+internal sealed partial class PostStock(WmsDbContext database, TimeProvider clock)
 {
     internal Task<StockPostingResult> ExecuteAsync(StockPostingCommand command, CancellationToken cancellationToken = default) =>
         ExecuteCoreAsync(command, null, cancellationToken);
@@ -58,6 +58,9 @@ internal sealed class PostStock(WmsDbContext database, TimeProvider clock)
             {
                 if (beforePosting is not null && !await beforePosting(cancellationToken))
                     return new(StockPostingDecision.SourceRejected);
+                var dimensions = await database.Balances.AsNoTracking().Where(row =>
+                    row.Id == command.SourceBalanceId || row.Id == command.TargetBalanceId).ToArrayAsync(cancellationToken);
+                await WmsResourceLocks.AcquireBalanceResourcesAsync(database, dimensions, cancellationToken);
                 var source = command.SourceBalanceId.HasValue
                     ? await database.Balances.SingleOrDefaultAsync(item => item.Id == command.SourceBalanceId, cancellationToken) : null;
                 var target = command.TargetBalanceId.HasValue
@@ -102,21 +105,8 @@ internal sealed class PostStock(WmsDbContext database, TimeProvider clock)
                 var quantity = StockMovementQuantity.Create(command.Quantity, precision);
                 if (target is not null && target.Quantity > InventoryQuantity.MaximumValue - quantity.Value)
                     return new(StockPostingDecision.Invalid);
-                var posting = new StockPosting(database.TenantId, command.OperationId, command.ActorId,
-                    command.CorrelationId, command.Kind, command.SourceDocumentId, command.SourceLineId,
-                    command.ExecutionUnitId, command.SourceBalanceId, command.TargetBalanceId, command.Quantity, clock.GetUtcNow());
-                database.Postings.Add(posting);
-                if (source is not null)
-                {
-                    consumed?.Consume(command.Quantity);
-                    var change = source.Debit(quantity);
-                    database.Entries.Add(new StockEntry(posting, source, change.Before, change.After));
-                }
-                if (target is not null)
-                {
-                    var change = target.Credit(quantity);
-                    database.Entries.Add(new StockEntry(posting, target, change.Before, change.After));
-                }
+                consumed?.Consume(command.Quantity);
+                var posting = StagePosting(command, source, target, quantity);
                 if (stage is not null) await stage(cancellationToken);
                 await database.SaveChangesAsync(cancellationToken);
                 if (beforeCommit is not null && !await beforeCommit(cancellationToken))
@@ -146,6 +136,7 @@ internal sealed class PostStock(WmsDbContext database, TimeProvider clock)
                 throw new WmsDatabaseException(false);
             }
         }
+        catch (CountLockConflictException) { return new(StockPostingDecision.ProtectedStock); }
         catch (DbUpdateException error) when (error.InnerException is DbException)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -188,4 +179,23 @@ internal sealed class PostStock(WmsDbContext database, TimeProvider clock)
         });
 
     private static bool IsVersion(string? version) => Guid.TryParseExact(version, "D", out var id) && id != Guid.Empty;
+
+    private StockPosting StagePosting(StockPostingCommand command, StockBalance? source, StockBalance? target, StockMovementQuantity quantity)
+    {
+        var posting = new StockPosting(database.TenantId, command.OperationId, command.ActorId,
+            command.CorrelationId, command.Kind, command.SourceDocumentId, command.SourceLineId,
+            command.ExecutionUnitId, command.SourceBalanceId, command.TargetBalanceId, command.Quantity, clock.GetUtcNow());
+        database.Postings.Add(posting);
+        if (source is not null)
+        {
+            var change = source.Debit(quantity);
+            database.Entries.Add(new StockEntry(posting, source, change.Before, change.After));
+        }
+        if (target is not null)
+        {
+            var change = target.Credit(quantity);
+            database.Entries.Add(new StockEntry(posting, target, change.Before, change.After));
+        }
+        return posting;
+    }
 }

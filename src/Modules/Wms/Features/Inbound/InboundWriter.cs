@@ -115,7 +115,7 @@ internal sealed partial class InboundWriter(WmsDbContext database, TimeProvider 
             StockPostingDecision.VersionConflict => new(InboundWriteDecision.VersionConflict),
             StockPostingDecision.IdempotencyConflict => new(InboundWriteDecision.Conflict),
             StockPostingDecision.NotFound => new(InboundWriteDecision.NotFound),
-            StockPostingDecision.SourceRejected => new(InboundWriteDecision.SourceRejected),
+            StockPostingDecision.SourceRejected or StockPostingDecision.ProtectedStock => new(InboundWriteDecision.SourceRejected),
             StockPostingDecision.Invalid or StockPostingDecision.VersionRequired => new(InboundWriteDecision.Invalid),
             _ => throw new InvalidOperationException("Unexpected inbound receipt posting outcome.")
         };

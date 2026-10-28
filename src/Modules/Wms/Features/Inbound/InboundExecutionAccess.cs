@@ -179,6 +179,7 @@ internal sealed partial class InboundExecutionAccess(WmsDbContext database, IMas
                 _ => throw new InvalidOperationException("Unknown inbound execution outcome.")
             };
         }
+        catch (CountLockConflictException) { return Reject(InboundExecutionDecision.Blocked); }
         catch (DbException error)
         {
             ct.ThrowIfCancellationRequested(); logger.LogError("WMS inbound execution failed {Code}", "DatabaseUnavailable");

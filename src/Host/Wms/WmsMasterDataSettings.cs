@@ -4,7 +4,7 @@ namespace Wes.Host.Wms;
 public sealed record WmsMasterDataSettings(bool Enabled, bool WarehouseCreationEnabled = false, bool LocationCreationEnabled = false,
     bool InboundDraftCreationEnabled = false, bool InboundDraftRevisionEnabled = false, bool WarehouseStateEnabled = false,
     bool LocationStateEnabled = false, bool StockResourceRegistrationEnabled = false, bool InboundApprovalEnabled = false,
-    bool InboundReceiptEnabled = false, bool OutboundEnabled = false)
+    bool InboundReceiptEnabled = false, bool OutboundEnabled = false, bool CountsEnabled = false)
 {
     /// <summary>Rejects malformed supplied toggles and requires authenticated identity when explicitly enabled.</summary>
     public static WmsMasterDataSettings Load(IConfiguration configuration)
@@ -75,7 +75,13 @@ public sealed record WmsMasterDataSettings(bool Enabled, bool WarehouseCreationE
             throw new InvalidOperationException("WMS outbound deployment configuration is invalid.");
         if (outboundEnabled && !enabled)
             throw new InvalidOperationException("WMS outbound requires master-data and identity deployment.");
+        var countsValue = configuration["Wes:WmsMasterData:CountsEnabled"];
+        var countsEnabled = false;
+        if (countsValue is not null && !bool.TryParse(countsValue, out countsEnabled))
+            throw new InvalidOperationException("WMS counts deployment configuration is invalid.");
+        if (countsEnabled && !enabled)
+            throw new InvalidOperationException("WMS counts require master-data and identity deployment.");
         return new(enabled, creationEnabled, locationEnabled, inboundEnabled, revisionEnabled, stateEnabled, locationStateEnabled,
-            resourceEnabled, approvalEnabled, receiptEnabled, outboundEnabled);
+            resourceEnabled, approvalEnabled, receiptEnabled, outboundEnabled, countsEnabled);
     }
 }

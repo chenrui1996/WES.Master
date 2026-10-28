@@ -7,6 +7,36 @@ namespace Wes.Modules.Tests.Wms;
 public sealed class WmsMasterDataSettingsTests
 {
     [Theory]
+    [InlineData(null, false)]
+    [InlineData("false", false)]
+    [InlineData("true", true)]
+    public void CountToggleIsExplicitAndIndependent(string? value, bool expected)
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Wes:Identity:Enabled"] = "true",
+            ["Wes:WmsMasterData:Enabled"] = "true",
+            ["Wes:WmsMasterData:CountsEnabled"] = value
+        }).Build();
+        Assert.Equal(expected, WmsMasterDataSettings.Load(configuration).CountsEnabled);
+    }
+
+    [Theory]
+    [InlineData("yes", "true", "true")]
+    [InlineData("", "true", "true")]
+    [InlineData("true", "false", "true")]
+    [InlineData("true", "true", "false")]
+    public void CountToggleRejectsMalformedOrMissingDependencies(string value, string master, string identity)
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Wes:Identity:Enabled"] = identity,
+            ["Wes:WmsMasterData:Enabled"] = master,
+            ["Wes:WmsMasterData:CountsEnabled"] = value
+        }).Build();
+        Assert.Throws<InvalidOperationException>(() => WmsMasterDataSettings.Load(configuration));
+    }
+    [Theory]
     [InlineData("InboundApprovalEnabled", null, "true", "true", false)]
     [InlineData("InboundApprovalEnabled", "false", "true", "true", false)]
     [InlineData("InboundApprovalEnabled", "true", "true", "true", true)]

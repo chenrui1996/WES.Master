@@ -133,6 +133,7 @@ internal sealed partial class InboundTransportAccess(WmsDbContext database, IInb
             || System.Transactions.Transaction.Current is not null)
             throw new InvalidOperationException("Inbound transport requires an independent clean owner.");
         try { return await action(); }
+        catch (CountLockConflictException) { return new(InboundTransportDecision.Blocked); }
         catch (DbUpdateException error) when (error.InnerException is MySqlException { Number: 1062 })
         {
             ct.ThrowIfCancellationRequested();

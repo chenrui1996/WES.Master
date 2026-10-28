@@ -9,6 +9,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 ## 文档工作区
 
+最新T11盘点基本子片已交付：[盲盘及持久局部锁](docs/implementation/183-t11-blind-count-and-local-lock.md)/[证据](docs/implementation/184-t11-blind-count-tests.md)。位置级全部合法维度盲盘、独立差异复核、全行原子调整/解锁、人工失效重盘、共享库存写保护及默认关闭HTTP/具名页面已接通。6项关联审查问题修复并复审无显著剩余问题；最终真实MySQL923、HTTP/配置/真实HTTPS浏览器165、架构29、前端1164通过，Release0/0、EF无漂移、增量SQL/格式通过，重叠不合计。下一主体工作为多行TransferOrder，不整体关闭T11；实际T15/Pack、PDA真机和生产许可未包含在本软件证据中。
+
 最新T10基本软件子片已交付：[出库预留、拣选与无运输直发](docs/implementation/181-t10-outbound-basic-flow.md)/[证据](docs/implementation/182-t10-outbound-basic-flow-tests.md)。多行草稿/全行原子预留、实拣/短缺、非原人复核释放、一次直发与取消/ClosedPartial、独立默认关闭HTTP及具名出库/拣选页已接通。5项审查问题先红后绿修复并复审通过；最终真实MySQL392、HTTP/配置/真实HTTPS浏览器120、架构29、前端1107通过，Release0/0、EF无漂移和格式通过，重叠不合计。FEFO/完整效期、自动FIFO来源、多次部分发运及实际T15出库运输仍是软件依赖，不整体关闭T10或项目；下一基本工作包T11盘点与移库。
 
 上述运输续片最终收口：独立审查补齐目标另容器占位/预留/未决执行锁内保护，9项先红后绿；最终运输72、修复相关268、最后HTTP/配置与真实浏览器89、架构29通过，Release0/0、EF无漂移和格式验证通过。较早63/533/192为历史回归、不重复累计；详见[证据](docs/implementation/180-t09-durable-inbound-transport-tests.md)。

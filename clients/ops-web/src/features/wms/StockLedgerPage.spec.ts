@@ -28,6 +28,16 @@ it("reads signed immutable amounts exactly without using Number or offering stoc
   expect(wrapper.text()).toContain("不是固定核对快照"); expect(wrapper.text()).toContain("不跨单位求和");
   expect(wrapper.find('[type="number"]').exists()).toBe(false); expect(wrapper.find("a").exists()).toBe(false);
 });
+it.each([
+  [3, "2.000000", "10.000000", "12.000000", "调整入 AdjustmentIn"],
+  [4, "-2.000000", "10.000000", "8.000000", "调整出 AdjustmentOut"],
+] as const)("reads and filters count adjustment kind %s without dropping ledger history", async (kind, quantity, before, after, label) => {
+  vi.mocked(fetch).mockResolvedValue(page([{ ...row, kind, quantity, before, after, precision: 0 }]));
+  wrapper = mount(StockLedgerPage);
+  await wrapper.get('[name="kind"]').setValue(String(kind)); await read();
+  expect(wrapper.get('[data-test="stock-ledger-rows"]').text()).toContain(label);
+  expect(new URL(String(vi.mocked(fetch).mock.calls[0]![0]), "https://localhost").searchParams.get("kind")).toBe(String(kind));
+});
 it.each(stockLedgerFields)("requires independent current All field %s", async field => {
   sessionState.subject!.grants[0]!.fields = stockLedgerFields.filter(value => value !== field);
   wrapper = mount(StockLedgerPage); await read(); expect(fetch).not.toHaveBeenCalled();

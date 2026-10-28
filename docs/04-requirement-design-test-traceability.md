@@ -9,6 +9,7 @@
 
 | 切片 | 范围/设计 | 测试/证据状态 |
 |---|---|---|
+| T11 盲盘及局部锁 | FUNC-WMS-005、PAGE-WMS-006、REQ-WMS-020..023、DTC-WMS-007适用子集、TC-T11-COUNT-01..07；[设计](implementation/183-t11-blind-count-and-local-lock.md)/[证据](implementation/184-t11-blind-count-tests.md) | 本子片已实现验证；最终真实MySQL923、HTTP/配置/真实HTTPS浏览器165、架构29、前端48文件/1164项与严格构建、Release0/0/EF无漂移/增量SQL/格式通过，审查6项修复并复审关闭。单库位全部合法维度盲盘、永久局部锁、非本人差异复核、原子调整/人工失效重盘；TransferOrder为下一主体，T11父任务不整体勾选，现场/生产/PDA真机未验证 |
 | T10 基本出库直发链 | FUNC-WMS-003/004、PAGE-WMS-004/005、REQ-WMS-015..019、DTC-WMS-004..006适用子集、TC-T10-BASIC-01..07；[设计](implementation/181-t10-outbound-basic-flow.md)/[证据](implementation/182-t10-outbound-basic-flow-tests.md) | 基本软件子片已实现验证，最终MySQL392、HTTP/配置/真实HTTPS浏览器120、架构29、前端1107/严格构建、Release0/0/EF无漂移/格式通过；重叠不合计。5项审查问题先红后绿修复并复审关闭。显式合法来源、多行原子预留、短缺非原人复核释放、无运输一次直发及ClosedPartial；RequiresTransport不允许手工发运。FEFO/自动来源、多次部分发运与实际T15出库运输未因此完成，不整体关闭T10 |
 | T09 WMS耐久运输契约闭环 | FUNC-WMS-002/007、PAGE-WMS-003、REQ-WMS-012..014、DTC-WMS-002/003、RULE-01/02/08、TC-T09-TRANSPORT-01..07；[设计](implementation/179-t09-durable-inbound-transport-design.md)/[证据](implementation/180-t09-durable-inbound-transport-tests.md) | 新运输owner63、相关真实MySQL533、前端1051/严格构建通过，重叠不合计；独立审查与最终发布门禁见证据。异址公开收货同步固定意图/消息及在途保护、显式可信adapter关联与完成Inbox、唯一Transfer/两entry/到达历史/保护消费/Applied同事务；缺目标或身份条件保持PendingSync，原消息恢复，不重运或分裂容器账面位。仅WMS契约夹具；无人工Completed接口、默认adapter或Host自动投递，实际T15订单/Leg、Pack和物理到达不因此完成 |
 | T09 当前受权审核、收货与容器保护 | FUNC-WMS-002、PAGE-WMS-003、REQ-WMS-012..014、DTC-WMS-002/003执行子集、RULE-01/02、TC-T09-EXEC-01..07；[实施](implementation/177-t09-authorized-inbound-execution.md)/[测试](implementation/178-t09-authorized-inbound-execution-tests.md) | 最终本片owner127、旧账本/资源/库位相关529、HTTP/配置与六浏览器192、前端1051/严格构建通过，重叠不合计；最后发布门禁见测试记录。真实多creator完整字段/保存后撤权回滚、合法计划/注册维度、schema/Enabled及唯一容器账面位置/预留/待运输保护；原请求身份/业务事实/ledger同事务，精确原tuple/版本与同键异址并发恢复。两个独立默认关闭POST及具名预览确认/原键Unknown/另读已接通；只新增请求身份表，异址明确源位实收/Executing/待运输，耐久意图及最终移账不因此完成 |
@@ -125,7 +126,7 @@
 | SCOPE-WMS-02 | REQ-WMS-005..011 | [WMS 账本](modules/wms-and-ledger.md) §1, 3-6 | WMS-TC-001, 005, 010..017 | 账本权威 |
 | SCOPE-WMS-03 | REQ-WMS-012..014 | [WMS 账本](modules/wms-and-ledger.md) §3 | WMS-TC-001..004, 015 | 运输回写 |
 | SCOPE-WMS-04 | REQ-WMS-015..019 | [WMS 账本](modules/wms-and-ledger.md) §4 | WMS-TC-005..010, 015 | 保留既有拣选并补 E2E |
-| SCOPE-WMS-05 | REQ-WMS-020..023 | [WMS 账本](modules/wms-and-ledger.md) §6 | WMS-TC-012..013 | 盘点并发待核 |
+| SCOPE-WMS-05 | REQ-WMS-020..023 | [WMS 账本](modules/wms-and-ledger.md) §6 | WMS-TC-012..013 | 位置级盲盘/并发局部锁及失效重盘已由[184](implementation/184-t11-blind-count-tests.md)验证；多库位调度/扩展提醒后置，非整项现场验收 |
 | SCOPE-WMS-06 | REQ-WMS-024..026 | [WMS 账本](modules/wms-and-ledger.md) §5, 7 | WMS-TC-014, 016, 018..020 | TransferOrder 与扩展不重复账本 |
 | SCOPE-PDA-01 | REQ-PDA-001..006 | [PDA](modules/pda.md) §3-4 | PDA-TC-001..007, 013..015 | 现有页面/API待 E2E |
 | SCOPE-PDA-02 | REQ-PDA-007..010 | [PDA](modules/pda.md) §2, 4.5 | PDA-TC-008..012 | 离线只读已确认 |

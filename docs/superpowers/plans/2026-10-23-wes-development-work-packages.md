@@ -230,6 +230,10 @@
 
 ### T11：盘点与多行TransferOrder
 
+执行顺序：[183盘点设计](../../implementation/183-t11-blind-count-and-local-lock.md)及[计划](2026-10-28-blind-count.md)先实现全库存写共同依赖的持久局部锁/盲盘/授权调整，证据见[184](../../implementation/184-t11-blind-count-tests.md)。TransferOrder随后独立续片，仍是主体软件依赖；盘点通过不能将下方父checklist整体标完。
+
+盘点子片最终已实现验证并关闭：真实MySQL923、HTTP/配置/真实HTTPS浏览器165、架构29、前端1164/严格构建、Release0/0/EF无漂移/增量SQL/格式通过；6项关联审查问题修复并复审无显著剩余问题，历史失败与最终选择器均保留在184。下一主体为多行TransferOrder；下方涉及移库的联合父用例仍保持未勾选，不以盘点部分通过代签全项。
+
 T10基本软件交付覆盖说明：[181设计](../../implementation/181-t10-outbound-basic-flow.md)/[182证据](../../implementation/182-t10-outbound-basic-flow-tests.md)已验证多行草稿/原子预留、拣选/短缺非原人复核、一次无运输直发及取消/ClosedPartial、具名页面与严格默认关闭API。最终MySQL392/HTTP配置与真实浏览器120/架构29/前端1107、Release0/0/EF无漂移/格式通过，5项审查问题修复并复审关闭。本子片可关闭，继续T11；上方父T10的FEFO/完整效期、自动FIFO来源、多次部分发运与实际运输仍为软件依赖，不能将原父checklist整体勾选或假称外部验收关闭。
 
 **Files:** `src\Modules\Wms\Features\Counts\{CreateCount.cs,RecordCount.cs,ApproveAdjustment.cs,InvalidateCount.cs}`、`Features\Transfers\{ApproveTransfer.cs,CompleteTransferUnit.cs,CloseTransferRemainder.cs}`；`clients\ops-web\src\features\wms\{CountsPage.vue,TransfersPage.vue}`；`tests\Modules\Wms\{CountTests.cs,TransferOrderTests.cs}`。

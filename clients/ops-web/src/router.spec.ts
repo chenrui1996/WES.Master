@@ -9,13 +9,23 @@ afterEach(() => {
 });
 
 describe("module-aware routes", () => {
-  it.each([["wms.outbound.read", "outbound"], ["wms.outbound.pick", "picking"]])("gates known outbound UUID route for %s", async (permission, page) => {
+  it.each([["wms.outbound.read", "outbound"], ["wms.outbound.pick", "picking"], ["wms.counts.read", "counts"]])("gates known WMS UUID route for %s", async (permission, page) => {
     sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false,
       credentialVersion: "version", grants: [{ permission, scope: 0, departments: [], fields: ["Id"] }] };
     vi.spyOn(moduleCatalog, "load").mockResolvedValue(true); vi.spyOn(moduleCatalog, "isEnabled").mockReturnValue(true);
     await router.push(`/wms/${page}/77966ccd-f1dd-412d-8e45-adb475608842`);
     expect(router.currentRoute.value.params.id).toBe("77966ccd-f1dd-412d-8e45-adb475608842");
     await router.push("/account/sessions");
+  });
+  it.each([
+    [true, "wms.counts.read", "/wms/counts"], [true, "wms.inventory.read", "/account/sessions"],
+    [false, "wms.counts.read", "/module-unavailable"],
+  ])("gates count navigation with enabled=%s permission=%s", async (enabled, permission, expected) => {
+    sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false,
+      credentialVersion: "version", grants: [{ permission, scope: 0, departments: [], fields: ["Id"] }] };
+    vi.spyOn(moduleCatalog, "load").mockResolvedValue(true); vi.spyOn(moduleCatalog, "isEnabled").mockReturnValue(enabled);
+    await router.push("/account/sessions"); await router.push("/wms/counts");
+    expect(router.currentRoute.value.path).toBe(expected); await router.push("/account/sessions");
   });
   it("preserves the approved known-ID inbound detail route behind its own authority", async () => {
     sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false,

@@ -8,7 +8,11 @@ public enum StockPostingKind
     /// <summary>Actual owner-verified shipment out of a book dimension.</summary>
     Shipment,
     /// <summary>One confirmed move between compatible book positions.</summary>
-    Transfer
+    Transfer,
+    /// <summary>Explicitly approved positive physical-count discrepancy.</summary>
+    AdjustmentIn,
+    /// <summary>Explicitly approved negative physical-count discrepancy.</summary>
+    AdjustmentOut
 }
 
 /// <summary>Permanent business identity of a single owner transaction, retained beyond ordinary receipt TTLs.</summary>

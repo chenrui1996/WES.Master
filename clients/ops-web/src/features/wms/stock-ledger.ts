@@ -7,7 +7,7 @@ export const stockLedgerFields = ["Id", "PostingId", "BalanceId", "WarehouseId",
   "SourceLineId", "ExecutionUnitId", "CorrelationId", "OccurredAt"] as const;
 export interface StockLedgerRow {
   id: string; postingId: string; balanceId: string; warehouseId: string; locationId: string; itemId: string; batch: string;
-  containerId: string; unitId: string; precision: number; kind: 0 | 1 | 2; quantity: string; before: string; after: string;
+  containerId: string; unitId: string; precision: number; kind: 0 | 1 | 2 | 3 | 4; quantity: string; before: string; after: string;
   sourceDocumentId: string; sourceLineId: string; executionUnitId: string; correlationId: string; occurredAt: string;
 }
 export interface StockLedgerFilters extends InventoryFilters {
@@ -43,13 +43,14 @@ function parseRow(value: unknown): StockLedgerRow {
     || !validIdentity(value.containerId) || !validIdentity(value.unitId) || !validIdentity(value.sourceDocumentId)
     || !validIdentity(value.sourceLineId) || !validIdentity(value.executionUnitId) || !validIdentity(value.correlationId) || !validBatch(value.batch)
     || typeof value.precision !== "number" || !Number.isInteger(value.precision) || value.precision < 0 || value.precision > 6
-    || value.kind !== 0 && value.kind !== 1 && value.kind !== 2
+    || value.kind !== 0 && value.kind !== 1 && value.kind !== 2 && value.kind !== 3 && value.kind !== 4
     || !delta(value.quantity) || !book(value.before) || !book(value.after) || !validUtc(value.occurredAt) || timeKey(value.occurredAt) === null)
     throw new StockLedgerResponseError();
   const change = scaled(value.quantity); const before = scaled(value.before); const after = scaled(value.after);
   const quantum = 10n ** BigInt(6 - value.precision);
   if (change === 0n || after - before !== change || [change, before, after].some(amount => amount % quantum !== 0n)
-    || value.kind === 0 && change < 0n || value.kind === 1 && change > 0n) throw new StockLedgerResponseError();
+    || (value.kind === 0 || value.kind === 3) && change < 0n
+    || (value.kind === 1 || value.kind === 4) && change > 0n) throw new StockLedgerResponseError();
   return { id: value.id, postingId: value.postingId, balanceId: value.balanceId,
     warehouseId: value.warehouseId, locationId: value.locationId, itemId: value.itemId,
     batch: value.batch, containerId: value.containerId, unitId: value.unitId, precision: value.precision,
@@ -73,7 +74,7 @@ export async function queryStockLedger(offset: number, limit: number, filters: S
     query.set("batch", filters.batch);
   }
   if (filters.kind !== undefined) {
-    if (![0, 1, 2].includes(filters.kind)) throw new Error("记账类型无效。");
+    if (![0, 1, 2, 3, 4].includes(filters.kind)) throw new Error("记账类型无效。");
     query.set("kind", String(filters.kind));
   }
   for (const key of ["from", "before"] as const) {

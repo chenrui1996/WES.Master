@@ -13,7 +13,7 @@ const dimensions = [
 ] as const;
 const filters = reactive({ warehouseId: "", locationId: "", itemId: "", containerId: "", sourceDocumentId: "",
   correlationId: "", batchMode: "all", batch: "", kind: "", from: "", before: "" });
-const kindNames = ["收货 Receipt", "发运 Shipment", "移库 Transfer"] as const;
+const kindNames = ["收货 Receipt", "发运 Shipment", "移库 Transfer", "调整入 AdjustmentIn", "调整出 AdjustmentOut"] as const;
 const readable = computed(mayReadStockLedger);
 const scope = computed(() => JSON.stringify(sessionState.subject));
 const rows = shallowRef<StockLedgerRow[]>([]);

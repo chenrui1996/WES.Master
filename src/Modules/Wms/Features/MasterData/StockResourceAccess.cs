@@ -129,6 +129,7 @@ internal sealed partial class StockResourceAccess(WmsDbContext database, IMaster
             }
             throw new InvalidOperationException("Resource conflict resolution exhausted.");
         }
+        catch (CountLockConflictException) { return Reject(StockResourceDecision.Blocked); }
         catch (DbUpdateException error) when (error.InnerException is DbException failure)
         {
             ct.ThrowIfCancellationRequested(); logger.LogError("WMS resource registration failed {Code}", "DatabaseUnavailable");

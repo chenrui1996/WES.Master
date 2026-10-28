@@ -16,6 +16,7 @@ const entries = [
   { path: "/wms/inbound", name: "入库收货详情", short: "入", module: "Wms", permission: ["wms.inbound.read"] },
   { path: "/wms/outbound", name: "出库预留与发运", short: "出", module: "Wms", permission: ["wms.outbound.read"] },
   { path: "/wms/picking", name: "拣选与短缺复核", short: "拣", module: "Wms", permission: ["wms.outbound.pick"] },
+  { path: "/wms/counts", name: "盲盘与差异调整", short: "盘", module: "Wms", permission: ["wms.counts.read"] },
 ] as const;
 
 export function getNavigation(

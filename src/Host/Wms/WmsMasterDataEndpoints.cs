@@ -76,6 +76,11 @@ public static partial class WmsMasterDataEndpoints
             group.MapPost("/outbound/{id:guid}/cancellation", CancelOutboundStrictAsync);
             group.MapPost("/outbound/{id:guid}/close-remainder", CloseOutboundRemainderStrictAsync);
         }
+        if (app.Services.GetRequiredService<WmsMasterDataSettings>().CountsEnabled)
+        {
+            _ = app.Services.GetRequiredService<LocationCreationSchema>();
+            MapCounts(group);
+        }
         group.MapGet("/master-data-events", (int? offset, int? limit, HttpContext http, MasterDataDatabase database, CancellationToken ct) =>
             ReadCreationEventsAsync(new(offset ?? 0, limit ?? 25), http, database, ct));
         group.MapGet("/master-data-events/summary", ReadCreationEventSummaryAsync);
@@ -189,6 +194,8 @@ public static partial class WmsMasterDataEndpoints
         internal WmsStockResourceWriter OpenStockResources(Guid tenant, IWarehouseLocationSchema schema) =>
             new(settings.ConnectionString, tenant, authorization, schema, clock, logs);
         internal WmsInboundExecutionWriter OpenInboundExecution(Guid tenant, IWarehouseLocationSchema schema) =>
+            new(settings.ConnectionString, tenant, authorization, schema, clock, logs);
+        internal WmsCountWriter OpenCounts(Guid tenant, IWarehouseLocationSchema schema) =>
             new(settings.ConnectionString, tenant, authorization, schema, clock, logs);
         internal WmsOutboundWriter OpenOutbound(Guid tenant, IWarehouseLocationSchema schema) =>
             new(settings.ConnectionString, tenant, authorization, schema, clock, logs);

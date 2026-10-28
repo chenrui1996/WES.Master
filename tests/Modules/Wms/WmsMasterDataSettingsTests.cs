@@ -186,6 +186,34 @@ public sealed class WmsMasterDataSettingsTests
         Assert.Throws<InvalidOperationException>(() => WmsMasterDataSettings.Load(configuration));
     }
 
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("false", false)]
+    [InlineData("true", true)]
+    public void StockResourceRegistrationIsIndependentDefaultDisabled(string? state, bool expected)
+    {
+        var configuration = CreationConfiguration("false", "true", "true");
+        configuration["Wes:WmsMasterData:StockResourceRegistrationEnabled"] = state;
+        var settings = WmsMasterDataSettings.Load(configuration);
+        Assert.Equal(expected, settings.StockResourceRegistrationEnabled);
+        Assert.False(settings.WarehouseCreationEnabled); Assert.False(settings.LocationCreationEnabled);
+        Assert.False(settings.WarehouseStateEnabled); Assert.False(settings.LocationStateEnabled);
+        Assert.False(settings.InboundDraftCreationEnabled); Assert.False(settings.InboundDraftRevisionEnabled);
+    }
+
+    [Theory]
+    [InlineData("yes", "true", "true")]
+    [InlineData("", "true", "true")]
+    [InlineData("1", "true", "true")]
+    [InlineData("true", "false", "true")]
+    [InlineData("true", "true", "false")]
+    public void InvalidOrUnassembledStockResourceRegistrationIsRejected(string state, string reads, string identity)
+    {
+        var configuration = CreationConfiguration("false", reads, identity);
+        configuration["Wes:WmsMasterData:StockResourceRegistrationEnabled"] = state;
+        Assert.Throws<InvalidOperationException>(() => WmsMasterDataSettings.Load(configuration));
+    }
+
     private static IConfiguration Configuration(string enabled, string identity) =>
         new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {

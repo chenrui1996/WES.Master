@@ -26,11 +26,12 @@ public sealed partial class IdentityHttpTests
         var ids = await WmsHostAsync(warehouseCreation, locationCreation, locationCreation
             ? services => services.AddSingleton<Wes.Wms.Features.MasterData.IWarehouseLocationSchema>(schema) : null,
             inboundDraftCreation: inboundRead, inboundDraftRevision: inboundRead, warehouseState: warehouseCreation || locationCreation,
-            locationState: locationCreation);
+            locationState: locationCreation, stockResources: locationCreation);
         if (warehouseCreation) { await GrantWarehouseCreationAsync(); await GrantWarehouseStateAsync(); }
         if (locationCreation)
         {
             await GrantLocationCreationAsync(); await GrantLocationStateAsync(); await GrantWarehouseStateAsync();
+            await GrantStockResourcesAsync();
             using var enabledParent = await StateHttpAsync(ids.Warehouse, Guid.NewGuid(), await StateInputAsync(ids.Warehouse));
             Assert.Equal(HttpStatusCode.OK, enabledParent.StatusCode);
         }
@@ -64,7 +65,7 @@ public sealed partial class IdentityHttpTests
             wmsWarehouseCreation: warehouseCreation, wmsLocationCreation: locationCreation,
             locationSchemas: locationCreation ? services => services.AddSingleton<Wes.Wms.Features.MasterData.IWarehouseLocationSchema>(schema) : null,
             wmsInboundDraftCreation: inboundRead, wmsInboundDraftRevision: inboundRead, wmsWarehouseState: warehouseCreation || locationCreation,
-            wmsLocationState: locationCreation);
+            wmsLocationState: locationCreation, wmsStockResources: locationCreation);
         server.UseKestrel(options => options.Listen(IPAddress.Loopback, 0, listener => listener.UseHttps(certificate)));
         server.StartServer();
         var address = Assert.Single(server.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses);
@@ -260,13 +261,27 @@ public sealed partial class IdentityHttpTests
         }
         Assert.Equal(warehouseCreation ? 2 : locationCreation ? 1 : 0, await verify.WarehouseStateChanges.CountAsync());
         Assert.Equal(locationCreation ? 2 : 0, await verify.LocationStateChanges.CountAsync());
+        Assert.Equal(locationCreation ? 1 : 0, await verify.StockUnits.CountAsync());
+        Assert.Equal(locationCreation ? 1 : 0, await verify.StockItems.CountAsync());
+        Assert.Equal(locationCreation ? 1 : 0, await verify.StockContainers.CountAsync());
+        Assert.Equal(locationCreation ? 1 : 0, await verify.DimensionRegistrations.CountAsync());
         if (locationCreation)
         {
             var created = await verify.Locations.SingleAsync(item => item.Code == "BROWSER-LOC");
             Assert.Equal(("Browser location", ids.Warehouse, LocationHttpSchema.Pack, "v1"),
                 (created.Name, created.WarehouseId, created.PackId, created.SchemaVersion));
-            Assert.Equal(2, schema.Calls.Count);
+            Assert.Equal(3, schema.Calls.Count);
             Assert.All(schema.Calls, call => Assert.Equal((_tenant, ids.Warehouse, LocationHttpSchema.Pack, "v1", "BROWSER-LOC"), call));
+            var registered = await verify.Balances.SingleAsync();
+            Assert.Equal(0m, registered.Quantity); Assert.Equal(0, registered.Precision); Assert.Equal(created.Id, registered.LocationId);
+            var registeredDimension = await verify.DimensionRegistrations.SingleAsync();
+            Assert.Equal(registered.Id, registeredDimension.BalanceId); Assert.Equal(registered.Version, registeredDimension.AfterVersion);
+            Assert.Equal(_user, registeredDimension.ActorId);
+            var registeredItem = await verify.StockItems.SingleAsync();
+            Assert.Equal(registeredItem.Id, registered.ItemId); Assert.False(registeredItem.BatchRequired); Assert.Equal("", registered.Batch);
+            Assert.Equal((await verify.StockUnits.SingleAsync()).Id, registeredItem.BaseUnitId);
+            Assert.Equal(registeredItem.BaseUnitId, registered.UnitId);
+            Assert.Equal((await verify.StockContainers.SingleAsync()).Id, registered.ContainerId);
             var fact = await verify.MasterDataChanges.SingleAsync(item => item.LocationId == created.Id);
             var message = await verify.OutboxMessages.SingleAsync(item => item.EventId == fact.OperationId);
             Assert.Equal((_user, created.Id, fact.AfterVersion), (fact.ActorId, message.AggregateId, message.AggregateVersion));

@@ -9,11 +9,16 @@ import { mayChangeMasterDataState } from "./master-data-state";
 import { ApiError, sessionState } from "../identity/identity-api";
 import { locationFields, MasterDataResponseError, mayCreateLocation, mayCreateWarehouse, readMasterData, validIdentity, warehouseFields, type MasterData, type ResourceKind } from "./master-data";
 import { mayReadBusinessFiles } from "./business-files";
+import StockResourcesPanel from "./StockResourcesPanel.vue";
+import { mayReadStockResource, mayRegisterStockResource } from "./stock-resources";
 
 const resourceKind = ref<ResourceKind>(mayRead("warehouses") ? "warehouses" : "locations");
 const resourceId = ref("");
 const catalogRevision = ref(0);
 const creationOpen = ref<ResourceKind | null>(null);
+const resourcesOpen = ref(false);
+const canOpenResources = computed(() => mayRegisterStockResource("dimensions")
+  || (["units", "items", "containers"] as const).some(kind => mayRegisterStockResource(kind) || mayReadStockResource(kind)));
 const stateOpen = shallowRef<MasterData>();
 const canChangeState = computed(() => mayChangeMasterDataState(resourceKind.value));
 const canCreate = computed(mayCreateWarehouse); const canCreateLocation = computed(mayCreateLocation);
@@ -46,7 +51,7 @@ function connection() {
 onMounted(() => { addEventListener("online", connection); addEventListener("offline", connection); });
 onUnmounted(() => { cancel(); removeEventListener("online", connection); removeEventListener("offline", connection); });
 async function read() {
-  if (attachmentLocked.value || stateOpen.value || !readable.value || !online.value || busy.value || creationOpen.value) return;
+  if (resourcesOpen.value || attachmentLocked.value || stateOpen.value || !readable.value || !online.value || busy.value || creationOpen.value) return;
   const id = resourceId.value.trim();
   if (!validIdentity(id)) { error.value = "请输入有效的非空 UUID。"; return; }
   cancel(); busy.value = true; error.value = ""; notFound.value = false;
@@ -92,12 +97,19 @@ function readStateResource(id: string) {
   if (!stateOpen.value) return;
   resourceKind.value = stateOpen.value.kind; stateOpen.value = undefined; selectCatalogResource(id);
 }
+function openResources() {
+  if (!canOpenResources.value || attachmentLocked.value || creationOpen.value || stateOpen.value || busy.value) return;
+  reset(); resourcesOpen.value = true;
+}
 </script>
 
 <template>
   <section class="page" aria-labelledby="master-data-heading">
     <header class="page-heading"><div><p class="eyebrow">WMS · 主数据定义</p><h1 id="master-data-heading">仓库与库位详情</h1></div></header>
     <p class="hint">通过实时目录或已知 UUID 读取当前授权的主数据。不代表可分配、位置空闲或物理安全许可；创建及仓/位逻辑启停须独立部署装配，层级树及容器绑定尚未开放。</p>
+    <StockResourcesPanel v-if="resourcesOpen" @close="resourcesOpen = false" />
+    <template v-else>
+    <button v-if="canOpenResources && !creationOpen && !stateOpen" type="button" :disabled="attachmentLocked || busy" data-test="open-stock-resources" @click="openResources">单位、物料与容器登记/查询</button>
     <button v-if="canCreate && !creationOpen && !stateOpen" type="button" :disabled="attachmentLocked" @click="openCreation('warehouses')">新建禁用仓库</button>
     <button v-if="canCreateLocation && !creationOpen && !stateOpen" type="button" :disabled="attachmentLocked" @click="openCreation('locations')">新建禁用库位</button>
     <MasterDataCreation v-if="creationOpen" :kind="creationOpen" @attempted="creationAttempted" @read="readCreatedDefinition" @close="creationOpen = null" />
@@ -143,6 +155,7 @@ function readStateResource(id: string) {
     </QueryState>
     <EntityAttachments v-if="record && businessFileReadable" :key="`${record.kind}:${record.definition.id}`"
       :kind="record.kind" :entity-id="record.definition.id" :active="fresh && online && !busy" @locked="attachLocked" />
+    </template>
     </template>
   </section>
 </template>

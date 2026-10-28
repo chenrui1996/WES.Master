@@ -47,6 +47,12 @@ public static partial class WmsMasterDataEndpoints
             ReadAsync(id, http, database, location: true, ct));
         group.MapGet("/inbound/{id:guid}", ReadInboundAsync);
         group.MapGet("/inbound", QueryInboundAsync);
+        MapStockResourceReads(group);
+        if (app.Services.GetRequiredService<WmsMasterDataSettings>().StockResourceRegistrationEnabled)
+        {
+            _ = app.Services.GetRequiredService<LocationCreationSchema>();
+            MapStockResourceWrites(group);
+        }
         if (app.Services.GetRequiredService<WmsMasterDataSettings>().InboundDraftCreationEnabled)
             group.MapPost("/inbound", CreateInboundDraftAsync);
         if (app.Services.GetRequiredService<WmsMasterDataSettings>().InboundDraftRevisionEnabled)
@@ -160,6 +166,8 @@ public static partial class WmsMasterDataEndpoints
         internal WmsLocationStateWriter OpenLocationStateWriter(Guid tenant, IWarehouseLocationSchema schema) =>
             new(settings.ConnectionString, tenant, authorization, schema, clock, logs);
         internal WmsMasterDataWriter OpenLocationWriter(Guid tenant, IWarehouseLocationSchema schema) =>
+            new(settings.ConnectionString, tenant, authorization, schema, clock, logs);
+        internal WmsStockResourceWriter OpenStockResources(Guid tenant, IWarehouseLocationSchema schema) =>
             new(settings.ConnectionString, tenant, authorization, schema, clock, logs);
     }
 

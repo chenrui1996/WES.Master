@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+最新T08/T09依赖：[合法资源与零余额账维度](176-t08-legal-stock-resources.md)基本软件子集已验证，替代历史“单位/物料/容器/合法零账登记未实现”的子集。当前真实多creator完整权限、合法单位/批次/精度派生、父仓→库位→容器锁及schema/Enabled、永久原回执和保存后复验回滚；独立默认关闭四POST/三GET与具名面板已接通。本片最终owner109、较早相关owner682、Release Modules636/最后HTTP配置与五真实HTTPS浏览器37、前端1016/严格构建、架构29/Release0/0/EF无漂移通过，重叠不合计。四新表仅在wes_test应用，无生产迁移；零余额不占位/授予收货许可，唯一容器账面位置/执行保护、受权审核收货及最终运输仍未完成，T08/T09不整包关闭。
+
 最新T08/T09依赖：[库位逻辑启停](175-t08-location-operational-state.md)软件子集已验证。真实双creator/完整read与Enabled独立写、父仓→库位串行锁、启用校验固定Pack/schema及父仓、禁用实际活动保护；独立默认关闭PUT、共享具名预览确认/原键Unknown恢复及显式locations GET已接通。相关owner576、最终Release本片53/Modules293含五套真实HTTPS浏览器、前端982/严格类型与生产构建、架构29/Release0/0及EF无漂移通过（不重复合计）。仅在wes_test应用新增状态表；历史“库位启停未实现”仅该子集被替代，仓/位Enabled不授予收货/物理许可。合法容器/账维度与物料单位、当前受权审核收货及最终运输仍未完成，T08/T09不整包关闭。
 
 最新T08/T09依赖：[仓库逻辑启停](174-t08-warehouse-operational-state.md)子集已验证。当前真实creator/完整read六字段和Enabled独立写、父仓锁/版本与永久原回执、实际活动阻断及保存后撤权回滚；独立默认关闭PUT/具名页面的Unknown同键恢复和显式GET已接通。相关owner527、最终Release本片38/HTTP配置与五浏览器41、前端956/严格构建、架构29/Release0/0及EF无漂移通过（不重复合计）。新迁移仅在wes_test应用；design-time脚本历史修正为runtime的`__WesWmsMigrations`，无生产连接。历史“仓库启停未实现”仅该子集被替代；库位/容器/账维度与物料单位、当前受权审核收货、最终运输仍未完成，T08/T09不整包关闭，Enabled不代表物理或运营写许可。

@@ -71,6 +71,8 @@ WMS入库草稿另有独立默认关闭的`Wes:WmsMasterData:InboundDraftCreatio
 
 库位逻辑启停另用`Wes:WmsMasterData:LocationStateEnabled=false`，与创建/仓库状态开关独立；依赖master-data/Identity及唯一非keyed singleton `IWarehouseLocationSchema`，即使关闭库位创建也必须核验schema装配，缺失/重复/不合法生命周期启动失败。关闭时不映射`PUT /api/wms/locations/{id}/state`，不删除事实或自动停用。服务端两时点核真实库位creator的Enabled写/完整read九字段与真实父仓creator的完整read六字段；父仓→库位串行锁内启用验证父仓Enabled及持久Pack/schema tuple，禁用检查正库存/剩余预留/未完成异址收货运输。独立迁移仅新增状态事实表，禁止以Down删除历史；无生产自动迁移/默认合法schema，也不授予收货/运输许可。使用、Unknown恢复与回退见[设计与证据](../implementation/175-t08-location-operational-state.md)。
 
+合法单位/物料/容器与零余额账维度登记独立使用`Wes:WmsMasterData:StockResourceRegistrationEnabled=false`，不由创建、仓/位启停或入库草稿开关隐式开启。需master-data/Identity及唯一非keyed singleton `IWarehouseLocationSchema`；即使关闭库位创建/启停，也不得省略schema装配检查。关闭不映射四个具名POST，保留永久资源/维度事实以及受权单位/物料/容器GET。新增四表迁移必须单独审查、由批准环境应用，不改旧余额、不回填合法资源，不自动迁移生产；有事实后禁止Down删历史。未知结果仅在兼容入口可用后原key/body手工恢复，不清历史或自动换键。零余额登记不构成位置占用/可分配或收货许可；公开收货还须唯一容器账面位置/执行保护。详见[合法资源设计与证据](../implementation/176-t08-legal-stock-resources.md)。
+
 1. Host 在组合根绑定 `FeaturesOptions`、校验每一项及依赖关系，并创建不可变运行快照。
 2. 每项运行能力由其 owner 显式声明启动注册、健康/ready 影响、关闭行为、请求错误语义及 in-flight/shutdown 策略；没有声明的能力不能被任意字符串开关控制。
 3. 匿名 `GET /api/config/features` 只返回前端允许公开的模块代码与启用布尔值，不返回运行能力、Provider/连接、Secret、内部依赖状态或按租户/用户定制的数据。端点输出采用显式白名单 DTO。

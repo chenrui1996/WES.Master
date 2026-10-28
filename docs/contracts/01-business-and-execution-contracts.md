@@ -47,6 +47,8 @@
 
 ## 4. WMS与运输协作
 
+[T10出库基本链实施合同](../implementation/181-t10-outbound-basic-flow.md)定义独立默认关闭`Wes:WmsMasterData:OutboundEnabled`及具名`/api/wms/outbound`接口，沿既有WMS body版本/未版本化已实施端点模式，不重命名旧接口或采信客户端actor。创建、全行原子审核、实拣/短缺、非原人复核未执行释放、无运输一次直发、取消与关闭余量分别具名；成功201/原tuple重放200 `{decision,id,version}`，当前GET严格`{decision,record}`。数量string，原请求/原回执永久保存；原key恢复仍需当前完整字段/资源权限，不能从回执版本推断当前状态。RequiresTransport不得走手工Shipment，不以缺少实际T15适配器默认完成。详细输入/字段/错误/保护与明确未实现软件范围见设计；实施测试状态以[独立记录](../implementation/182-t10-outbound-basic-flow-tests.md)为准，不因本文预先列入合同即宣称可部署。
+
 [T09耐久运输实施细化](../implementation/179-t09-durable-inbound-transport-design.md)/[测试记录](../implementation/180-t09-durable-inbound-transport-tests.md)：沿现有公开异址收货事务形成唯一intent/固定消息及在途保护，不另开放下表规划中的泛运输POST。关联和最终完成仅由显式可信模块适配边界接受，不是客户端提供producer字符串便可受信；完成须匹配原intent/execution/transport/最终位置/证据与版本。目标必须是合法已登记维度，缺少则PendingSync并保留保护，不重运或自动造账。最终同步使用现有Transfer posting及两条entry，匹配执行保护消费、到达历史和Inbox Applied原子提交。此处是实施合同，不代表T15实际订单/Leg、Pack或生产运行能力已接通；实际验证状态以独立记录为准。主数据创建Outbox的payload/授权/统计不扩成通用运输合同。
 
 对应[库位创建客户端](../implementation/163-t08-disabled-location-creation-client.md)只发送上述精确tuple/永久key，经预览和二次确认；503等未知结果冻结原tuple/key手工恢复，422仅拒绝本次、不抹除先前未知。三字段回执不当完整resource投影，必须显式GET重新复验read，不默认schema实现/授予权限，不代表可用Pack、启用/可分配或物理完成。

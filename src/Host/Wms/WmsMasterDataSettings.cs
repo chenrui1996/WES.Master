@@ -3,7 +3,8 @@ namespace Wes.Host.Wms;
 /// <summary>Default-disabled deployment assembly; independent write toggles never imply inventory or physical-control capability.</summary>
 public sealed record WmsMasterDataSettings(bool Enabled, bool WarehouseCreationEnabled = false, bool LocationCreationEnabled = false,
     bool InboundDraftCreationEnabled = false, bool InboundDraftRevisionEnabled = false, bool WarehouseStateEnabled = false,
-    bool LocationStateEnabled = false, bool StockResourceRegistrationEnabled = false, bool InboundApprovalEnabled = false, bool InboundReceiptEnabled = false)
+    bool LocationStateEnabled = false, bool StockResourceRegistrationEnabled = false, bool InboundApprovalEnabled = false,
+    bool InboundReceiptEnabled = false, bool OutboundEnabled = false)
 {
     /// <summary>Rejects malformed supplied toggles and requires authenticated identity when explicitly enabled.</summary>
     public static WmsMasterDataSettings Load(IConfiguration configuration)
@@ -68,7 +69,13 @@ public sealed record WmsMasterDataSettings(bool Enabled, bool WarehouseCreationE
             throw new InvalidOperationException("WMS inbound receipt deployment configuration is invalid.");
         if (receiptEnabled && !enabled)
             throw new InvalidOperationException("WMS inbound receipt requires master-data and identity deployment.");
+        var outboundValue = configuration["Wes:WmsMasterData:OutboundEnabled"];
+        var outboundEnabled = false;
+        if (outboundValue is not null && !bool.TryParse(outboundValue, out outboundEnabled))
+            throw new InvalidOperationException("WMS outbound deployment configuration is invalid.");
+        if (outboundEnabled && !enabled)
+            throw new InvalidOperationException("WMS outbound requires master-data and identity deployment.");
         return new(enabled, creationEnabled, locationEnabled, inboundEnabled, revisionEnabled, stateEnabled, locationStateEnabled,
-            resourceEnabled, approvalEnabled, receiptEnabled);
+            resourceEnabled, approvalEnabled, receiptEnabled, outboundEnabled);
     }
 }

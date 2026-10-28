@@ -9,6 +9,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 ## 文档工作区
 
+最新T10基本软件子片已交付：[出库预留、拣选与无运输直发](docs/implementation/181-t10-outbound-basic-flow.md)/[证据](docs/implementation/182-t10-outbound-basic-flow-tests.md)。多行草稿/全行原子预留、实拣/短缺、非原人复核释放、一次直发与取消/ClosedPartial、独立默认关闭HTTP及具名出库/拣选页已接通。5项审查问题先红后绿修复并复审通过；最终真实MySQL392、HTTP/配置/真实HTTPS浏览器120、架构29、前端1107通过，Release0/0、EF无漂移和格式通过，重叠不合计。FEFO/完整效期、自动FIFO来源、多次部分发运及实际T15出库运输仍是软件依赖，不整体关闭T10或项目；下一基本工作包T11盘点与移库。
+
 上述运输续片最终收口：独立审查补齐目标另容器占位/预留/未决执行锁内保护，9项先红后绿；最终运输72、修复相关268、最后HTTP/配置与真实浏览器89、架构29通过，Release0/0、EF无漂移和格式验证通过。较早63/533/192为历史回归、不重复累计；详见[证据](docs/implementation/180-t09-durable-inbound-transport-tests.md)。
 
 最新T09运输续片：[WMS耐久运输契约闭环](docs/implementation/179-t09-durable-inbound-transport-design.md)/[独立证据](docs/implementation/180-t09-durable-inbound-transport-tests.md)已实现原消息/意图、同事务在途保护、可信关联/完成Inbox及唯一最终Transfer。新运输63、相关MySQL533、前端1051/严格构建通过，重叠不合计；独立审查与最终发布门禁见证据。仅WMS契约夹具，无人工Completed接口、默认可信adapter或自动投递；实际T15订单/Leg、Pack和物理到达未接入，仍明确待运输。两新表仅在wes_test应用，不改旧账；来源深化/整包T09仍不因此关闭。

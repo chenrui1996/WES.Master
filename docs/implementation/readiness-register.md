@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+最新T10基本直发链按[181设计](181-t10-outbound-basic-flow.md)/[182证据](182-t10-outbound-basic-flow-tests.md)已实现验证，具名owner/默认关闭HTTP/多行草稿、全行原子预留、实拣/短缺、非原人复核、一次直发及取消/ClosedPartial已接通。最终MySQL392、HTTP/配置/真实HTTPS双账号浏览器120、架构29、前端1107单worker回归/严格构建通过，Release0/0、EF无漂移及格式通过；5项独立审查问题已修复并复审无显著剩余问题。本基本子片可关闭，继续T11；不覆盖FEFO/完整效期、自动FIFO来源、多次部分发运或实际T15出库运输，不整体关闭T10。这些是后续软件依赖，不伪装外部验收关闭。当前开关仍默认false，两新表仅wes_test，不授予生产/现场许可。
+
 运输续片最终验证：新运输72、修复相关268、最后HTTP/配置与真实浏览器89、架构29通过，Release0/0、EF无漂移及格式通过；独立审查目标占位问题9项先红后绿并复审关闭。历史63/533/192与最终结果重叠不累计；本WMS软件子片可关闭，实际T15/Pack与现场边界不变，见[证据](180-t09-durable-inbound-transport-tests.md)。
 
 最新T09运输续片：[耐久契约闭环](179-t09-durable-inbound-transport-design.md)/[证据](180-t09-durable-inbound-transport-tests.md)已实现WMS原消息/意图、原执行在途保护、显式可信adapter关联、完成Inbox和最终Transfer/到达历史/Applied原子提交。新运输63、相关MySQL533、前端1051/严格构建通过，重叠不合计；独立审查与最终门禁见证据。无默认adapter、人工完成接口或Host自动投递；没有实际T15/Pack不能实际发运，不把契约夹具当现场证据。旧内部异址事实不回填成功、仍保留保护；两新表仅wes_test，生产与其他Provider未验证。

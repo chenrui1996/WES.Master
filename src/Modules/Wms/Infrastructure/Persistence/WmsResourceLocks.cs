@@ -6,11 +6,15 @@ namespace Wes.Wms.Infrastructure.Persistence;
 internal static class WmsResourceLocks
 {
     internal static async Task AcquireAsync(WmsDbContext database, Guid warehouse, IEnumerable<Guid> locations,
-        Guid? container, CancellationToken ct)
+        Guid? container, CancellationToken ct) =>
+        await AcquireAsync(database, warehouse, locations, container.HasValue ? [container.Value] : [], ct);
+
+    internal static async Task AcquireAsync(WmsDbContext database, Guid warehouse, IEnumerable<Guid> locations,
+        IEnumerable<Guid> containers, CancellationToken ct)
     {
         await FenceAsync(database, "wms_warehouses", warehouse, ct);
         foreach (var location in locations.Distinct().Order()) await FenceAsync(database, "wms_locations", location, ct);
-        if (container is not null) await FenceAsync(database, "wms_stock_containers", container.Value, ct);
+        foreach (var container in containers.Distinct().Order()) await FenceAsync(database, "wms_stock_containers", container, ct);
     }
 
     private static async Task FenceAsync(WmsDbContext database, string table, Guid id, CancellationToken ct)

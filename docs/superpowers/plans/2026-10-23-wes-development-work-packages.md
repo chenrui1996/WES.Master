@@ -230,6 +230,8 @@
 
 ### T11：盘点与多行TransferOrder
 
+T10基本软件交付覆盖说明：[181设计](../../implementation/181-t10-outbound-basic-flow.md)/[182证据](../../implementation/182-t10-outbound-basic-flow-tests.md)已验证多行草稿/原子预留、拣选/短缺非原人复核、一次无运输直发及取消/ClosedPartial、具名页面与严格默认关闭API。最终MySQL392/HTTP配置与真实浏览器120/架构29/前端1107、Release0/0/EF无漂移/格式通过，5项审查问题修复并复审关闭。本子片可关闭，继续T11；上方父T10的FEFO/完整效期、自动FIFO来源、多次部分发运与实际运输仍为软件依赖，不能将原父checklist整体勾选或假称外部验收关闭。
+
 **Files:** `src\Modules\Wms\Features\Counts\{CreateCount.cs,RecordCount.cs,ApproveAdjustment.cs,InvalidateCount.cs}`、`Features\Transfers\{ApproveTransfer.cs,CompleteTransferUnit.cs,CloseTransferRemainder.cs}`；`clients\ops-web\src\features\wms\{CountsPage.vue,TransfersPage.vue}`；`tests\Modules\Wms\{CountTests.cs,TransferOrderTests.cs}`。
 
 **Interfaces:** 消费流水/预留/最终实物事实；产出FUNC-WMS-005/006、PAGE-WMS-006/007；父单进度、executionStatus与postingStatus独立。

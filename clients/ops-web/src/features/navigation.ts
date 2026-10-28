@@ -14,6 +14,8 @@ const entries = [
   { path: "/wms/inventory", name: "库存与保护量", short: "存", module: "Wms", permission: ["wms.inventory.read"] },
   { path: "/wms/ledger", name: "库存流水", short: "流", module: "Wms", permission: ["wms.ledger.read"] },
   { path: "/wms/inbound", name: "入库收货详情", short: "入", module: "Wms", permission: ["wms.inbound.read"] },
+  { path: "/wms/outbound", name: "出库预留与发运", short: "出", module: "Wms", permission: ["wms.outbound.read"] },
+  { path: "/wms/picking", name: "拣选与短缺复核", short: "拣", module: "Wms", permission: ["wms.outbound.pick"] },
 ] as const;
 
 export function getNavigation(

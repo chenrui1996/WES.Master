@@ -64,6 +64,18 @@ public static partial class WmsMasterDataEndpoints
             _ = app.Services.GetRequiredService<LocationCreationSchema>();
             group.MapPost("/inbound/{id:guid}/receipts", ReceiveInboundAsync);
         }
+        if (app.Services.GetRequiredService<WmsMasterDataSettings>().OutboundEnabled)
+        {
+            _ = app.Services.GetRequiredService<LocationCreationSchema>();
+            group.MapPost("/outbound", CreateOutboundStrictAsync);
+            group.MapGet("/outbound/{id:guid}", ReadOutboundAsync);
+            group.MapPost("/outbound/{id:guid}/approval", ApproveOutboundStrictAsync);
+            group.MapPost("/outbound/{id:guid}/picking", PickOutboundStrictAsync);
+            group.MapPost("/outbound/{id:guid}/shortage-release", ReleaseOutboundShortageStrictAsync);
+            group.MapPost("/outbound/{id:guid}/shipment", ShipOutboundStrictAsync);
+            group.MapPost("/outbound/{id:guid}/cancellation", CancelOutboundStrictAsync);
+            group.MapPost("/outbound/{id:guid}/close-remainder", CloseOutboundRemainderStrictAsync);
+        }
         group.MapGet("/master-data-events", (int? offset, int? limit, HttpContext http, MasterDataDatabase database, CancellationToken ct) =>
             ReadCreationEventsAsync(new(offset ?? 0, limit ?? 25), http, database, ct));
         group.MapGet("/master-data-events/summary", ReadCreationEventSummaryAsync);
@@ -177,6 +189,8 @@ public static partial class WmsMasterDataEndpoints
         internal WmsStockResourceWriter OpenStockResources(Guid tenant, IWarehouseLocationSchema schema) =>
             new(settings.ConnectionString, tenant, authorization, schema, clock, logs);
         internal WmsInboundExecutionWriter OpenInboundExecution(Guid tenant, IWarehouseLocationSchema schema) =>
+            new(settings.ConnectionString, tenant, authorization, schema, clock, logs);
+        internal WmsOutboundWriter OpenOutbound(Guid tenant, IWarehouseLocationSchema schema) =>
             new(settings.ConnectionString, tenant, authorization, schema, clock, logs);
     }
 

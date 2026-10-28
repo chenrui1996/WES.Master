@@ -32,6 +32,7 @@ public sealed partial class WmsDbContext : DbContext
         ConfigureInbound(modelBuilder);
         ConfigureInboundTransport(modelBuilder);
         ConfigureStockResources(modelBuilder);
+        ConfigureOutbound(modelBuilder);
         var balance = modelBuilder.Entity<StockBalance>();
         balance.ToTable("wms_stock_balances");
         balance.HasKey(item => new { item.TenantId, item.Id });
@@ -122,6 +123,7 @@ public sealed partial class WmsDbContext : DbContext
         ValidateLedgerEffects();
         ValidateInboundWrites();
         ValidateInboundTransportWrites();
+        ValidateOutboundWrites();
         ValidateReservationEffects();
         ValidateMasterDataWrites();
         ValidateStockResourceWrites();
@@ -154,10 +156,13 @@ public sealed partial class WmsDbContext : DbContext
                     && item.Entity.TenantId == TenantId && item.Entity.BalanceId == balance.Id)
                 && !Equals(entry.Property(nameof(StockBalance.Version)).OriginalValue, balance.Version))
                 continue;
-            if (facts.Length != 1 || facts[0].Entity.Before != (decimal)entry.Property(nameof(StockBalance.Quantity)).OriginalValue!
-                || facts[0].Entity.After != balance.Quantity
-                || Equals(entry.Property(nameof(StockBalance.Version)).OriginalValue, balance.Version))
-                throw new InvalidOperationException("Stock changes require one exact ledger fact and a new version.");
+            if (facts.Length != 1)
+                throw new InvalidOperationException("Stock changes require exactly one ledger fact.");
+            if (facts[0].Entity.Before != (decimal)entry.Property(nameof(StockBalance.Quantity)).OriginalValue!
+                || facts[0].Entity.After != balance.Quantity)
+                throw new InvalidOperationException("Stock ledger facts must exactly explain the balance change.");
+            if (Equals(entry.Property(nameof(StockBalance.Version)).OriginalValue, balance.Version))
+                throw new InvalidOperationException("Stock changes require a new balance version.");
         }
     }
 

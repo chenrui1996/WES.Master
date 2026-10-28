@@ -241,8 +241,10 @@ public sealed partial class WmsMasterDataTests : IAsyncLifetime
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_inbound_execution_operations WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_inbound_facts WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_inbound_documents WHERE TenantId = {tenant.ToString("D")}");
+            await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_outbound_facts WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_stock_postings WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_stock_reservations WHERE TenantId = {tenant.ToString("D")}");
+            await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_outbound_documents WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_stock_dimension_registrations WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_stock_balances WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_stock_containers WHERE TenantId = {tenant.ToString("D")}");

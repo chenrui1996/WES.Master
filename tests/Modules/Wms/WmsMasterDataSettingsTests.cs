@@ -24,6 +24,33 @@ public sealed class WmsMasterDataSettingsTests
     }
 
     [Theory]
+    [InlineData(null, false)]
+    [InlineData("false", false)]
+    [InlineData("true", true)]
+    public void OutboundExecutionIsIndependentlyExplicitAndDefaultDisabled(string? value, bool expected)
+    {
+        var configuration = CreationConfiguration("false", "true", "true");
+        configuration["Wes:WmsMasterData:OutboundEnabled"] = value;
+        var settings = WmsMasterDataSettings.Load(configuration);
+        Assert.Equal(expected, settings.OutboundEnabled);
+        Assert.False(settings.InboundApprovalEnabled);
+        Assert.False(settings.InboundReceiptEnabled);
+    }
+
+    [Theory]
+    [InlineData("yes", "true", "true")]
+    [InlineData("", "true", "true")]
+    [InlineData("1", "true", "true")]
+    [InlineData("true", "false", "true")]
+    [InlineData("true", "true", "false")]
+    public void OutboundRejectsMalformedOrUnassembledConfiguration(string value, string reads, string identity)
+    {
+        var configuration = CreationConfiguration("false", reads, identity);
+        configuration["Wes:WmsMasterData:OutboundEnabled"] = value;
+        Assert.Throws<InvalidOperationException>(() => WmsMasterDataSettings.Load(configuration));
+    }
+
+    [Theory]
     [InlineData("InboundApprovalEnabled", "yes", "true", "true")]
     [InlineData("InboundApprovalEnabled", "", "true", "true")]
     [InlineData("InboundApprovalEnabled", "1", "true", "true")]

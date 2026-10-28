@@ -469,6 +469,124 @@ namespace Wes.Wms.Infrastructure.Persistence.Migrations
                     b.ToTable("wms_master_data_changes", (string)null);
                 });
 
+            modelBuilder.Entity("Wes.Wms.Domain.OutboundDocument", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .UseCollation("utf8mb4_bin");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreationOperationId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("CreatorId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Plan")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("int");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<string>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("WarehouseId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "CreationOperationId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "WarehouseId");
+
+                    b.ToTable("wms_outbound_documents", (string)null);
+                });
+
+            modelBuilder.Entity("Wes.Wms.Domain.OutboundFact", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("OperationId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("ActorId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("AfterVersion")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("CorrelationId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Input")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("varchar(24)");
+
+                    b.Property<string>("OrderId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("int");
+
+                    b.HasKey("TenantId", "OperationId");
+
+                    b.HasIndex("TenantId", "OrderId", "Sequence")
+                        .IsUnique();
+
+                    b.ToTable("wms_outbound_facts", (string)null);
+                });
+
             modelBuilder.Entity("Wes.Wms.Domain.ReservationChange", b =>
                 {
                     b.Property<string>("TenantId")
@@ -1406,6 +1524,24 @@ namespace Wes.Wms.Infrastructure.Persistence.Migrations
                     b.HasOne("Wes.Wms.Domain.Warehouse", null)
                         .WithMany()
                         .HasForeignKey("TenantId", "WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Wes.Wms.Domain.OutboundDocument", b =>
+                {
+                    b.HasOne("Wes.Wms.Domain.Warehouse", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Wes.Wms.Domain.OutboundFact", b =>
+                {
+                    b.HasOne("Wes.Wms.Domain.OutboundDocument", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrderId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

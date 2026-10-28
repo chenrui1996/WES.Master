@@ -45,6 +45,7 @@ T04–T08 已验证切片继续有效；先完成当前附件客户端并验证�
 - T08/T09 依赖续片：已交付[仓库逻辑启停](174-t08-warehouse-operational-state.md)，真实creator完整read/Enabled写、父仓版本/永久原回执、活动阻断和保存后复验回滚；独立默认关闭PUT与预览确认/原键Unknown恢复页面。相关owner527、最终Release本片38/HTTP配置与五浏览器41、前端956/严格构建、架构29/Release0/0及模型无漂移通过，重叠不合计。仅新增状态事实表、不伪造创建Outbox；design-time迁移历史已与runtime owner对齐。
 - T08/T09 库位续片：已交付[库位逻辑启停](175-t08-location-operational-state.md)，真实双creator/完整字段、父仓→库位锁、固定Pack/schema/父仓启用校验、实际库存/预留/待运输禁用阻断与永久原回执；独立默认关闭PUT和共享具名页面支持原key/body恢复及显式locations GET。相关owner576、最终Release本片53/Modules293含五真实HTTPS浏览器、前端982/严格类型及生产构建、架构29/Release0/0/EF无漂移通过，重叠不合计。新表不伪造创建Outbox、不改库存或发运输。
 - T08/T09 资源续片：已交付[合法单位/物料/容器与零余额账维度](176-t08-legal-stock-resources.md)，真实多creator完整权限、单位/批次与精度派生、父仓→库位→容器锁和当前schema/Enabled、永久原回执/回滚；独立默认关闭四POST/三GET与具名面板支持预览/确认/原键Unknown及另读。本片最终owner109、较早相关owner682、Release Modules636/最后HTTP配置与五真实HTTPS浏览器37、前端1016/严格构建、架构29/Release0/0/EF无漂移通过，重叠不合计。仅新增四表，零余额不占位/收货或发运输，目录增强列HARD-06。
-- T09 下一主体依赖：唯一容器账面位置/执行保护、来源类型深化、当前受权审核/收货 owner/HTTP/表单、Outbox/运输及精确最终到达持久移账。草稿POST/PUT不开放运营执行，内部收货事务仍不能绕过运营授权，异址明确待运输；上述代码不归入可靠性增强，不以外部项关闭代替实施。
+- T09 执行续片：已接通[当前受权审核/收货与容器保护](177-t09-authorized-inbound-execution.md)/[独立测试](178-t09-authorized-inbound-execution-tests.md)，合法计划/注册账维度、真实多creator完整权限、保存后撤权回滚、schema/Enabled及正库存/预留/待运输保护；独立默认关闭两个POST和具名预览确认/原键Unknown恢复/显式另读。最终owner127、旧账本/资源/库位相关529、HTTP/配置及六浏览器192、前端1051/严格构建通过，重叠不合计，最后发布门禁见测试记录。异址真实收货只入源位账，仍Executing/待运输，不回假Completed。
+- T09 下一主体依赖：来源类型深化、耐久运输意图/Outbox、Orchestration订单/Leg及精确最终到达持久移账。内部收货primitive不能绕过公开运营授权；已收货后运输创建/分配失败不撤销真实收货，未确认到达与同步仍保护容器/源目标。上述代码不归入可靠性增强，不以外部项关闭代替实施。
 
 原始工作包及全部验收要求继续保留于[开发计划](../superpowers/plans/2026-10-23-wes-development-work-packages.md)。

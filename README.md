@@ -9,6 +9,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 ## 文档工作区
 
+最新T09续片：[当前受权审核、收货与容器保护](docs/implementation/177-t09-authorized-inbound-execution.md)/[独立测试](docs/implementation/178-t09-authorized-inbound-execution-tests.md)已接通独立owner、默认关闭两个POST与具名预览确认/原键Unknown恢复/显式另读。合法计划/真实多creator完整权限、保存后撤权回滚、源目标schema/Enabled、唯一容器账面位置和正库存/预留/待运输保护已验证；同址完成、异址明确Executing且待运输。最终本片owner127、相关旧账本/资源/库位回归529、HTTP/配置与六浏览器192、前端1051及严格构建通过，结果重叠不合计；最后发布门禁见测试记录。新增请求身份表仅在wes_test应用，不改旧账。来源深化、耐久运输意图/Orchestration及最终到达移账仍是主体待办，T09未关闭。
+
 最新T08/T09依赖片：[合法资源与零余额账维度](docs/implementation/176-t08-legal-stock-resources.md)已交付受权单位/物料/仓内容器及精度派生零维度owner、独立默认关闭四POST/三GET和具名预览确认/原键Unknown恢复/显式查询面板。最终本片owner109、较早相关owner682、相关Release Modules636及最后HTTP配置/五真实HTTPS浏览器37、前端1016/严格构建、架构29/Release0/0/EF无漂移通过（重叠不合计）。新增四表仅在wes_test应用，不改旧余额。登记不入账/占位；唯一容器账面位置/执行保护、受权审核收货及最终运输仍待实施，不关闭T08/T09。
 
 最新T08/T09依赖片：[库位逻辑启停](docs/implementation/175-t08-location-operational-state.md)已验证独立owner/默认关闭PUT与共享具名页面；真实库位/父仓双creator完整字段、父仓→库位串行锁、启用时固定Pack/schema及父仓状态、禁用实际库存/预留/待运输保护、永久原版本回执和原键Unknown恢复已接通。相关owner576、最终Release本片53/Modules293含五套实际HTTPS浏览器、前端982/严格类型与生产构建、架构29/Release0/0及EF无漂移通过（重叠不合计）。仅新增库位状态事实表，无库存/运输效果；仓/位逻辑启停子集已补齐，合法容器/账维度与物料单位、受权审核收货及最终运输仍是主体待办，T08/T09未整体关闭。

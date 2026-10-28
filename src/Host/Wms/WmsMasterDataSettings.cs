@@ -3,7 +3,7 @@ namespace Wes.Host.Wms;
 /// <summary>Default-disabled deployment assembly; independent write toggles never imply inventory or physical-control capability.</summary>
 public sealed record WmsMasterDataSettings(bool Enabled, bool WarehouseCreationEnabled = false, bool LocationCreationEnabled = false,
     bool InboundDraftCreationEnabled = false, bool InboundDraftRevisionEnabled = false, bool WarehouseStateEnabled = false,
-    bool LocationStateEnabled = false, bool StockResourceRegistrationEnabled = false)
+    bool LocationStateEnabled = false, bool StockResourceRegistrationEnabled = false, bool InboundApprovalEnabled = false, bool InboundReceiptEnabled = false)
 {
     /// <summary>Rejects malformed supplied toggles and requires authenticated identity when explicitly enabled.</summary>
     public static WmsMasterDataSettings Load(IConfiguration configuration)
@@ -56,6 +56,19 @@ public sealed record WmsMasterDataSettings(bool Enabled, bool WarehouseCreationE
             throw new InvalidOperationException("WMS stock resource registration deployment configuration is invalid.");
         if (resourceEnabled && !enabled)
             throw new InvalidOperationException("WMS stock resource registration requires master-data and identity deployment.");
-        return new(enabled, creationEnabled, locationEnabled, inboundEnabled, revisionEnabled, stateEnabled, locationStateEnabled, resourceEnabled);
+        var approvalValue = configuration["Wes:WmsMasterData:InboundApprovalEnabled"];
+        var approvalEnabled = false;
+        if (approvalValue is not null && !bool.TryParse(approvalValue, out approvalEnabled))
+            throw new InvalidOperationException("WMS inbound approval deployment configuration is invalid.");
+        if (approvalEnabled && !enabled)
+            throw new InvalidOperationException("WMS inbound approval requires master-data and identity deployment.");
+        var receiptValue = configuration["Wes:WmsMasterData:InboundReceiptEnabled"];
+        var receiptEnabled = false;
+        if (receiptValue is not null && !bool.TryParse(receiptValue, out receiptEnabled))
+            throw new InvalidOperationException("WMS inbound receipt deployment configuration is invalid.");
+        if (receiptEnabled && !enabled)
+            throw new InvalidOperationException("WMS inbound receipt requires master-data and identity deployment.");
+        return new(enabled, creationEnabled, locationEnabled, inboundEnabled, revisionEnabled, stateEnabled, locationStateEnabled,
+            resourceEnabled, approvalEnabled, receiptEnabled);
     }
 }

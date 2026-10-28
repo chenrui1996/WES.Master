@@ -110,7 +110,7 @@ internal sealed class InboundDraftAccess(WmsDbContext database, IInboundDraftAut
         return plan.ToArray();
     }
 
-    private static bool TryQuantity(string? text, out decimal quantity)
+    internal static bool TryQuantity(string? text, out decimal quantity)
     {
         quantity = 0m;
         if (text is null || text.Length is < 1 or > 29) return false;

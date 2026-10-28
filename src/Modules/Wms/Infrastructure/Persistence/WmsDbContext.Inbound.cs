@@ -10,6 +10,7 @@ public sealed partial class WmsDbContext
 
     private void ConfigureInbound(ModelBuilder builder)
     {
+        ConfigureInboundExecution(builder);
         var document = builder.Entity<InboundDocument>();
         document.ToTable("wms_inbound_documents");
         document.HasKey(item => new { item.TenantId, item.Id });
@@ -40,6 +41,7 @@ public sealed partial class WmsDbContext
 
     private void ValidateInboundWrites()
     {
+        ValidateInboundExecutionWrites();
         var facts = ChangeTracker.Entries<InboundFact>().Where(entry => entry.State == EntityState.Added)
             .Select(entry => entry.Entity).ToArray();
         var documents = ChangeTracker.Entries<InboundDocument>().Where(entry => entry.State == EntityState.Modified).ToArray();

@@ -8,8 +8,10 @@ using Wes.Wms.Infrastructure.Persistence;
 
 namespace Wes.Wms.Features.Inbound;
 
-internal enum InboundWriteDecision { Committed, Replayed, Invalid, NotFound, Conflict, VersionConflict, DimensionMismatch, Forbidden }
+internal enum InboundWriteDecision { Committed, Replayed, Invalid, NotFound, Conflict, VersionConflict, DimensionMismatch, Forbidden, SourceRejected }
 internal sealed record InboundWriteResult(InboundWriteDecision Decision, Guid? Id = null, string? Version = null);
+internal sealed record InboundWriteGuards(Func<CancellationToken, Task<bool>> BeforeWrite,
+    Func<CancellationToken, Task> Stage, Func<CancellationToken, Task<bool>> BeforeCommit);
 
 /// <summary>Internal WMS transaction primitive; public callers must first establish current field/resource and operational authority.</summary>
 internal sealed partial class InboundWriter(WmsDbContext database, TimeProvider clock)
@@ -50,11 +52,11 @@ internal sealed partial class InboundWriter(WmsDbContext database, TimeProvider 
     }
 
     internal Task<InboundWriteResult> ApproveAsync(Guid orderId, Guid operation, Guid actor, Guid correlation,
-        string version, CancellationToken ct = default) =>
-        UpdateDraftAsync(orderId, operation, actor, correlation, version, null, ct, null);
+        string version, CancellationToken ct = default, InboundWriteGuards? guards = null) =>
+        UpdateDraftAsync(orderId, operation, actor, correlation, version, null, ct, null, guards);
 
     internal async Task<InboundWriteResult> ReceiveAsync(Guid orderId, InboundReceiptCommand command,
-        Guid correlation, string version, Guid balanceId, string balanceVersion, CancellationToken ct = default)
+        Guid correlation, string version, Guid balanceId, string balanceVersion, CancellationToken ct = default, InboundWriteGuards? guards = null)
     {
         Clean(ct);
         var existing = await OriginalReceiptAsync(orderId, command, balanceId, ct);
@@ -99,7 +101,8 @@ internal sealed partial class InboundWriter(WmsDbContext database, TimeProvider 
             var posting = database.ChangeTracker.Entries<StockPosting>().Single(entry => entry.State == EntityState.Added).Entity;
             database.InboundFacts.Add(new(document, command.OperationId, command.ActorId, correlation,
                 InboundFactKind.Received, clock.GetUtcNow(), command, posting.Id));
-        }, ct);
+            if (guards is not null) await guards.Stage(token);
+        }, ct, guards?.BeforeWrite, guards?.BeforeCommit);
         if (result.Decision == StockPostingDecision.Replayed)
         {
             database.ChangeTracker.Clear();
@@ -112,6 +115,7 @@ internal sealed partial class InboundWriter(WmsDbContext database, TimeProvider 
             StockPostingDecision.VersionConflict => new(InboundWriteDecision.VersionConflict),
             StockPostingDecision.IdempotencyConflict => new(InboundWriteDecision.Conflict),
             StockPostingDecision.NotFound => new(InboundWriteDecision.NotFound),
+            StockPostingDecision.SourceRejected => new(InboundWriteDecision.SourceRejected),
             StockPostingDecision.Invalid or StockPostingDecision.VersionRequired => new(InboundWriteDecision.Invalid),
             _ => throw new InvalidOperationException("Unexpected inbound receipt posting outcome.")
         };

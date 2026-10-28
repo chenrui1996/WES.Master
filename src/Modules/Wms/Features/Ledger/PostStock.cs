@@ -13,7 +13,8 @@ internal sealed record StockPostingCommand(Guid OperationId, Guid ActorId, Guid 
 
 internal enum StockPostingDecision
 {
-    Posted, Replayed, Invalid, NotFound, VersionRequired, VersionConflict, IdempotencyConflict, InsufficientStock, DimensionMismatch, ProtectedStock
+    Posted, Replayed, Invalid, NotFound, VersionRequired, VersionConflict, IdempotencyConflict, InsufficientStock, DimensionMismatch, ProtectedStock,
+    SourceRejected
 }
 
 internal sealed record StockPostingResult(StockPostingDecision Decision, Guid? PostingId = null);
@@ -32,14 +33,16 @@ internal sealed class PostStock(WmsDbContext database, TimeProvider clock)
 
     // Only WMS application slices may stage their facts inside the ledger transaction; replay never stages twice.
     internal Task<StockPostingResult> ExecuteComposedAsync(StockPostingCommand command,
-        Func<CancellationToken, Task> stage, CancellationToken cancellationToken = default)
+        Func<CancellationToken, Task> stage, CancellationToken cancellationToken = default,
+        Func<CancellationToken, Task<bool>>? beforePosting = null, Func<CancellationToken, Task<bool>>? beforeCommit = null)
     {
         ArgumentNullException.ThrowIfNull(stage);
-        return ExecuteCoreAsync(command, stage, cancellationToken);
+        return ExecuteCoreAsync(command, stage, cancellationToken, beforePosting, beforeCommit);
     }
 
     private async Task<StockPostingResult> ExecuteCoreAsync(StockPostingCommand command,
-        Func<CancellationToken, Task>? stage, CancellationToken cancellationToken)
+        Func<CancellationToken, Task>? stage, CancellationToken cancellationToken,
+        Func<CancellationToken, Task<bool>>? beforePosting = null, Func<CancellationToken, Task<bool>>? beforeCommit = null)
     {
         ArgumentNullException.ThrowIfNull(command);
         cancellationToken.ThrowIfCancellationRequested();
@@ -53,6 +56,8 @@ internal sealed class PostStock(WmsDbContext database, TimeProvider clock)
             await using var transaction = await database.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
             try
             {
+                if (beforePosting is not null && !await beforePosting(cancellationToken))
+                    return new(StockPostingDecision.SourceRejected);
                 var source = command.SourceBalanceId.HasValue
                     ? await database.Balances.SingleOrDefaultAsync(item => item.Id == command.SourceBalanceId, cancellationToken) : null;
                 var target = command.TargetBalanceId.HasValue
@@ -114,6 +119,12 @@ internal sealed class PostStock(WmsDbContext database, TimeProvider clock)
                 }
                 if (stage is not null) await stage(cancellationToken);
                 await database.SaveChangesAsync(cancellationToken);
+                if (beforeCommit is not null && !await beforeCommit(cancellationToken))
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    database.ChangeTracker.Clear();
+                    return new(StockPostingDecision.SourceRejected);
+                }
                 cancellationToken.ThrowIfCancellationRequested();
                 await transaction.CommitAsync(cancellationToken);
                 return new(StockPostingDecision.Posted, posting.Id);

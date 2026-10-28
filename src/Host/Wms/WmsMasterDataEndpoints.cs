@@ -28,7 +28,7 @@ public static partial class WmsMasterDataEndpoints
         return services;
     }
 
-    /// <summary>Maps authenticated reads and independently enabled creation/logical states; no stock or physical writes.</summary>
+    /// <summary>Maps authenticated reads and independently enabled owner mutations; never grants physical-control authority.</summary>
     public static void MapWesWmsMasterData(this WebApplication app)
     {
         if (!app.Services.GetRequiredService<WmsMasterDataSettings>().Enabled) return;
@@ -57,6 +57,13 @@ public static partial class WmsMasterDataEndpoints
             group.MapPost("/inbound", CreateInboundDraftAsync);
         if (app.Services.GetRequiredService<WmsMasterDataSettings>().InboundDraftRevisionEnabled)
             group.MapPut("/inbound/{id:guid}/draft", ReviseInboundDraftAsync);
+        if (app.Services.GetRequiredService<WmsMasterDataSettings>().InboundApprovalEnabled)
+            group.MapPost("/inbound/{id:guid}/approval", ApproveInboundAsync);
+        if (app.Services.GetRequiredService<WmsMasterDataSettings>().InboundReceiptEnabled)
+        {
+            _ = app.Services.GetRequiredService<LocationCreationSchema>();
+            group.MapPost("/inbound/{id:guid}/receipts", ReceiveInboundAsync);
+        }
         group.MapGet("/master-data-events", (int? offset, int? limit, HttpContext http, MasterDataDatabase database, CancellationToken ct) =>
             ReadCreationEventsAsync(new(offset ?? 0, limit ?? 25), http, database, ct));
         group.MapGet("/master-data-events/summary", ReadCreationEventSummaryAsync);
@@ -168,6 +175,8 @@ public static partial class WmsMasterDataEndpoints
         internal WmsMasterDataWriter OpenLocationWriter(Guid tenant, IWarehouseLocationSchema schema) =>
             new(settings.ConnectionString, tenant, authorization, schema, clock, logs);
         internal WmsStockResourceWriter OpenStockResources(Guid tenant, IWarehouseLocationSchema schema) =>
+            new(settings.ConnectionString, tenant, authorization, schema, clock, logs);
+        internal WmsInboundExecutionWriter OpenInboundExecution(Guid tenant, IWarehouseLocationSchema schema) =>
             new(settings.ConnectionString, tenant, authorization, schema, clock, logs);
     }
 

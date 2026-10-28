@@ -1,7 +1,6 @@
 using System.Data;
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 using MySql.Data.MySqlClient;
 using Wes.Wms.Domain;
@@ -169,14 +168,4 @@ internal sealed partial class StockResourceAccess(WmsDbContext database, IMaster
         logger.LogWarning("WMS resource registration rejected {Code}", decision.ToString()); return new(decision);
     }
 
-    private async Task FenceAsync(string table, Guid id, CancellationToken ct)
-    {
-        await using var command = database.Database.GetDbConnection().CreateCommand();
-        command.Transaction = database.Database.CurrentTransaction!.GetDbTransaction();
-        command.CommandText = $"SELECT Id FROM {table} WHERE TenantId = @tenant AND Id = @id FOR UPDATE";
-        var tenant = command.CreateParameter(); tenant.ParameterName = "@tenant"; tenant.Value = database.TenantId.ToString("D"); command.Parameters.Add(tenant);
-        var resource = command.CreateParameter(); resource.ParameterName = "@id"; resource.Value = id.ToString("D"); command.Parameters.Add(resource);
-        if (await command.ExecuteScalarAsync(ct) is not string)
-            throw new InvalidOperationException("Immutable resource provenance lost its registered identity.");
-    }
 }

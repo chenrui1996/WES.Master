@@ -235,6 +235,7 @@ public sealed partial class WmsMasterDataTests : IAsyncLifetime
         {
             await using var owner = Open(tenant);
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_stock_entries WHERE TenantId = {tenant.ToString("D")}");
+            await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_inbound_execution_operations WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_inbound_facts WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_inbound_documents WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_stock_postings WHERE TenantId = {tenant.ToString("D")}");

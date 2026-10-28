@@ -6,6 +6,40 @@ namespace Wes.Modules.Tests.Wms;
 
 public sealed class WmsMasterDataSettingsTests
 {
+    [Theory]
+    [InlineData("InboundApprovalEnabled", null, "true", "true", false)]
+    [InlineData("InboundApprovalEnabled", "false", "true", "true", false)]
+    [InlineData("InboundApprovalEnabled", "true", "true", "true", true)]
+    [InlineData("InboundReceiptEnabled", null, "true", "true", false)]
+    [InlineData("InboundReceiptEnabled", "false", "true", "true", false)]
+    [InlineData("InboundReceiptEnabled", "true", "true", "true", true)]
+    public void InboundExecutionIsIndependentlyExplicit(string key, string? value, string reads, string identity, bool expected)
+    {
+        var configuration = CreationConfiguration("false", reads, identity); configuration[$"Wes:WmsMasterData:{key}"] = value;
+        var settings = WmsMasterDataSettings.Load(configuration);
+        Assert.Equal(expected, key == "InboundApprovalEnabled" ? settings.InboundApprovalEnabled : settings.InboundReceiptEnabled);
+        Assert.False(settings.InboundDraftCreationEnabled); Assert.False(settings.InboundDraftRevisionEnabled);
+        Assert.False(settings.StockResourceRegistrationEnabled);
+        Assert.False(key == "InboundApprovalEnabled" ? settings.InboundReceiptEnabled : settings.InboundApprovalEnabled);
+    }
+
+    [Theory]
+    [InlineData("InboundApprovalEnabled", "yes", "true", "true")]
+    [InlineData("InboundApprovalEnabled", "", "true", "true")]
+    [InlineData("InboundApprovalEnabled", "1", "true", "true")]
+    [InlineData("InboundApprovalEnabled", "true", "false", "true")]
+    [InlineData("InboundApprovalEnabled", "true", "true", "false")]
+    [InlineData("InboundReceiptEnabled", "yes", "true", "true")]
+    [InlineData("InboundReceiptEnabled", "", "true", "true")]
+    [InlineData("InboundReceiptEnabled", "1", "true", "true")]
+    [InlineData("InboundReceiptEnabled", "true", "false", "true")]
+    [InlineData("InboundReceiptEnabled", "true", "true", "false")]
+    public void InboundExecutionRejectsMalformedOrUnassembledConfiguration(string key, string value, string reads, string identity)
+    {
+        var configuration = CreationConfiguration("false", reads, identity); configuration[$"Wes:WmsMasterData:{key}"] = value;
+        Assert.Throws<InvalidOperationException>(() => WmsMasterDataSettings.Load(configuration));
+    }
+
     [Fact]
     public void MissingConfigurationIsDisabled() =>
         Assert.False(WmsMasterDataSettings.Load(new ConfigurationBuilder().Build()).Enabled);

@@ -206,6 +206,8 @@
 
 **Files:** `src\Modules\Wms\Features\Inbound\{SaveInbound.cs,ApproveInbound.cs,ReceiveGoods.cs,RequestPutaway.cs,ApplyArrival.cs}`；`clients\ops-web\src\features\wms\InboundPage.vue`；`tests\Modules\Wms\InboundTests.cs`。
 
+- [x] [当前受权审核、收货与容器保护](../../implementation/177-t09-authorized-inbound-execution.md)/[独立测试](../../implementation/178-t09-authorized-inbound-execution-tests.md)：真实多creator完整字段/保存后复验回滚、合法计划/账维度、schema/Enabled及唯一容器账面位置/预留/待运输保护；永久精确原tuple/版本，与业务事实/ledger同事务。两个独立默认关闭POST及实际父页预览确认/原键Unknown恢复/另读已接通，同址完成、异址源位实收且明确待运输。最终owner127、旧账本/资源/库位相关529、HTTP/配置与六浏览器192、前端1051/严格构建通过（重叠不合计）；最后发布门禁见测试记录。只新增请求身份表、不发设备命令；耐久运输意图/Orchestration及最终到达移账仍是下一主体依赖，不关闭整包。
+
 **Interfaces:** 消费WMS事务、transport intent与最终到达合同；产出FUNC-WMS-002/PAGE-WMS-003、一次收货账与唯一上架意图。T15未接入前仅测试合同，生产不回假运输成功。
 
 - [ ] DTC-WMS-002/003：计划5分收2+3、2+4超收拒绝；同址不建运输；异址先R1+5/目标0；运输创建响应丢失/重复到达/错容器位置。

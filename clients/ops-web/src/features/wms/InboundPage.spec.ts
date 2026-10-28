@@ -29,7 +29,7 @@ it("reads explicit exact amounts and pending transport without inventing write a
   const text = wrapper.get('[data-test="inbound-detail"]').text();
   expect(text).toContain(line.planned); expect(text).toContain(line.received); expect(text).toContain(line.remaining);
   expect(text).toContain("尚未关联，待运输"); expect(text).toContain("不能视为已到位");
-  expect(wrapper.text()).toContain("审核与收货入口尚未开放");
+  expect(wrapper.text()).toContain("当前完整字段权限及各自独立部署开关");
   expect(wrapper.find('[type="number"]').exists()).toBe(false);
   expect(wrapper.findAll("button").map(button => button.text())).toEqual(["读取当前入库单", "读取入库目录", "上一页", "下一页"]);
 });

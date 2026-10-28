@@ -3,6 +3,8 @@ import { computed, onMounted, onUnmounted, ref, shallowRef, useId, watch } from 
 import QueryState from "../../components/QueryState.vue";
 import InboundCatalog from "./InboundCatalog.vue";
 import InboundDraftCreation from "./InboundDraftCreation.vue";
+import InboundExecution from "./InboundExecution.vue";
+import { mayExecuteInbound, type InboundExecutionKind } from "./inbound-execution";
 import { mayCreateInboundDraft, mayReviseInboundDraft } from "./inbound-drafts";
 import { ApiError, sessionState } from "../identity/identity-api";
 import { InboundResponseError, mayReadInbound, readInbound, type InboundDetail } from "./inbound";
@@ -14,6 +16,9 @@ const readable = computed(mayReadInbound);
 const creatable = computed(mayCreateInboundDraft);
 const creating = ref(false);
 const editing = shallowRef<InboundDetail>();
+const execution = shallowRef<{ order: InboundDetail; kind: InboundExecutionKind }>();
+const approvable = computed(() => mayExecuteInbound("approval"));
+const receivable = computed(() => mayExecuteInbound("receipts"));
 const revisable = computed(mayReviseInboundDraft);
 const scope = computed(() => JSON.stringify(sessionState.subject));
 const record = shallowRef<InboundDetail>();
@@ -33,7 +38,7 @@ function connection() { online.value = navigator.onLine; if (!online.value) canc
 onMounted(() => { addEventListener("online", connection); addEventListener("offline", connection); });
 onUnmounted(() => { cancel(); removeEventListener("online", connection); removeEventListener("offline", connection); });
 async function load() {
-  if (!readable.value || !online.value || busy.value) return;
+  if (!readable.value || !online.value || busy.value || execution.value) return;
   cancel(); busy.value = true; error.value = "";
   const ticket = sequence; const signal = controller.signal; const fingerprint = scope.value;
   const current = () => ticket === sequence && fingerprint === scope.value && !signal.aborted;
@@ -54,13 +59,17 @@ function select(id: string) {
   orderId.value = id; clear(); void load();
 }
 function attempted() { clear(); ++catalogKey.value; }
+function readExecuted(id: string) { execution.value = undefined; select(id); }
 </script>
 
 <template>
   <section class="inbound-page" aria-labelledby="inbound-title">
     <h1 id="inbound-title">入库收货详情</h1>
     <p class="notice">目录与详情数量按各行基础单位精确显示，不跨单位求和。
-      收货成功不等于目标到位；异址未关联运输时仍待运输，不显示假上架完成。草稿另需当前写权限及部署开关；审核与收货入口尚未开放。</p>
+      收货成功不等于目标到位；异址未关联运输时仍待运输，不显示假上架完成。草稿、审核与收货另需当前完整字段权限及各自独立部署开关。</p>
+    <InboundExecution v-if="execution" :order="execution.order" :kind="execution.kind"
+      @attempted="attempted" @read="readExecuted" @close="execution = undefined" />
+    <template v-else>
     <button v-if="creatable && !creating && !editing" type="button" :disabled="!online || busy" @click="creating = true">准备入库草稿</button>
     <InboundDraftCreation v-if="creating" @attempted="attempted" @read="select" @close="creating = false" />
     <InboundDraftCreation v-if="editing" :draft="editing" @attempted="attempted" @read="select" @close="editing = undefined" />
@@ -80,6 +89,10 @@ function attempted() { clear(); ++catalogKey.value; }
         <h2>{{ record.code }}</h2>
         <button v-if="revisable && record.state === 0 && !creating && !editing" type="button"
           :disabled="!online || busy || !fresh" @click="editing = record">准备修订入库草稿</button>
+        <button v-if="approvable && record.state === 0 && !creating && !editing" type="button" data-test="prepare-inbound-approval"
+          :disabled="!online || busy || !fresh" @click="execution = { order: record, kind: 'approval' }">准备审核入库单</button>
+        <button v-if="receivable && (record.state === 1 || record.state === 2) && !creating && !editing" type="button" data-test="prepare-inbound-receipt"
+          :disabled="!online || busy || !fresh" @click="execution = { order: record, kind: 'receipts' }">准备入库收货</button>
         <dl><dt>入库单 UUID</dt><dd>{{ record.id }}</dd>
           <dt>仓库 UUID</dt><dd>{{ record.warehouseId }}</dd>
           <dt>状态</dt><dd>{{ states[record.state] }}</dd>
@@ -108,6 +121,7 @@ function attempted() { clear(); ++catalogKey.value; }
         </ul>
       </article>
     </QueryState>
+    </template>
   </section>
 </template>
 

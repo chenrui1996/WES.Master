@@ -42,6 +42,8 @@
 
 ## 2. 功能/契约
 
+PAGE-WMS-003后续[当前受权审核/收货与容器保护](../implementation/177-t09-authorized-inbound-execution.md)/[测试](../implementation/178-t09-authorized-inbound-execution-tests.md)已接通独立owner、默认关闭两个POST与具名预览确认/原键Unknown恢复/显式另读；真实多creator完整字段、保存后复验回滚、合法计划/维度、schema/Enabled及唯一容器账面位置/正库存/预留/待运输保护已验证。原请求身份与业务事实/ledger同事务，恢复原执行版本而非当前值；同键异址并发不能被自身赢家的保护误报为Blocked。最终owner127、旧账本/资源/库位相关529、HTTP/配置及六浏览器192、前端1051/严格构建通过，重叠不合计，最后发布门禁见测试记录。只新增执行请求身份表，未接耐久运输意图或最终到达移账；异址仍为源位实收/Executing/待运输。下列历史实现边界由本续片仅覆盖审核/收货与容器保护子集，T09/父DTC不整包关闭。
+
 PAGE-WMS-001/003依赖续片[合法资源与零余额账维度](../implementation/176-t08-legal-stock-resources.md)已交付当前受权单位/物料/仓内容器与精度派生零维度登记、独立默认关闭四POST/三GET及具名预览确认/原键Unknown恢复/另读面板。真实多creator完整权限、合法单位/批次/精度、父仓→库位→容器锁/schema与Enabled、保存后复验回滚和永久原版本已验证。本片最终owner109、较早相关owner682、相关Release Modules636/最后HTTP配置与五真实HTTPS浏览器37、前端1016/严格构建、架构29/Release0/0/EF无漂移通过，重叠不合计。四表只在wes_test应用，不改旧余额。登记不代表占位/可分配或运营收货；唯一容器账面位置/执行保护、受权审核收货及最终运输仍是主体待办，目录候选增强见TodoList，不关闭T08/T09或父DTC。
 
 PAGE-WMS-001后续[库位逻辑启停](../implementation/175-t08-location-operational-state.md)补齐独立默认关闭PUT及共享具名页面：真实库位creator的Enabled写/完整read九字段、真实父仓creator完整read六字段，两时点复验与保存后回滚；父仓→库位串行锁，启用核父仓Enabled与固定Pack/schema tuple，禁用核正库存/剩余预留/异址待运输源或目标。仅Enabled/Version及永久状态事实变化，不改固定关联/原创建Outbox/库存；原键完整tuple恢复历史原版本，当前状态另读。相关owner576、最终Release本片53/Modules293含五真实HTTPS浏览器、前端982/严格类型及生产构建、架构29/Release0/0/模型无漂移通过，重叠不累计。历史“库位启停未实现”由本片替代；容器/账维度与物料单位、公开审核收货及最终运输未完成，Enabled不等于运营执行或现场许可。

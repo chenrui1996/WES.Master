@@ -125,13 +125,8 @@ internal sealed class LocationStateAccess(WmsDbContext database, IMasterDataAuth
                       join balance in database.Balances on reservation.BalanceId equals balance.Id
                       where balance.LocationId == location.Id && reservation.RemainingQuantity > 0m
                       select reservation.ExecutionUnitId).AnyAsync(ct)) return true;
-        var receipts = await (from fact in database.InboundFacts
-                              join header in database.InboundDocuments on fact.OrderId equals header.Id
-                              where header.WarehouseId == location.WarehouseId && fact.Kind == InboundFactKind.Received
-                              select fact).AsNoTracking().ToListAsync(ct);
-        // No durable arrival exists yet; pending putaway protects both ends even if the source quantity later changes.
-        return receipts.Select(fact => fact.Receipt()).Any(receipt => receipt.ReceiptLocationId != receipt.TargetLocationId
-            && (receipt.ReceiptLocationId == location.Id || receipt.TargetLocationId == location.Id));
+        var receipts = await Wes.Wms.Features.Inbound.InboundPendingProtection.ReadAsync(database, location.WarehouseId, ct);
+        return receipts.Any(receipt => receipt.ReceiptLocationId == location.Id || receipt.TargetLocationId == location.Id);
     }
 
     private async Task<bool> AuthorizedAsync(MasterDataSubject subject, Guid creator, Guid parentCreator, CancellationToken ct)

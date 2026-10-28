@@ -171,10 +171,11 @@ public sealed partial class IdentityHttpTests
         await using var verify = OpenWmsMasterData(); Assert.Empty(await verify.StockUnits.ToListAsync());
     }
 
-    private async Task<(Guid Warehouse, Guid Location)> StockResourceHostAsync(bool operational = false)
+    private async Task<(Guid Warehouse, Guid Location)> StockResourceHostAsync(bool operational = false, bool inboundApproval = false, bool inboundReceipt = false)
     {
         var ids = await WmsHostAsync(stockResources: true, warehouseState: operational, locationState: operational,
-            locationSchemas: services => services.AddSingleton<IWarehouseLocationSchema>(new LocationHttpSchema()));
+            locationSchemas: services => services.AddSingleton<IWarehouseLocationSchema>(new LocationHttpSchema()),
+            inboundApproval: inboundApproval, inboundReceipt: inboundReceipt);
         await GrantStockResourcesAsync();
         if (operational)
         {

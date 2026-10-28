@@ -84,6 +84,64 @@ namespace Wes.Wms.Infrastructure.Persistence.Migrations
                     b.ToTable("wms_inbound_documents", (string)null);
                 });
 
+            modelBuilder.Entity("Wes.Wms.Domain.InboundExecutionOperation", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("OperationId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("ActorId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("AfterVersion")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("CorrelationId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Input")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("varchar(4096)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<string>("OrderId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("ResultId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "OperationId");
+
+                    b.HasIndex("TenantId", "OrderId");
+
+                    b.HasIndex("TenantId", "Kind", "ResultId")
+                        .IsUnique();
+
+                    b.ToTable("wms_inbound_execution_operations", (string)null);
+                });
+
             modelBuilder.Entity("Wes.Wms.Domain.InboundFact", b =>
                 {
                     b.Property<string>("TenantId")
@@ -1124,6 +1182,21 @@ namespace Wes.Wms.Infrastructure.Persistence.Migrations
                     b.HasOne("Wes.Wms.Domain.Warehouse", null)
                         .WithMany()
                         .HasForeignKey("TenantId", "WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Wes.Wms.Domain.InboundExecutionOperation", b =>
+                {
+                    b.HasOne("Wes.Wms.Domain.InboundFact", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OperationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Wes.Wms.Domain.InboundDocument", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrderId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

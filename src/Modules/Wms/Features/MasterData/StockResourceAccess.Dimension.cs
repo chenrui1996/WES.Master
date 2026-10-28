@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Wes.Wms.Domain;
+using Wes.Wms.Infrastructure.Persistence;
 
 namespace Wes.Wms.Features.MasterData;
 
@@ -32,9 +33,7 @@ internal sealed partial class StockResourceAccess
             if (!await Allowed()) return Reject(StockResourceDecision.Forbidden);
             if (container.WarehouseId != request.WarehouseId || location.WarehouseId != request.WarehouseId)
                 return Reject(StockResourceDecision.Blocked);
-            await FenceAsync("wms_warehouses", request.WarehouseId, ct);
-            await FenceAsync("wms_locations", request.LocationId, ct);
-            await FenceAsync("wms_stock_containers", request.ContainerId, ct);
+            await WmsResourceLocks.AcquireAsync(database, request.WarehouseId, [request.LocationId], request.ContainerId, ct);
             var old = await database.DimensionRegistrations.AsNoTracking().SingleOrDefaultAsync(row => row.OperationId == request.OperationId, ct);
             if (old is not null)
                 return old.ActorId != subject.ActorId || old.WarehouseId != request.WarehouseId || old.LocationId != request.LocationId

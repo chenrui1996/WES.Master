@@ -17,7 +17,8 @@ internal sealed partial class InboundWriter
         UpdateDraftAsync(orderId, operation, actor, correlation, version, lines, ct, beforeCommit);
 
     private async Task<InboundWriteResult> UpdateDraftAsync(Guid orderId, Guid operation, Guid actor, Guid correlation,
-        string version, IReadOnlyList<InboundPlanLine>? lines, CancellationToken ct, Func<CancellationToken, Task<bool>>? beforeCommit)
+        string version, IReadOnlyList<InboundPlanLine>? lines, CancellationToken ct, Func<CancellationToken, Task<bool>>? beforeCommit,
+        InboundWriteGuards? guards = null)
     {
         Clean(ct);
         if (new[] { orderId, operation, actor, correlation }.Contains(Guid.Empty))
@@ -27,6 +28,7 @@ internal sealed partial class InboundWriter
         await using var transaction = await database.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
         try
         {
+            if (guards is not null && !await guards.BeforeWrite(ct)) return new(InboundWriteDecision.SourceRejected);
             // Both draft transitions lock the parent before adding sequence/FK children, as receipts already do.
             await using var fence = database.Database.GetDbConnection().CreateCommand();
             fence.Transaction = transaction.GetDbTransaction();
@@ -48,12 +50,19 @@ internal sealed partial class InboundWriter
             database.InboundFacts.Add(new(document, operation, actor, correlation,
                 lines is null ? InboundFactKind.Approved : InboundFactKind.Revised, clock.GetUtcNow(),
                 revision: lines is null ? null : new(version, lines)));
+            if (guards is not null) await guards.Stage(ct);
             await database.SaveChangesAsync(ct);
             if (beforeCommit is not null && !await beforeCommit(ct))
             {
                 await transaction.RollbackAsync(ct);
                 database.ChangeTracker.Clear();
                 return new(InboundWriteDecision.Forbidden);
+            }
+            if (guards is not null && !await guards.BeforeCommit(ct))
+            {
+                await transaction.RollbackAsync(ct);
+                database.ChangeTracker.Clear();
+                return new(InboundWriteDecision.SourceRejected);
             }
             ct.ThrowIfCancellationRequested();
             await transaction.CommitAsync(ct);

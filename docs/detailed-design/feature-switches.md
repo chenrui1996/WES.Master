@@ -73,6 +73,8 @@ WMS入库草稿另有独立默认关闭的`Wes:WmsMasterData:InboundDraftCreatio
 
 合法单位/物料/容器与零余额账维度登记独立使用`Wes:WmsMasterData:StockResourceRegistrationEnabled=false`，不由创建、仓/位启停或入库草稿开关隐式开启。需master-data/Identity及唯一非keyed singleton `IWarehouseLocationSchema`；即使关闭库位创建/启停，也不得省略schema装配检查。关闭不映射四个具名POST，保留永久资源/维度事实以及受权单位/物料/容器GET。新增四表迁移必须单独审查、由批准环境应用，不改旧余额、不回填合法资源，不自动迁移生产；有事实后禁止Down删历史。未知结果仅在兼容入口可用后原key/body手工恢复，不清历史或自动换键。零余额登记不构成位置占用/可分配或收货许可；公开收货还须唯一容器账面位置/执行保护。详见[合法资源设计与证据](../implementation/176-t08-legal-stock-resources.md)。
 
+入库审核与收货分别使用`Wes:WmsMasterData:InboundApprovalEnabled=false`和`InboundReceiptEnabled=false`，不由草稿、资源登记或仓位启停隐式开启；均需master-data/Identity读装配，非法bool/依赖缺失启动失败。收货还须唯一非keyed singleton `IWarehouseLocationSchema`，审核本身不装配假Valid schema。关闭仅不映射对应`POST /api/wms/inbound/{id}/approval`或`/receipts`，不改变GET、已提交库存或永久原请求事实；不关闭后自动撤销收货。开启后每次核当前单据及所有真实资源creator完整字段，保存后复验失败全回滚；Enabled/零维度均不能替代执行权限。客户端入口不是开关状态证明，404/405明确不可用、Unknown仍保留原kind/id/key/body，恢复同一入口后仅手工原键核验。开始有业务事实后不可Down删表或回退不认识当前模型的二进制；无生产自动迁移/设备控制，异址收货仍待运输。见[实施](../implementation/177-t09-authorized-inbound-execution.md)/[测试](../implementation/178-t09-authorized-inbound-execution-tests.md)。
+
 1. Host 在组合根绑定 `FeaturesOptions`、校验每一项及依赖关系，并创建不可变运行快照。
 2. 每项运行能力由其 owner 显式声明启动注册、健康/ready 影响、关闭行为、请求错误语义及 in-flight/shutdown 策略；没有声明的能力不能被任意字符串开关控制。
 3. 匿名 `GET /api/config/features` 只返回前端允许公开的模块代码与启用布尔值，不返回运行能力、Provider/连接、Secret、内部依赖状态或按租户/用户定制的数据。端点输出采用显式白名单 DTO。

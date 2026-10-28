@@ -16,6 +16,7 @@
 - 风险：写提交使详情stale/清空，若确认面板在QueryState分支内会被卸载，丢失唯一原key/body；子组件反向关闭父预览也可能取消自身。
 - 处理：原操作面板生命周期独立于详情loading/error/stale；冻结原kind/id/key/body，主体或目标变化清私有数据并隔离迟到响应。无实体不挂载新的业务写；恢复原Unknown按其合同核当前权限，不要求把原tuple替换成刷新后的版本。
 - 验证：必须测真实父子组合“预览→提交清详情→Unknown保留→手工原键恢复→显式GET”，不是只测孤立确认组件。不上线自动补发，不存本地写队列。
+- T11移库真实浏览器另暴露“创建成功→另读→准备下一单”仍带上次两行，脚本增行后产生空第三行，预览拒绝。新草稿必须显式初始化新行身份/输入，不能无意复用已确认输入；同时不得因此清除正在恢复的原Unknown。该连续两单流程已补组件RED/GREEN并通过真实HTTPS/持久效果验证，见[186](../implementation/186-t11-transfer-order-tests.md)。
 - 证据：[172](../implementation/172-t07-current-entity-attachment-client-tests.md)、[174](../implementation/174-t08-warehouse-operational-state.md)、[184](../implementation/184-t11-blind-count-tests.md)。
 
 ## GEN-003 枚举/契约扩展必须贯穿所有消费者
@@ -32,6 +33,7 @@
 - 规则：核当前主体、租户、字段和真实资源creator范围；父仓/位置/容器/物料等跨creator组合需要完整权限交集。预览/旧令牌/成功原操作不能永久授予新写权限。
 - 处理：按合同在写入后提交前再次核验，撤权整事务回滚；读后复验清旧投影；独立review不能通过盲盘响应泄露账面量。
 - 验证：逐字段缺权、不同creator/部门、保存后撤权、越租户、撤权后重放和复核清私有数据，不能仅测管理员happy path。
+- T11原键并发还须覆盖“初次读无原fact→等待资源fence→赢家提交→权限撤销→锁后查到原fact”。锁后直接返回原回执会误用等待前权限；修复为持锁重读原单/全部真实creator资源并复核当前action/read，不把新动作state/schema条件加到已提交重放。16项确定性RED/GREEN及授权保留/schema不可用仍合法重放见[186](../implementation/186-t11-transfer-order-tests.md)。
 - 证据：[177](../implementation/177-t09-authorized-inbound-execution.md)、[183](../implementation/183-t11-blind-count-and-local-lock.md)、[184](../implementation/184-t11-blind-count-tests.md)。
 
 ## GEN-005 原子审核、物理完成与数据库回滚不是同一层

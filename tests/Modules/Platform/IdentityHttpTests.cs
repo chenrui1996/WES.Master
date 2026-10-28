@@ -1722,7 +1722,7 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
         bool wmsLocationCreation = false, Action<IServiceCollection>? locationSchemas = null,
         bool wmsInboundDraftCreation = false, bool wmsInboundDraftRevision = false, bool wmsWarehouseState = false,
         bool wmsLocationState = false, bool wmsStockResources = false, bool wmsInboundApproval = false, bool wmsInboundReceipt = false,
-        bool wmsOutbound = false, bool wmsCounts = false) : WebApplicationFactory<Program>
+        bool wmsOutbound = false, bool wmsCounts = false, bool wmsTransfers = false) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -1749,6 +1749,7 @@ public sealed partial class IdentityHttpTests : IAsyncLifetime
                 ["Wes:WmsMasterData:InboundReceiptEnabled"] = wmsInboundReceipt.ToString(),
                 ["Wes:WmsMasterData:OutboundEnabled"] = wmsOutbound.ToString(),
                 ["Wes:WmsMasterData:CountsEnabled"] = wmsCounts.ToString(),
+                ["Wes:WmsMasterData:TransfersEnabled"] = wmsTransfers.ToString(),
                 ["Features:Modules:Wms"] = wmsMasterData.ToString()
             }));
             if (filesRoot is not null)

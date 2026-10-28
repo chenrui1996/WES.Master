@@ -57,7 +57,8 @@ internal sealed class LocationStateAccess(WmsDbContext database, IMasterDataAuth
                     return new(LocationStateDecision.Replayed, id, existing.AfterVersion);
                 }
                 var row = await database.Locations.SingleAsync(item => item.Id == id, ct);
-                if (await WmsResourceLocks.CountConflictAsync(database, row.WarehouseId, [id], [], ct))
+                if (await WmsResourceLocks.CountConflictAsync(database, row.WarehouseId, [id], [], ct)
+                    || await Wes.Wms.Features.Transfers.TransferProtection.ConflictsAsync(database, row.WarehouseId, [id], [], ct))
                     return Reject(LocationStateDecision.Blocked);
                 if (row.Version != request.ExpectedVersion || row.Enabled == request.Enabled) return Reject(LocationStateDecision.Conflict);
                 if (request.Enabled)

@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+最新T11多行TransferOrder按[185设计](185-t11-transfer-order.md)/[186证据](186-t11-transfer-order-tests.md)实现单仓单正维度整容器的原子全行审核、逐单元耐久到达/唯一记账与Pending补账、Unknown保护和安全ClosedPartial。默认关闭HTTP/具名客户端接通；关联MySQL977、修复后Transfer70、最后HTTP/配置/真实HTTPS浏览器32、架构29、前端1219/严格构建、Release0/0/EF无漂移/增量SQL/格式通过，重叠不合计。两项关联审查问题已修复，复审状态见186。仅wes_test应用三张新表，不改旧账；多维度编组/拆容器、branch1可信运输/T15及Outbox发布仍属主体软件依赖，不能按外部验证关闭；不整体关闭T11，不授予生产/物理控制。
+
 最新T11盘点子片按[183设计](183-t11-blind-count-and-local-lock.md)/[184证据](184-t11-blind-count-tests.md)已实现验证并可关闭：位置级全部合法维度盲盘、持久局部锁、非本人差异复核、全行原子调整/解锁、失效后新快照重盘及全库存写共同保护；独立默认关闭HTTP与具名页面已接通。最终真实MySQL923、HTTP/配置/真实HTTPS浏览器165、架构29、前端1164/严格构建通过，Release0/0、EF无漂移及格式通过，增量Up/Down SQL已审且Down未执行。6项关联审查问题修复并复审无显著剩余问题；首次18个持久失败保留在证据中，最终回归全部通过。下一主体为多行TransferOrder，T11父任务不整体关闭；1800秒只提醒、不自动释放已有锁。两新表仅在wes_test应用，不授予实际T15/Pack、其他Provider、PDA真机或生产/现场许可。
 
 最新T10基本直发链按[181设计](181-t10-outbound-basic-flow.md)/[182证据](182-t10-outbound-basic-flow-tests.md)已实现验证，具名owner/默认关闭HTTP/多行草稿、全行原子预留、实拣/短缺、非原人复核、一次直发及取消/ClosedPartial已接通。最终MySQL392、HTTP/配置/真实HTTPS双账号浏览器120、架构29、前端1107单worker回归/严格构建通过，Release0/0、EF无漂移及格式通过；5项独立审查问题已修复并复审无显著剩余问题。本基本子片可关闭，继续T11；不覆盖FEFO/完整效期、自动FIFO来源、多次部分发运或实际T15出库运输，不整体关闭T10。这些是后续软件依赖，不伪装外部验收关闭。当前开关仍默认false，两新表仅wes_test，不授予生产/现场许可。

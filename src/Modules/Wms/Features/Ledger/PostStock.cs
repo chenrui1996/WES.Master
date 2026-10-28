@@ -60,7 +60,8 @@ internal sealed partial class PostStock(WmsDbContext database, TimeProvider cloc
                     return new(StockPostingDecision.SourceRejected);
                 var dimensions = await database.Balances.AsNoTracking().Where(row =>
                     row.Id == command.SourceBalanceId || row.Id == command.TargetBalanceId).ToArrayAsync(cancellationToken);
-                await WmsResourceLocks.AcquireBalanceResourcesAsync(database, dimensions, cancellationToken);
+                var transferOwner = await Wes.Wms.Features.Transfers.TransferProtection.PostingOwnerAsync(database, command, cancellationToken);
+                await WmsResourceLocks.AcquireBalanceResourcesAsync(database, dimensions, cancellationToken, transferOwner);
                 var source = command.SourceBalanceId.HasValue
                     ? await database.Balances.SingleOrDefaultAsync(item => item.Id == command.SourceBalanceId, cancellationToken) : null;
                 var target = command.TargetBalanceId.HasValue

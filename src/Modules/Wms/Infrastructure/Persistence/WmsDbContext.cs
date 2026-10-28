@@ -34,6 +34,7 @@ public sealed partial class WmsDbContext : DbContext
         ConfigureStockResources(modelBuilder);
         ConfigureOutbound(modelBuilder);
         ConfigureCounts(modelBuilder);
+        ConfigureTransfers(modelBuilder);
         var balance = modelBuilder.Entity<StockBalance>();
         balance.ToTable("wms_stock_balances");
         balance.HasKey(item => new { item.TenantId, item.Id });
@@ -126,6 +127,7 @@ public sealed partial class WmsDbContext : DbContext
         ValidateInboundTransportWrites();
         ValidateOutboundWrites();
         ValidateCountWrites();
+        ValidateTransferWrites();
         ValidateReservationEffects();
         ValidateMasterDataWrites();
         ValidateStockResourceWrites();

@@ -230,6 +230,8 @@
 
 ### T11：盘点与多行TransferOrder
 
+移库基本续片按[185](../../implementation/185-t11-transfer-order.md)/[186](../../implementation/186-t11-transfer-order-tests.md)已实现验证单仓单正维度整容器全行审核/逐单元耐久到达/只补账、Unknown及ClosedPartial、默认关闭HTTP和具名页面；关联MySQL977、修复后Transfer70、最后HTTP/配置/真实浏览器32、架构29、前端1219及严格构建通过，Release0/0/EF无漂移/增量SQL/格式通过，重叠不合计。两项审查问题修复，复审状态见186。下方联合父checklist仍不整体勾选：多维度编组/拆容器、可信运输/T15、Outbox发布及其他Provider仍有软件或验证依赖，不能借此关闭父T11。
+
 执行顺序：[183盘点设计](../../implementation/183-t11-blind-count-and-local-lock.md)及[计划](2026-10-28-blind-count.md)先实现全库存写共同依赖的持久局部锁/盲盘/授权调整，证据见[184](../../implementation/184-t11-blind-count-tests.md)。TransferOrder随后独立续片，仍是主体软件依赖；盘点通过不能将下方父checklist整体标完。
 
 盘点子片最终已实现验证并关闭：真实MySQL923、HTTP/配置/真实HTTPS浏览器165、架构29、前端1164/严格构建、Release0/0/EF无漂移/增量SQL/格式通过；6项关联审查问题修复并复审无显著剩余问题，历史失败与最终选择器均保留在184。下一主体为多行TransferOrder；下方涉及移库的联合父用例仍保持未勾选，不以盘点部分通过代签全项。

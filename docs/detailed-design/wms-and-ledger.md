@@ -9,6 +9,8 @@
 
 ## 1. 页面/字段/权限
 
+T11多行TransferOrder当前按[185设计](../implementation/185-t11-transfer-order.md)/[186证据](../implementation/186-t11-transfer-order-tests.md)已实现验证并关闭PAGE-WMS-007/FUNC-WMS-006的单正维度整容器基本子集，父T11未整体关闭。固定行卡片呈现原单版本、所有源目标余额版本、单位/数量、执行/记账两个状态，不跨单位合计，列偏好不适用。创建完整1..100行，审核固定全部源目标版本，一次动作只确认一个固定执行单元；独立原操作预览在查询stale时保留，10秒/离线/503/畸形回执均只手工恢复原tuple，成功回执后必须另GET当前同步结果。Unknown与已到未同步不可普通关闭，branch1未接可信运输时禁止人工伪完成。多维度编组/拆容器、运输适配器、目录过滤与运输引用发现等未由本子集覆盖，不将父DTC整体记为通过。
+
 T10基本直发链按[181设计](../implementation/181-t10-outbound-basic-flow.md)/[182证据](../implementation/182-t10-outbound-basic-flow-tests.md)实施PAGE-WMS-004/005与FUNC-WMS-003/004的适用子集：多行草稿、全行原子预留、拣选/短缺、非原人复核未执行释放、无运输一次直发及取消/ClosedPartial。页面固定完整卡片，列偏好不适用；显式合法来源及当前版本、不跨单位求和、预览冻结原tuple/Unknown恢复与另读。RequiresTransport显示待运输并禁止手工发运；FEFO/完整效期、自动FIFO来源、多次部分发运及实际T15出库运输未在本片交付，不据此整体标父DTC通过。
 
 T09运输续片：[WMS耐久契约闭环](../implementation/179-t09-durable-inbound-transport-design.md)/[证据](../implementation/180-t09-durable-inbound-transport-tests.md)实现异址公开收货同事务意图/原消息及在途保护、可信adapter关联与完成Inbox、原子最终Transfer/到达历史和保护释放。新运输63、相关MySQL533、前端1051/严格构建通过，结果重叠不合计；独立审查/最终门禁以证据为准。无人工Completed按钮或HTTP、无默认可信adapter/Host自动投递；实际T15订单/Leg和Pack依然未接入，不能将契约夹具当物理到达。

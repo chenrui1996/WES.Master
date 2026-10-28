@@ -44,7 +44,9 @@ internal sealed partial class StockResourceAccess
                 return old.ActorId != subject.ActorId || old.WarehouseId != request.WarehouseId || old.LocationId != request.LocationId
                     || old.ItemId != request.ItemId || old.Batch != request.Batch || old.ContainerId != request.ContainerId
                     ? Reject(StockResourceDecision.Conflict) : await ReplayAsync(old.BalanceId, old.AfterVersion, Allowed);
-            if (await WmsResourceLocks.CountConflictAsync(database, request.WarehouseId, [request.LocationId], [request.ContainerId], ct))
+            if (await WmsResourceLocks.CountConflictAsync(database, request.WarehouseId, [request.LocationId], [request.ContainerId], ct)
+                || await Wes.Wms.Features.Transfers.TransferProtection.ConflictsAsync(database, request.WarehouseId,
+                    [request.LocationId], [request.ContainerId], ct))
                 return Reject(StockResourceDecision.Blocked);
             if (item.BatchRequired != (request.Batch.Length > 0)) return Reject(StockResourceDecision.Invalid);
             if (!await database.Warehouses.AnyAsync(row => row.Id == request.WarehouseId && row.Enabled, ct)

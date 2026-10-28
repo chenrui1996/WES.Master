@@ -117,6 +117,7 @@ internal sealed partial class CountAccess(WmsDbContext database, IMasterDataAuth
             await transaction.CommitAsync(ct);
             return new(CountDecision.Committed, plan.Id, plan.Version);
         }
+        catch (CountLockConflictException) { return new(CountDecision.Blocked); }
         catch (DbUpdateConcurrencyException) { return await RecoverAsync(); }
         catch (DbUpdateException error) when (error.InnerException is MySqlException { Number: 1062 }) { return await RecoverAsync(); }
         catch (DbUpdateException error) when (error.InnerException is DbException failure) { throw WmsDatabaseFailures.Safe(failure); }

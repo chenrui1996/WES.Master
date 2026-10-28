@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Wes.Wms.Domain;
+using Wes.Wms.Features.Transfers;
 
 namespace Wes.Wms.Infrastructure.Persistence;
 
@@ -11,12 +12,13 @@ internal static class WmsResourceLocks
         await AcquireAsync(database, warehouse, locations, container.HasValue ? [container.Value] : [], ct);
 
     internal static async Task AcquireAsync(WmsDbContext database, Guid warehouse, IEnumerable<Guid> locations,
-        IEnumerable<Guid> containers, CancellationToken ct)
+        IEnumerable<Guid> containers, CancellationToken ct, Guid? transferOwner = null)
     {
         var locationIds = locations.Distinct().Order().ToArray();
         var containerIds = containers.Distinct().Order().ToArray();
         await AcquireFencesAsync(database, warehouse, locationIds, containerIds, ct);
-        if (await CountConflictAsync(database, warehouse, locationIds, containerIds, ct))
+        if (await CountConflictAsync(database, warehouse, locationIds, containerIds, ct)
+            || await TransferProtection.ConflictsAsync(database, warehouse, locationIds, containerIds, ct, transferOwner))
             throw new CountLockConflictException();
     }
 
@@ -41,6 +43,8 @@ internal static class WmsResourceLocks
             if (await database.StockContainers.AnyAsync(row => row.Id == container, ct))
                 await FenceAsync(database, "wms_stock_containers", container, ct);
         }
+        if (await TransferProtection.ConflictsAsync(database, plan.WarehouseId, [plan.LocationId], containers, ct))
+            throw new CountLockConflictException();
     }
 
     internal static async Task<bool> CountConflictAsync(WmsDbContext database, Guid warehouse, IEnumerable<Guid> locations,
@@ -53,7 +57,8 @@ internal static class WmsResourceLocks
             || row.Lines.Any(line => containerIds.Contains(line.ContainerId)));
     }
 
-    internal static async Task AcquireBalanceResourcesAsync(WmsDbContext database, IEnumerable<StockBalance> balances, CancellationToken ct)
+    internal static async Task AcquireBalanceResourcesAsync(WmsDbContext database, IEnumerable<StockBalance> balances, CancellationToken ct,
+        Guid? transferOwner = null)
     {
         var dimensions = balances.ToArray();
         var locationIds = dimensions.Select(row => row.LocationId).ToArray();
@@ -68,7 +73,7 @@ internal static class WmsResourceLocks
         {
             if (!await database.Warehouses.AnyAsync(row => row.Id == warehouse, ct)) continue;
             await AcquireAsync(database, warehouse, locations.Where(row => row.WarehouseId == warehouse).Select(row => row.Id),
-                containers.Where(row => row.WarehouseId == warehouse).Select(row => row.Id), ct);
+                containers.Where(row => row.WarehouseId == warehouse).Select(row => row.Id), ct, transferOwner);
         }
     }
 

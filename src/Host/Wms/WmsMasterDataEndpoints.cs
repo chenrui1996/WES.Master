@@ -76,6 +76,11 @@ public static partial class WmsMasterDataEndpoints
             group.MapPost("/outbound/{id:guid}/cancellation", CancelOutboundStrictAsync);
             group.MapPost("/outbound/{id:guid}/close-remainder", CloseOutboundRemainderStrictAsync);
         }
+        if (app.Services.GetRequiredService<WmsMasterDataSettings>().TransfersEnabled)
+        {
+            app.Services.GetRequiredService<LocationCreationSchema>();
+            MapTransfers(group);
+        }
         if (app.Services.GetRequiredService<WmsMasterDataSettings>().CountsEnabled)
         {
             _ = app.Services.GetRequiredService<LocationCreationSchema>();
@@ -196,6 +201,8 @@ public static partial class WmsMasterDataEndpoints
         internal WmsInboundExecutionWriter OpenInboundExecution(Guid tenant, IWarehouseLocationSchema schema) =>
             new(settings.ConnectionString, tenant, authorization, schema, clock, logs);
         internal WmsCountWriter OpenCounts(Guid tenant, IWarehouseLocationSchema schema) =>
+            new(settings.ConnectionString, tenant, authorization, schema, clock, logs);
+        internal WmsTransferWriter OpenTransfers(Guid tenant, IWarehouseLocationSchema schema) =>
             new(settings.ConnectionString, tenant, authorization, schema, clock, logs);
         internal WmsOutboundWriter OpenOutbound(Guid tenant, IWarehouseLocationSchema schema) =>
             new(settings.ConnectionString, tenant, authorization, schema, clock, logs);

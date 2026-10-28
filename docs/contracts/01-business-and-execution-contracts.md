@@ -47,6 +47,8 @@
 
 ## 4. WMS与运输协作
 
+[T11多行TransferOrder实施合同](../implementation/185-t11-transfer-order.md)定义独立默认关闭`Wes:WmsMasterData:TransfersEnabled`及具名`/api/wms/transfers`创建/读取、`approval/dispatch/arrivals/synchronizations/unknown/closure`动作。沿既有WMS body版本模式，不修改旧接口；全行审核一次冻结全部源目标余额版本，执行按固定单元逐个确认。写201/原tuple重放200精确`{decision,id,version}`，仅证明原动作身份；尤其arrivals201表示耐久到达已保存，不保证已记账，须另GET当前执行/同步状态。Pending/Failed和Unknown继续保留源预留与目标保护；sync只补账，不重运，关闭仅释放确认未执行余量。当前范围为单仓单正库存维度整容器，不拆容器或隐式多维度编组；branch1不允许人工伪完成，可信运输接线及实际T15仍是软件依赖。实现/验证状态以[186记录](../implementation/186-t11-transfer-order-tests.md)为准，不因合同已列出即宣称可部署。
+
 [T10出库基本链实施合同](../implementation/181-t10-outbound-basic-flow.md)定义独立默认关闭`Wes:WmsMasterData:OutboundEnabled`及具名`/api/wms/outbound`接口，沿既有WMS body版本/未版本化已实施端点模式，不重命名旧接口或采信客户端actor。创建、全行原子审核、实拣/短缺、非原人复核未执行释放、无运输一次直发、取消与关闭余量分别具名；成功201/原tuple重放200 `{decision,id,version}`，当前GET严格`{decision,record}`。数量string，原请求/原回执永久保存；原key恢复仍需当前完整字段/资源权限，不能从回执版本推断当前状态。RequiresTransport不得走手工Shipment，不以缺少实际T15适配器默认完成。详细输入/字段/错误/保护与明确未实现软件范围见设计；实施测试状态以[独立记录](../implementation/182-t10-outbound-basic-flow-tests.md)为准，不因本文预先列入合同即宣称可部署。
 
 [T11盲盘及局部锁合同](../implementation/183-t11-blind-count-and-local-lock.md)定义默认关闭`Wes:WmsMasterData:CountsEnabled`及`/api/wms/counts`。创建位置范围、start重新获锁/私有快照、records扫描实盘/修订、adjustment全行原子差异账与invalidation人工解锁失效分别具名。盲盘GET不包含账面、差异或私有余额版本；`/{id}/review`须单独当前字段权限。写201/原tuple200只含原id/version；不从回执假造当前锁状态。数量十进制string，0允许实盘，全部行已数且非零差异非本人复核才显式调账；1800秒只提醒，部署关闭不释放已有锁。输入/字段/错误与一致性见设计，取得结果见[证据](../implementation/184-t11-blind-count-tests.md)。

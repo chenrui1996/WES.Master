@@ -132,7 +132,7 @@ test("real WMS definitions and explicitly enabled creation retain current author
   await expect(details).toContainText("HTTP warehouse");
   await expect(details).toContainText(warehouseDefinition.version);
   await expect(details).toContainText(warehouseDefinition.createdAt);
-  await expect(details).toContainText("主数据禁用");
+  await expect(details).toContainText(locationCreation ? "主数据启用" : "主数据禁用");
   await expect(page.getByTestId("master-data-catalog")).toBeVisible();
   await page.getByLabel("资源类型", { exact: true }).selectOption("locations");
   await expect(details).toHaveCount(0);
@@ -321,6 +321,56 @@ test("real WMS definitions and explicitly enabled creation retain current author
     await expect(details).toContainText("BROWSER-LOC");
     await expect(details).toContainText(created.version);
     await expect(details).toContainText("主数据禁用");
+    await page.getByTestId("prepare-warehouse-state").click();
+    await page.getByLabel("库位启停原因", { exact: true }).fill("Browser location enable");
+    const beforePreview = methods.length;
+    await page.getByRole("button", { name: "预览库位启停", exact: true }).click();
+    expect(methods.length).toBe(beforePreview);
+    await expect(page.getByTestId("warehouse-state-preview")).toContainText(created.version);
+    for (const width of [375, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
+    }
+    const enabledResponse = page.waitForResponse(item => new URL(item.url()).pathname === `/api/wms/locations/${created.id}/state`);
+    await page.getByTestId("confirm-warehouse-state").focus(); await page.keyboard.press("Enter");
+    const enabled = await enabledResponse; expect(enabled.status()).toBe(200);
+    expect(enabled.request().postDataJSON()).toEqual({ expectedVersion: created.version, enabled: true, reason: "Browser location enable" });
+    const enabledReceipt = await enabled.json();
+    expect(Object.keys(enabledReceipt)).toEqual(["decision", "id", "version"]);
+    await expect(page.getByText("已确认原启停操作：", { exact: false })).toBeVisible();
+    const enabledRead = page.waitForResponse(item => new URL(item.url()).pathname === `/api/wms/locations/${created.id}`);
+    await page.getByTestId("read-state-warehouse").click(); expect((await enabledRead).status()).toBe(200);
+    await expect(details).toContainText("主数据启用"); await expect(details).toContainText(enabledReceipt.version);
+    await page.getByTestId("prepare-warehouse-state").click();
+    await page.getByLabel("库位启停原因", { exact: true }).fill("Browser location disable");
+    await page.getByRole("button", { name: "预览库位启停", exact: true }).click();
+    const originalKey = await page.getByTestId("warehouse-state-preview").locator("dd").nth(4).innerText();
+    let originalBody = "";
+    await page.route(`**/api/wms/locations/${created.id}/state`, async route => {
+      originalBody = route.request().postData()!;
+      const committed = await route.fetch(); expect(committed.status()).toBe(200);
+      await route.fulfill({ status: 503, body: "", headers: { "cache-control": "no-store" } });
+      await page.unroute(`**/api/wms/locations/${created.id}/state`);
+    });
+    await page.getByTestId("confirm-warehouse-state").click();
+    await expect(page.getByTestId("retry-warehouse-state")).toBeVisible();
+    await expect(submit).toBeDisabled();
+    const afterUnknown = methods.length;
+    await context.setOffline(true); await expect(page.getByTestId("retry-warehouse-state")).toBeDisabled();
+    await context.setOffline(false); await expect(page.getByTestId("retry-warehouse-state")).toBeEnabled();
+    expect(methods.length).toBe(afterUnknown);
+    const recoveredResponse = page.waitForResponse(item => new URL(item.url()).pathname === `/api/wms/locations/${created.id}/state`
+      && item.request().headers()["idempotency-key"] === originalKey, { timeout: 10000 });
+    await page.getByTestId("retry-warehouse-state").focus(); await page.keyboard.press("Enter");
+    const recovered = await recoveredResponse; expect(recovered.status()).toBe(200);
+    expect(recovered.request().postData()).toBe(originalBody); expect((await recovered.json()).decision).toBe(1);
+    const disabledRead = page.waitForResponse(item => new URL(item.url()).pathname === `/api/wms/locations/${created.id}`);
+    await page.getByTestId("read-state-warehouse").click(); expect((await disabledRead).status()).toBe(200);
+    await expect(details).toContainText("主数据禁用");
+    const stateStored = await page.evaluate(() => JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage)]));
+    expect(stateStored).not.toContain(originalKey); expect(stateStored).not.toContain("Browser location");
     await page.getByLabel("资源 UUID", { exact: true }).fill(location);
     const restore = page.waitForResponse(item => item.url().endsWith(`/api/wms/locations/${location}`));
     await submit.click(); expect((await restore).status()).toBe(200);
@@ -556,9 +606,9 @@ test("real WMS definitions and explicitly enabled creation retain current author
   for (const row of eventRows) expect(stored).not.toContain(row.eventId);
   if (inventoryId) expect(stored).not.toContain(inventoryId);
   if (inboundId) expect(stored).not.toContain(inboundId);
-  expect(methods.length).toBe(creation ? 17 : locationCreation ? 12 : inventoryId ? 13 : inboundId ? 12 : 9);
+  expect(methods.length).toBe(creation || locationCreation ? 17 : inventoryId ? 13 : inboundId ? 12 : 9);
   expect(methods.filter(method => method === "POST")).toHaveLength(creation || locationCreation ? 1 : 0);
-  expect(methods.filter(method => method === "PUT")).toHaveLength(creation ? 3 : 0);
-  expect(methods.every(method => method === "GET" || (creation || locationCreation) && method === "POST" || creation && method === "PUT")).toBe(true);
+  expect(methods.filter(method => method === "PUT")).toHaveLength(creation || locationCreation ? 3 : 0);
+  expect(methods.every(method => method === "GET" || (creation || locationCreation) && (method === "POST" || method === "PUT"))).toBe(true);
   expect(failures).toEqual([]);
 });

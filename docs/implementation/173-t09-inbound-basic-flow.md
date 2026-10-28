@@ -4,7 +4,7 @@
 - 需求：FUNC-WMS-002 / PAGE-WMS-003；DTC-WMS-002/003，VAL-01。
 - 基线：[WMS 规格](../modules/wms-and-ledger.md)、[规则](../detailed-design/05-approved-rules-and-defaults.md)、[交付顺序](TodoList.md)。
 
-依赖进展：[仓库逻辑启停](174-t08-warehouse-operational-state.md)owner/默认关闭PUT与页面已验证，保留原创建事实/永久状态回执，并核禁用活动及当前权限。只补齐仓库逻辑状态子集；库位启停、合法容器/账维度与物料单位、当前受权审核收货及最终运输仍是主体待办，内部收货原语仍不得以Enabled绕过这些校验。
+依赖进展：[仓库逻辑启停](174-t08-warehouse-operational-state.md)owner/默认关闭PUT与页面已验证，保留原创建事实/永久状态回执，并核禁用活动及当前权限。[库位逻辑启停续片](175-t08-location-operational-state.md)增加父仓→库位锁、真实双creator/完整字段、启用时持久Pack/schema校验及禁用活动保护，具体执行证据以该文档为准。合法容器/账维度与物料单位、当前受权审核收货及最终运输仍是主体待办，内部收货原语仍不得以Enabled绕过这些校验；没有耐久到达事实前异址receipt继续保护源/目标，不凭领域状态释放。
 
 ## 最小完整目标与顺序
 

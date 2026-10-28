@@ -15,7 +15,7 @@ public static partial class WmsMasterDataEndpoints
     {
         var schemas = services.Where(item => item.ServiceType == typeof(IWarehouseLocationSchema) && !item.IsKeyedService).ToArray();
         if (schemas.Length != 1 || schemas[0].Lifetime != ServiceLifetime.Singleton)
-            throw new InvalidOperationException("Location creation requires exactly one explicitly configured singleton schema adapter.");
+            throw new InvalidOperationException("Location writes require exactly one explicitly configured singleton schema adapter.");
         return new(provider.GetRequiredService<IWarehouseLocationSchema>());
     }
 

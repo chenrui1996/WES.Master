@@ -148,13 +148,15 @@ public sealed partial class IdentityHttpTests
 
     private async Task<(Guid Warehouse, Guid Location)> WmsHostAsync(bool warehouseCreation = false,
         bool locationCreation = false, Action<Microsoft.Extensions.DependencyInjection.IServiceCollection>? locationSchemas = null,
-        string? filesRoot = null, bool inboundDraftCreation = false, bool inboundDraftRevision = false, bool warehouseState = false)
+        string? filesRoot = null, bool inboundDraftCreation = false, bool inboundDraftRevision = false, bool warehouseState = false,
+        bool locationState = false)
     {
         _client.Dispose();
         await _factory.DisposeAsync();
         _factory = new Factory(_connection, _corpus, _clock, wmsMasterData: true, wmsWarehouseCreation: warehouseCreation,
             wmsLocationCreation: locationCreation, locationSchemas: locationSchemas, filesRoot: filesRoot,
-            wmsInboundDraftCreation: inboundDraftCreation, wmsInboundDraftRevision: inboundDraftRevision, wmsWarehouseState: warehouseState);
+            wmsInboundDraftCreation: inboundDraftCreation, wmsInboundDraftRevision: inboundDraftRevision, wmsWarehouseState: warehouseState,
+            wmsLocationState: locationState);
         _client = Client();
         await using (var seed = OpenWmsMasterData())
         {
@@ -205,6 +207,7 @@ public sealed partial class IdentityHttpTests
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_stock_postings WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_stock_balances WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_outbox_messages WHERE TenantId = {tenant.ToString("D")}");
+            await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_location_state_changes WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_warehouse_state_changes WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_master_data_changes WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_locations WHERE TenantId = {tenant.ToString("D")}");

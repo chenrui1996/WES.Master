@@ -36,7 +36,7 @@ public sealed partial class IdentityHttpTests
             WmsHostAsync(locationCreation: true, locationSchemas: Register));
 
         // Assert
-        Assert.Contains("Location creation requires exactly one explicitly configured singleton schema adapter.", error.Message);
+        Assert.Contains("Location writes require exactly one explicitly configured singleton schema adapter.", error.Message);
     }
 
     [Fact]

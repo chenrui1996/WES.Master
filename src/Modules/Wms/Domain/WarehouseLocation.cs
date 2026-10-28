@@ -1,6 +1,6 @@
 namespace Wes.Wms.Domain;
 
-/// <summary>Disabled tenant-owned location with immutable warehouse, Pack and schema lineage.</summary>
+/// <summary>Tenant-owned logical location with immutable warehouse, Pack and schema lineage; created disabled.</summary>
 public sealed class WarehouseLocation
 {
     private WarehouseLocation() { }
@@ -41,4 +41,11 @@ public sealed class WarehouseLocation
     public string Version { get; private set; } = Guid.NewGuid().ToString("D");
     /// <summary>Owner UTC creation time.</summary>
     public DateTimeOffset CreatedAt { get; private set; }
+
+    internal void ChangeState(bool enabled)
+    {
+        if (Enabled == enabled) throw new InvalidOperationException("Location state must actually change.");
+        Enabled = enabled;
+        Version = Guid.NewGuid().ToString("D");
+    }
 }

@@ -2,7 +2,8 @@ namespace Wes.Host.Wms;
 
 /// <summary>Default-disabled deployment assembly; independent write toggles never imply inventory or physical-control capability.</summary>
 public sealed record WmsMasterDataSettings(bool Enabled, bool WarehouseCreationEnabled = false, bool LocationCreationEnabled = false,
-    bool InboundDraftCreationEnabled = false, bool InboundDraftRevisionEnabled = false, bool WarehouseStateEnabled = false)
+    bool InboundDraftCreationEnabled = false, bool InboundDraftRevisionEnabled = false, bool WarehouseStateEnabled = false,
+    bool LocationStateEnabled = false)
 {
     /// <summary>Rejects malformed supplied toggles and requires authenticated identity when explicitly enabled.</summary>
     public static WmsMasterDataSettings Load(IConfiguration configuration)
@@ -43,6 +44,12 @@ public sealed record WmsMasterDataSettings(bool Enabled, bool WarehouseCreationE
             throw new InvalidOperationException("WMS warehouse state deployment configuration is invalid.");
         if (stateEnabled && !enabled)
             throw new InvalidOperationException("WMS warehouse state changes require master-data and identity deployment.");
-        return new(enabled, creationEnabled, locationEnabled, inboundEnabled, revisionEnabled, stateEnabled);
+        var locationStateValue = configuration["Wes:WmsMasterData:LocationStateEnabled"];
+        var locationStateEnabled = false;
+        if (locationStateValue is not null && !bool.TryParse(locationStateValue, out locationStateEnabled))
+            throw new InvalidOperationException("WMS location state deployment configuration is invalid.");
+        if (locationStateEnabled && !enabled)
+            throw new InvalidOperationException("WMS location state changes require master-data and identity deployment.");
+        return new(enabled, creationEnabled, locationEnabled, inboundEnabled, revisionEnabled, stateEnabled, locationStateEnabled);
     }
 }

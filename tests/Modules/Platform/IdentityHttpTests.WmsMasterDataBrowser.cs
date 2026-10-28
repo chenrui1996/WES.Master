@@ -25,9 +25,15 @@ public sealed partial class IdentityHttpTests
         var schema = new LocationHttpSchema();
         var ids = await WmsHostAsync(warehouseCreation, locationCreation, locationCreation
             ? services => services.AddSingleton<Wes.Wms.Features.MasterData.IWarehouseLocationSchema>(schema) : null,
-            inboundDraftCreation: inboundRead, inboundDraftRevision: inboundRead, warehouseState: warehouseCreation);
+            inboundDraftCreation: inboundRead, inboundDraftRevision: inboundRead, warehouseState: warehouseCreation || locationCreation,
+            locationState: locationCreation);
         if (warehouseCreation) { await GrantWarehouseCreationAsync(); await GrantWarehouseStateAsync(); }
-        if (locationCreation) await GrantLocationCreationAsync();
+        if (locationCreation)
+        {
+            await GrantLocationCreationAsync(); await GrantLocationStateAsync(); await GrantWarehouseStateAsync();
+            using var enabledParent = await StateHttpAsync(ids.Warehouse, Guid.NewGuid(), await StateInputAsync(ids.Warehouse));
+            Assert.Equal(HttpStatusCode.OK, enabledParent.StatusCode);
+        }
         await GrantCreationEventReadAsync();
         await GrantCreationEventCountsAsync();
         var balance = inventoryRead ? await SeedInventoryAsync(ids) : null;
@@ -57,7 +63,8 @@ public sealed partial class IdentityHttpTests
         await using var server = new Factory(_connection, _corpus, _clock, Path.Combine(web, "dist"), wmsMasterData: true,
             wmsWarehouseCreation: warehouseCreation, wmsLocationCreation: locationCreation,
             locationSchemas: locationCreation ? services => services.AddSingleton<Wes.Wms.Features.MasterData.IWarehouseLocationSchema>(schema) : null,
-            wmsInboundDraftCreation: inboundRead, wmsInboundDraftRevision: inboundRead, wmsWarehouseState: warehouseCreation);
+            wmsInboundDraftCreation: inboundRead, wmsInboundDraftRevision: inboundRead, wmsWarehouseState: warehouseCreation || locationCreation,
+            wmsLocationState: locationCreation);
         server.UseKestrel(options => options.Listen(IPAddress.Loopback, 0, listener => listener.UseHttps(certificate)));
         server.StartServer();
         var address = Assert.Single(server.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses);
@@ -231,7 +238,7 @@ public sealed partial class IdentityHttpTests
             Assert.Equal(Wes.Wms.Domain.StockMovementQuantity.MaximumValue, (await verify.Balances.SingleAsync()).Quantity);
             Assert.Empty(await verify.Reservations.ToListAsync());
         }
-        Assert.All(await verify.Warehouses.ToListAsync(), item => Assert.False(item.Enabled));
+        Assert.All(await verify.Warehouses.ToListAsync(), item => Assert.Equal(locationCreation, item.Enabled));
         Assert.Equal(locationCreation ? 2 : 1, await verify.Locations.CountAsync());
         Assert.All(await verify.Locations.ToListAsync(), item => Assert.False(item.Enabled));
         if (warehouseCreation)
@@ -251,16 +258,24 @@ public sealed partial class IdentityHttpTests
             Assert.Equal((enabled.AfterVersion, true, _user, "Browser disable"), (disabled.BeforeVersion, disabled.BeforeEnabled, disabled.ActorId, disabled.Reason));
             Assert.Equal(disabled.AfterVersion, created.Version);
         }
-        Assert.Equal(warehouseCreation ? 2 : 0, await verify.WarehouseStateChanges.CountAsync());
+        Assert.Equal(warehouseCreation ? 2 : locationCreation ? 1 : 0, await verify.WarehouseStateChanges.CountAsync());
+        Assert.Equal(locationCreation ? 2 : 0, await verify.LocationStateChanges.CountAsync());
         if (locationCreation)
         {
             var created = await verify.Locations.SingleAsync(item => item.Code == "BROWSER-LOC");
             Assert.Equal(("Browser location", ids.Warehouse, LocationHttpSchema.Pack, "v1"),
                 (created.Name, created.WarehouseId, created.PackId, created.SchemaVersion));
-            Assert.Equal((_tenant, ids.Warehouse, LocationHttpSchema.Pack, "v1", "BROWSER-LOC"), Assert.Single(schema.Calls));
+            Assert.Equal(2, schema.Calls.Count);
+            Assert.All(schema.Calls, call => Assert.Equal((_tenant, ids.Warehouse, LocationHttpSchema.Pack, "v1", "BROWSER-LOC"), call));
             var fact = await verify.MasterDataChanges.SingleAsync(item => item.LocationId == created.Id);
             var message = await verify.OutboxMessages.SingleAsync(item => item.EventId == fact.OperationId);
-            Assert.Equal((_user, created.Id, created.Version), (fact.ActorId, message.AggregateId, message.AggregateVersion));
+            Assert.Equal((_user, created.Id, fact.AfterVersion), (fact.ActorId, message.AggregateId, message.AggregateVersion));
+            var changes = await verify.LocationStateChanges.Where(item => item.LocationId == created.Id).ToListAsync();
+            var enabled = Assert.Single(changes, item => item.Enabled);
+            var disabled = Assert.Single(changes, item => !item.Enabled);
+            Assert.Equal((fact.AfterVersion, false, "Browser location enable"), (enabled.BeforeVersion, enabled.BeforeEnabled, enabled.Reason));
+            Assert.Equal((enabled.AfterVersion, true, "Browser location disable"), (disabled.BeforeVersion, disabled.BeforeEnabled, disabled.Reason));
+            Assert.Equal(disabled.AfterVersion, created.Version);
         }
     }
 

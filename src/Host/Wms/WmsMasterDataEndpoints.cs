@@ -28,7 +28,7 @@ public static partial class WmsMasterDataEndpoints
         return services;
     }
 
-    /// <summary>Maps authenticated reads and separately enabled disabled creation; no activation or stock writes.</summary>
+    /// <summary>Maps authenticated reads and independently enabled creation/logical states; no stock or physical writes.</summary>
     public static void MapWesWmsMasterData(this WebApplication app)
     {
         if (!app.Services.GetRequiredService<WmsMasterDataSettings>().Enabled) return;
@@ -67,6 +67,11 @@ public static partial class WmsMasterDataEndpoints
             group.MapPost("/warehouses", CreateWarehouseAsync);
         if (app.Services.GetRequiredService<WmsMasterDataSettings>().WarehouseStateEnabled)
             group.MapPut("/warehouses/{id:guid}/state", ChangeWarehouseStateAsync);
+        if (app.Services.GetRequiredService<WmsMasterDataSettings>().LocationStateEnabled)
+        {
+            _ = app.Services.GetRequiredService<LocationCreationSchema>();
+            group.MapPut("/locations/{id:guid}/state", ChangeLocationStateAsync);
+        }
         if (app.Services.GetRequiredService<WmsMasterDataSettings>().LocationCreationEnabled)
         {
             _ = app.Services.GetRequiredService<LocationCreationSchema>();
@@ -152,6 +157,8 @@ public static partial class WmsMasterDataEndpoints
             new(settings.ConnectionString, tenant, authorization, WarehouseOnlySchema.Instance, clock, logs);
         internal WmsWarehouseStateWriter OpenWarehouseStateWriter(Guid tenant) =>
             new(settings.ConnectionString, tenant, authorization, clock, logs);
+        internal WmsLocationStateWriter OpenLocationStateWriter(Guid tenant, IWarehouseLocationSchema schema) =>
+            new(settings.ConnectionString, tenant, authorization, schema, clock, logs);
         internal WmsMasterDataWriter OpenLocationWriter(Guid tenant, IWarehouseLocationSchema schema) =>
             new(settings.ConnectionString, tenant, authorization, schema, clock, logs);
     }

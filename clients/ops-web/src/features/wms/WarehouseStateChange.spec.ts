@@ -1,13 +1,13 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import WarehouseStateChange from "./WarehouseStateChange.vue";
+import WarehouseStateChange from "./MasterDataStateChange.vue";
 import MasterDataPage from "./MasterDataPage.vue";
 import EntityAttachments from "./EntityAttachments.vue";
 import MasterDataCatalog from "./MasterDataCatalog.vue";
 import { forgetIdentity, sessionState, setAccessToken } from "../identity/identity-api";
 import { readFields } from "../platform/staging-file";
 import { warehouseFields, type MasterData } from "./master-data";
-import { changeWarehouseState } from "./warehouse-state";
+import { changeMasterDataState as changeWarehouseState } from "./master-data-state";
 
 const id = "77966ccd-f1dd-412d-8e45-adb475608842";
 const version = "a029ce52-d810-405c-b349-c0ac9ebad74b";
@@ -27,7 +27,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(receipt))));
 });
 afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); forgetIdentity(); });
-function panel() { wrapper = mount(WarehouseStateChange, { props: { warehouse } }); return wrapper; }
+function panel() { wrapper = mount(WarehouseStateChange, { props: { resource: warehouse } }); return wrapper; }
 async function preview() {
   await wrapper!.get('[name="warehouseStateReason"]').setValue("Ready");
   await wrapper!.get("form").trigger("submit"); await flushPromises();
@@ -67,7 +67,7 @@ it.each(["write:Enabled", ...warehouseFields])("requires every current field, no
 });
 
 it("prepares disable only for a currently enabled warehouse", async () => {
-  wrapper = mount(WarehouseStateChange, { props: { warehouse: { ...warehouse, definition: { ...row, enabled: true } } } });
+  wrapper = mount(WarehouseStateChange, { props: { resource: { ...warehouse, definition: { ...row, enabled: true } } } });
   await preview(); await confirm();
   expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0]![1]!.body)).enabled).toBe(false);
 });
@@ -113,7 +113,7 @@ it("drops a pending result and private tuple when identity changes", async () =>
 
 it("invalidates the frozen tuple when the source version changes", async () => {
   panel(); await preview();
-  await wrapper!.setProps({ warehouse: { ...warehouse, definition: { ...row, version: after } } }); await flushPromises();
+  await wrapper!.setProps({ resource: { ...warehouse, definition: { ...row, version: after } } }); await flushPromises();
   expect(wrapper!.find('[data-test="warehouse-state-preview"]').exists()).toBe(false);
   expect(wrapper!.text()).not.toContain("Ready"); expect(wrapper!.get('[role="alert"]').text()).toContain("已改变");
   expect(fetch).not.toHaveBeenCalled();

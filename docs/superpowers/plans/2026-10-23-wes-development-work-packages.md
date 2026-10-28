@@ -153,7 +153,8 @@
 
 ### T08：WMS主数据与唯一账本
 
-- [x] [仓库逻辑启停owner/HTTP/具名页面](../../implementation/174-t08-warehouse-operational-state.md)：当前真实creator/完整read与独立Enabled写、父仓版本与永久原回执、活动阻断/提交前撤权回滚；默认关闭PUT、原因/全量预览/确认、原key/body未知恢复和显式GET。新增38owner/28HTTP/8配置/34前端；相关owner527、最终Release本片38及HTTP配置/五真实浏览器41、前端956/严格构建、架构29/Release0/0及模型无漂移通过（重叠不累计）。新表保留完整状态事实、design-time迁移历史与runtime一致；无库存/子位/运输效果，不关闭库位启停/容器/合法账维度、公开审核收货/最终运输或T08/T09整包。
+- [x] [仓库逻辑启停owner/HTTP/具名页面](../../implementation/174-t08-warehouse-operational-state.md)：当前真实creator/完整read与独立Enabled写、父仓版本与永久原回执、活动阻断/提交前撤权回滚；默认关闭PUT、原因/全量预览/确认、原key/body未知恢复和显式GET。新增38owner/28HTTP/8配置/34前端；相关owner527、最终Release本片38及HTTP配置/五真实浏览器41、前端956/严格构建、架构29/Release0/0及模型无漂移通过（重叠不累计）。新表保留完整状态事实、design-time迁移历史与runtime一致；无库存/子位/运输效果，其余主体缺口不关闭。
+- [x] [库位逻辑启停owner/HTTP/共享具名页面](../../implementation/175-t08-location-operational-state.md)：真实双creator/完整字段、父仓→库位锁、固定Pack/schema及父仓启用校验，正库存/剩余预留/异址待运输禁用保护、永久原版本回执及两时点核权/取消故障回滚；默认关闭PUT、固定关联预览/二次确认、原key/body Unknown恢复及显式locations GET。新增53owner/44HTTP与启动/8配置/26前端；相关owner576、最终Release本片53/Modules293含五真实HTTPS浏览器、前端982/严格类型及生产构建、架构29/Release0/0/EF无漂移通过（重叠不累计）。仅新增状态事实表，无库存/运输效果；合法容器/账维度与物料单位、受权审核收货及最终运输仍待实施，不关闭T08/T09。
 
 - [x] [禁用库位创建客户端](../../implementation/163-t08-disabled-location-creation-client.md)/[证据](../../implementation/164-t08-disabled-location-creation-client-tests.md)：当前完整write/父仓read、精确tuple预览/二次确认、原key/body未知恢复与显式GET回执，复用原仓库状态机。新增35前端，全套730/严格构建、相关.NET158含五套真实HTTPS浏览器、Release0/0通过，真实201及owner单效果已核验。无真实Pack/完整层级候选链、启停/容器或父DTC/整包验收。
 

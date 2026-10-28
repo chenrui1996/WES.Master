@@ -4,8 +4,8 @@ import QueryState from "../../components/QueryState.vue";
 import MasterDataCatalog from "./MasterDataCatalog.vue";
 import MasterDataCreation from "./MasterDataCreation.vue";
 import EntityAttachments from "./EntityAttachments.vue";
-import WarehouseStateChange from "./WarehouseStateChange.vue";
-import { mayChangeWarehouseState } from "./warehouse-state";
+import MasterDataStateChange from "./MasterDataStateChange.vue";
+import { mayChangeMasterDataState } from "./master-data-state";
 import { ApiError, sessionState } from "../identity/identity-api";
 import { locationFields, MasterDataResponseError, mayCreateLocation, mayCreateWarehouse, readMasterData, validIdentity, warehouseFields, type MasterData, type ResourceKind } from "./master-data";
 import { mayReadBusinessFiles } from "./business-files";
@@ -14,8 +14,8 @@ const resourceKind = ref<ResourceKind>(mayRead("warehouses") ? "warehouses" : "l
 const resourceId = ref("");
 const catalogRevision = ref(0);
 const creationOpen = ref<ResourceKind | null>(null);
-const stateOpen = shallowRef<Extract<MasterData, { kind: "warehouses" }>>();
-const canChangeState = computed(mayChangeWarehouseState);
+const stateOpen = shallowRef<MasterData>();
+const canChangeState = computed(() => mayChangeMasterDataState(resourceKind.value));
 const canCreate = computed(mayCreateWarehouse); const canCreateLocation = computed(mayCreateLocation);
 const record = shallowRef<MasterData | null>(null);
 const busy = ref(false); const fresh = ref(false); const error = ref(""); const notFound = ref(false);
@@ -84,21 +84,24 @@ function readCreatedDefinition(id: string) {
 function attachLocked(value: boolean) { attachmentLocked.value = value; }
 function openState() {
   if (attachmentLocked.value || creationOpen.value || !fresh.value || busy.value || !online.value
-    || !canChangeState.value || record.value?.kind !== "warehouses") return;
+    || !canChangeState.value || !record.value) return;
   stateOpen.value = record.value;
   reset();
 }
-function readStateWarehouse(id: string) { stateOpen.value = undefined; resourceKind.value = "warehouses"; selectCatalogResource(id); }
+function readStateResource(id: string) {
+  if (!stateOpen.value) return;
+  resourceKind.value = stateOpen.value.kind; stateOpen.value = undefined; selectCatalogResource(id);
+}
 </script>
 
 <template>
   <section class="page" aria-labelledby="master-data-heading">
     <header class="page-heading"><div><p class="eyebrow">WMS · 主数据定义</p><h1 id="master-data-heading">仓库与库位详情</h1></div></header>
-    <p class="hint">通过实时目录或已知 UUID 读取当前授权的主数据。不代表可分配、位置空闲或物理安全许可；创建及仓库逻辑启停须独立部署装配，层级树和库位启停尚未开放。</p>
+    <p class="hint">通过实时目录或已知 UUID 读取当前授权的主数据。不代表可分配、位置空闲或物理安全许可；创建及仓/位逻辑启停须独立部署装配，层级树及容器绑定尚未开放。</p>
     <button v-if="canCreate && !creationOpen && !stateOpen" type="button" :disabled="attachmentLocked" @click="openCreation('warehouses')">新建禁用仓库</button>
     <button v-if="canCreateLocation && !creationOpen && !stateOpen" type="button" :disabled="attachmentLocked" @click="openCreation('locations')">新建禁用库位</button>
     <MasterDataCreation v-if="creationOpen" :kind="creationOpen" @attempted="creationAttempted" @read="readCreatedDefinition" @close="creationOpen = null" />
-    <WarehouseStateChange v-if="stateOpen" :warehouse="stateOpen" @attempted="creationAttempted" @read="readStateWarehouse" @close="stateOpen = undefined" />
+    <MasterDataStateChange v-if="stateOpen" :resource="stateOpen" @attempted="creationAttempted" @read="readStateResource" @close="stateOpen = undefined" />
     <template v-if="!creationOpen">
     <form class="master-data-query" @submit.prevent="read">
       <div class="master-data-kind"><label for="master-data-kind">资源类型</label>
@@ -120,8 +123,8 @@ function readStateWarehouse(id: string) { stateOpen.value = undefined; resourceK
       </template>
       <article v-if="record" data-test="master-data-details" :aria-label="record.kind === 'warehouses' ? '仓库定义' : '库位定义'">
         <h2>{{ record.kind === "warehouses" ? "仓库" : "库位" }}定义</h2>
-        <button v-if="record.kind === 'warehouses' && canChangeState" type="button" data-test="prepare-warehouse-state"
-          :disabled="!fresh || !online || busy || attachmentLocked" @click="openState">准备{{ record.definition.enabled ? "禁用" : "启用" }}仓库</button>
+        <button v-if="canChangeState" type="button" data-test="prepare-warehouse-state"
+          :disabled="!fresh || !online || busy || attachmentLocked" @click="openState">准备{{ record.definition.enabled ? "禁用" : "启用" }}{{ record.kind === "warehouses" ? "仓库" : "库位" }}</button>
         <p v-if="fresh" role="status">当前读取已确认 · 上次成功读取：<time :datetime="loadedAt">{{ loadedAt }}</time></p>
         <dl class="master-data-definition">
           <div><dt>资源 UUID</dt><dd>{{ record.definition.id }}</dd></div>

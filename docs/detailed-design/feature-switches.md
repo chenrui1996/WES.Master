@@ -69,6 +69,8 @@ WMS入库草稿另有独立默认关闭的`Wes:WmsMasterData:InboundDraftCreatio
 
 仓库逻辑启停独立使用`Wes:WmsMasterData:WarehouseStateEnabled=false`，不由仓库/库位创建或入库草稿开关隐式开启；需要master-data/Identity读装配，非法bool/依赖缺失启动失败。关闭不映射`PUT /api/wms/warehouses/{id}/state`（404），保留既有Enabled/Version及永久启停事实，不自动禁用仓或撤销已提交操作。开启仍逐次核真实creator的完整read六字段和write的Enabled；Code/Name创建权限不授予启停。部署前单独评审新表迁移，Host/owner不自动迁移；关闭后未知操作只能在兼容入口恢复后以原key/body手工核验。仅改仓库逻辑状态，不开放子库位、库存/收货、分配、运输或设备控制；活动阻断/回退及测试见[设计与证据](../implementation/174-t08-warehouse-operational-state.md)。
 
+库位逻辑启停另用`Wes:WmsMasterData:LocationStateEnabled=false`，与创建/仓库状态开关独立；依赖master-data/Identity及唯一非keyed singleton `IWarehouseLocationSchema`，即使关闭库位创建也必须核验schema装配，缺失/重复/不合法生命周期启动失败。关闭时不映射`PUT /api/wms/locations/{id}/state`，不删除事实或自动停用。服务端两时点核真实库位creator的Enabled写/完整read九字段与真实父仓creator的完整read六字段；父仓→库位串行锁内启用验证父仓Enabled及持久Pack/schema tuple，禁用检查正库存/剩余预留/未完成异址收货运输。独立迁移仅新增状态事实表，禁止以Down删除历史；无生产自动迁移/默认合法schema，也不授予收货/运输许可。使用、Unknown恢复与回退见[设计与证据](../implementation/175-t08-location-operational-state.md)。
+
 1. Host 在组合根绑定 `FeaturesOptions`、校验每一项及依赖关系，并创建不可变运行快照。
 2. 每项运行能力由其 owner 显式声明启动注册、健康/ready 影响、关闭行为、请求错误语义及 in-flight/shutdown 策略；没有声明的能力不能被任意字符串开关控制。
 3. 匿名 `GET /api/config/features` 只返回前端允许公开的模块代码与启用布尔值，不返回运行能力、Provider/连接、Secret、内部依赖状态或按租户/用户定制的数据。端点输出采用显式白名单 DTO。

@@ -142,6 +142,17 @@ internal sealed partial class InboundExecutionAccess(WmsDbContext database, IMas
                 var fact = database.ChangeTracker.Entries<InboundFact>().Single(entry => entry.State == EntityState.Added
                     && entry.Entity.OperationId == operation).Entity;
                 database.InboundExecutionOperations.Add(new(fact, input, clock.GetUtcNow()));
+                if (receipt is not null && receipt.ReceiptLocationId != receipt.TargetLocationId)
+                {
+                    var header = database.ChangeTracker.Entries<InboundDocument>().Single(entry => entry.Entity.Id == id).Entity;
+                    database.InboundTransportIntents.Add(new(header, fact, receipt.BalanceId, line!.Precision));
+                    var protection = new StockReservation(database.TenantId, receipt.ExecutionId, receipt.BalanceId,
+                        id, receipt.LineId, subject.ActorId, quantity, fact.OccurredAt);
+                    protection.TryChange(ReservationAction.MarkInTransit, 0m);
+                    database.Reservations.Add(protection);
+                    database.ReservationChanges.Add(new(database.TenantId, operation, subject.ActorId, correlation,
+                        ReservationAction.Reserve, protection, quantity, 0m, 0, fact.OccurredAt));
+                }
                 return Task.CompletedTask;
             }, async token =>
             {

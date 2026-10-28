@@ -34,6 +34,8 @@ internal sealed class InboundDocument
             ?? throw new InvalidOperationException("The persisted inbound plan is missing.");
         var order = new InboundOrder(TenantId, WarehouseId, Code, lines);
         var expected = 0;
+        var linked = new Dictionary<Guid, InboundTransportFact>();
+        var arrived = new HashSet<Guid>();
         string? precedingVersion = null;
         foreach (var fact in facts)
         {
@@ -53,6 +55,31 @@ internal sealed class InboundDocument
                 case InboundFactKind.Received:
                     order.Receive(fact.Receipt());
                     break;
+                case InboundFactKind.TransportLinked:
+                case InboundFactKind.Arrived:
+                    var transport = fact.Transport();
+                    if (transport.ExpectedVersion != precedingVersion)
+                        throw new InvalidOperationException("Transport history does not follow its original parent version.");
+                    var original = order.Receipts.Single(receipt => receipt.Id == transport.ExecutionId).Original;
+                    if (original.ContainerId != transport.ContainerId || original.ReceiptLocationId != transport.SourceLocationId
+                        || original.TargetLocationId != transport.TargetLocationId)
+                        throw new InvalidOperationException("Transport history changes the original receipt tuple.");
+                    if (fact.Kind == InboundFactKind.TransportLinked)
+                    {
+                        if (!linked.TryAdd(transport.ExecutionId, transport))
+                            throw new InvalidOperationException("Transport history contains another association.");
+                        order.LinkTransport(transport.ExecutionId, transport.TransportId);
+                    }
+                    else
+                    {
+                        if (!linked.TryGetValue(transport.ExecutionId, out var association)
+                            || association.IntentId != transport.IntentId || association.TransportId != transport.TransportId
+                            || !arrived.Add(transport.ExecutionId))
+                            throw new InvalidOperationException("Arrival history does not match its one original association.");
+                        order.ApplyArrival(transport.ExecutionId, transport.TransportId, transport.ContainerId,
+                            transport.SourceLocationId, transport.TargetLocationId);
+                    }
+                    break;
                 default:
                     throw new InvalidOperationException("Unsupported inbound history fact.");
             }
@@ -70,7 +97,7 @@ internal sealed class InboundDocument
     }
 }
 
-internal enum InboundFactKind { Approved, Received, Revised }
+internal enum InboundFactKind { Approved, Received, Revised, TransportLinked, Arrived }
 
 internal sealed record InboundPlanRevision(string ExpectedVersion, IReadOnlyList<InboundPlanLine> Lines);
 
@@ -80,11 +107,12 @@ internal sealed class InboundFact
     private InboundFact() { }
     internal InboundFact(InboundDocument document, Guid operation, Guid actor, Guid correlation,
         InboundFactKind kind, DateTimeOffset now, InboundReceiptCommand? receipt = null, Guid? posting = null,
-        InboundPlanRevision? revision = null)
+        InboundPlanRevision? revision = null, InboundTransportFact? transport = null)
     {
         if (new[] { operation, actor, correlation }.Contains(Guid.Empty))
             throw new ArgumentException("Inbound facts require complete trusted operation identities.");
-        if (kind is not (InboundFactKind.Approved or InboundFactKind.Received or InboundFactKind.Revised)
+        if (kind is not (InboundFactKind.Approved or InboundFactKind.Received or InboundFactKind.Revised
+            or InboundFactKind.TransportLinked or InboundFactKind.Arrived)
             || (kind == InboundFactKind.Approved && (receipt is not null || posting is not null
                 || document.State != InboundOrderState.Approved || document.Sequence < 1)))
             throw new ArgumentException("An approval requires an approved transition without a receipt or posting.");
@@ -96,9 +124,15 @@ internal sealed class InboundFact
         if (kind == InboundFactKind.Received && (receipt is null || posting is null
             || receipt.OperationId != operation || receipt.ActorId != actor))
             throw new ArgumentException("Receipt fact must match its original command and ledger posting.");
+        if (kind is InboundFactKind.TransportLinked or InboundFactKind.Arrived
+            ? transport is null || receipt is not null || revision is not null
+                || (kind == InboundFactKind.Arrived ? posting is null || transport.CompletionEventId is null : posting is not null || transport.CompletionEventId is not null)
+            : transport is not null)
+            throw new ArgumentException("Transport facts require their exact typed transition.");
         TenantId = document.TenantId; OrderId = document.Id; Sequence = document.Sequence;
         OperationId = operation; ActorId = actor; CorrelationId = correlation; Kind = kind; OccurredAt = now;
-        Payload = revision is not null ? JsonSerializer.Serialize(revision) : receipt is null ? "" : JsonSerializer.Serialize(receipt);
+        Payload = transport is not null ? JsonSerializer.Serialize(transport)
+            : revision is not null ? JsonSerializer.Serialize(revision) : receipt is null ? "" : JsonSerializer.Serialize(receipt);
         ExecutionId = receipt?.ExecutionId; PostingId = posting; AfterVersion = document.Version;
     }
 
@@ -114,6 +148,26 @@ internal sealed class InboundFact
     public Guid? PostingId { get; private set; }
     public string AfterVersion { get; private set; } = "";
     public DateTimeOffset OccurredAt { get; private set; }
+
+    internal InboundTransportFact Transport()
+    {
+        if (Kind is not (InboundFactKind.TransportLinked or InboundFactKind.Arrived) || ExecutionId is not null)
+            throw new InvalidOperationException("This fact is not a transport transition.");
+        var value = JsonSerializer.Deserialize<InboundTransportFact>(Payload)
+            ?? throw new InvalidOperationException("Transport history is missing.");
+        if (new[] { value.IntentId, value.ExecutionId, value.TransportId, value.ContainerId,
+            value.SourceLocationId, value.TargetLocationId }.Contains(Guid.Empty)
+            || !Guid.TryParseExact(value.ExpectedVersion, "D", out var version) || version == Guid.Empty
+            || (Kind == InboundFactKind.Arrived ? PostingId is null || value.CompletionEventId is null
+                || value.Acceptance is not null
+                : PostingId is not null || value.CompletionEventId is not null || value.Acceptance is null
+                    || value.Acceptance.Verification != Features.Inbound.InboundTransportVerification.Verified
+                    || value.Acceptance.TenantId != TenantId || value.Acceptance.IntentId != value.IntentId
+                    || value.Acceptance.ExecutionId != value.ExecutionId || value.Acceptance.TransportId != value.TransportId
+                    || value.Acceptance.SchemaVersion != 1 || value.Acceptance.Producer != "Orchestration"))
+            throw new InvalidOperationException("Transport history is invalid.");
+        return value;
+    }
 
     internal InboundPlanRevision Revision()
     {

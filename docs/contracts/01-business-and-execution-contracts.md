@@ -47,6 +47,8 @@
 
 ## 4. WMS与运输协作
 
+[T09耐久运输实施细化](../implementation/179-t09-durable-inbound-transport-design.md)/[测试记录](../implementation/180-t09-durable-inbound-transport-tests.md)：沿现有公开异址收货事务形成唯一intent/固定消息及在途保护，不另开放下表规划中的泛运输POST。关联和最终完成仅由显式可信模块适配边界接受，不是客户端提供producer字符串便可受信；完成须匹配原intent/execution/transport/最终位置/证据与版本。目标必须是合法已登记维度，缺少则PendingSync并保留保护，不重运或自动造账。最终同步使用现有Transfer posting及两条entry，匹配执行保护消费、到达历史和Inbox Applied原子提交。此处是实施合同，不代表T15实际订单/Leg、Pack或生产运行能力已接通；实际验证状态以独立记录为准。主数据创建Outbox的payload/授权/统计不扩成通用运输合同。
+
 对应[库位创建客户端](../implementation/163-t08-disabled-location-creation-client.md)只发送上述精确tuple/永久key，经预览和二次确认；503等未知结果冻结原tuple/key手工恢复，422仅拒绝本次、不抹除先前未知。三字段回执不当完整resource投影，必须显式GET重新复验read，不默认schema实现/授予权限，不代表可用Pack、启用/可分配或物理完成。
 
 已实施路径增量：POST `/api/wms/locations`只在独立默认关闭LocationCreationEnabled且具名schema装配通过后开放。精确`{code,name,warehouseId,packId,schemaVersion}`，可信subject/永久key、当前五字段及父仓read，默认禁用位置/事实/Outbox原子提交。201+Location或200精确三字段重放；SchemaRejected422/Unavailable503等详见[库位HTTP合同](../implementation/161-t08-authorized-location-creation-http.md)。无默认schema实现或实际Pack验收，不将接口扩展点当现场可用，亦不代表启用/库存或物理完成。

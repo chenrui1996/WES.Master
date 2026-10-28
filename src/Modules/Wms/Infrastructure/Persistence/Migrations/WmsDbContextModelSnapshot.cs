@@ -208,6 +208,137 @@ namespace Wes.Wms.Infrastructure.Persistence.Migrations
                     b.ToTable("wms_inbound_facts", (string)null);
                 });
 
+            modelBuilder.Entity("Wes.Wms.Domain.InboundTransportInbox", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("EventId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<bool>("Applied")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("CompletionId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("ExecutionId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("IntentId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("PostingId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "EventId");
+
+                    b.HasIndex("TenantId", "CompletionId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "ExecutionId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "IntentId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "PostingId");
+
+                    b.ToTable("wms_inbound_transport_inbox", (string)null);
+                });
+
+            modelBuilder.Entity("Wes.Wms.Domain.InboundTransportIntent", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("AssociationOperationId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Envelope")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("EventId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("ExecutionId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("OrderId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("ReceiptOperationId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("SourceBalanceId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("TransportId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "EventId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "ExecutionId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "OrderId");
+
+                    b.HasIndex("TenantId", "ReceiptOperationId");
+
+                    b.HasIndex("TenantId", "SourceBalanceId");
+
+                    b.HasIndex("TenantId", "TransportId")
+                        .IsUnique();
+
+                    b.ToTable("wms_inbound_transport_intents", (string)null);
+                });
+
             modelBuilder.Entity("Wes.Wms.Domain.LocationStateChange", b =>
                 {
                     b.Property<string>("TenantId")
@@ -1213,6 +1344,41 @@ namespace Wes.Wms.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("TenantId", "PostingId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Wes.Wms.Domain.InboundTransportInbox", b =>
+                {
+                    b.HasOne("Wes.Wms.Domain.InboundTransportIntent", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "IntentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Wes.Wms.Domain.StockPosting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "PostingId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Wes.Wms.Domain.InboundTransportIntent", b =>
+                {
+                    b.HasOne("Wes.Wms.Domain.InboundDocument", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Wes.Wms.Domain.InboundFact", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ReceiptOperationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Wes.Wms.Domain.StockBalance", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "SourceBalanceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Wes.Wms.Domain.LocationStateChange", b =>

@@ -9,6 +9,8 @@
 
 ## 1. 页面/字段/权限
 
+T09运输续片：[WMS耐久契约闭环](../implementation/179-t09-durable-inbound-transport-design.md)/[证据](../implementation/180-t09-durable-inbound-transport-tests.md)实现异址公开收货同事务意图/原消息及在途保护、可信adapter关联与完成Inbox、原子最终Transfer/到达历史和保护释放。新运输63、相关MySQL533、前端1051/严格构建通过，结果重叠不合计；独立审查/最终门禁以证据为准。无人工Completed按钮或HTTP、无默认可信adapter/Host自动投递；实际T15订单/Leg和Pack依然未接入，不能将契约夹具当物理到达。
+
 业务数据均由WMS拥有；运输状态从Orchestration查询；Pack路网/设备只读关联。库存/预留不因前端刷新或本地状态改变。
 
 | PAGE定义 | 角色/入口/返回 | 文本线框与核心字段/校验 | 列表/动作 |

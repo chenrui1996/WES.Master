@@ -64,7 +64,7 @@ public sealed partial class WmsDbContext
                 {
                     ReservationAction.Reserve => reservation.State == EntityState.Added && change.Quantity > 0m
                         && value.OriginalQuantity == change.Quantity && value.RemainingQuantity == change.Quantity
-                        && value.Kind == StockProtectionKind.Reserved,
+                        && (value.Kind == StockProtectionKind.Reserved || ExactReceiptProtection(value)),
                     ReservationAction.ReleaseUnstarted => reservation.State == EntityState.Modified
                         && beforeKind == StockProtectionKind.Reserved && value.Kind == beforeKind
                         && change.Quantity > 0m && value.RemainingQuantity == before - change.Quantity,
@@ -79,6 +79,10 @@ public sealed partial class WmsDbContext
                 if (!validAction || change.Before != before || change.After != value.RemainingQuantity
                     || change.BeforeKind != beforeKind || change.AfterKind != value.Kind || change.BalanceId != value.BalanceId
                     || change.SourceDocumentId != value.SourceDocumentId || change.SourceLineId != value.SourceLineId
+                    || (ExactReceiptProtection(value) && (change.ActorId != value.ActorId
+                        || !ChangeTracker.Entries<InboundFact>().Any(fact => fact.State == EntityState.Added
+                            && fact.Entity.OperationId == change.OperationId && fact.Entity.CorrelationId == change.CorrelationId
+                            && fact.Entity.ExecutionId == value.ExecutionUnitId)))
                     || value.RemainingQuantity < 0m || value.RemainingQuantity > value.OriginalQuantity
                     || !QuantityPrecision.Create(balance.Entity.Precision).CanRepresent(value.RemainingQuantity))
                     throw new InvalidOperationException("Reservation change must match its exact persisted transition.");
@@ -93,6 +97,12 @@ public sealed partial class WmsDbContext
                     || (beforeKind & StockProtectionKind.Unknown) != 0 || value.Kind != beforeKind
                     || value.RemainingQuantity != before - posting.Quantity || value.RemainingQuantity < 0m)
                     throw new InvalidOperationException("Reservation consumption requires its matching exact ledger posting.");
+                if (InboundTransportIntents.AsNoTracking().Any(intent => intent.ExecutionId == value.ExecutionUnitId)
+                    && (posting.Kind != StockPostingKind.Transfer || value.RemainingQuantity != 0m
+                        || !ChangeTracker.Entries<InboundTransportInbox>().Any(inbox => inbox.State == EntityState.Modified
+                            && inbox.Entity.Applied && inbox.Entity.ExecutionId == value.ExecutionUnitId
+                            && inbox.Entity.PostingId == posting.Id)))
+                    throw new InvalidOperationException("Receipt protection can only be consumed by its exact applied final transfer.");
             }
         }
         if (changes.Any(change => !reservations.Any(item => item.Entity.TenantId == change.TenantId

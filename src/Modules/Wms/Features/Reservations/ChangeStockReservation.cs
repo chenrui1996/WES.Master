@@ -3,6 +3,7 @@ using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
 using MySql.Data.MySqlClient;
 using Wes.Wms.Domain;
+using Wes.Wms.Features.Inbound;
 using Wes.Wms.Infrastructure.Persistence;
 
 namespace Wes.Wms.Features.Reservations;
@@ -28,6 +29,13 @@ internal sealed class ChangeStockReservation(WmsDbContext database, TimeProvider
             await using var transaction = await database.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
             try
             {
+                var dimension = await database.Balances.AsNoTracking().SingleOrDefaultAsync(item => item.Id == command.BalanceId, ct);
+                if (dimension is null) return new(ReservationDecision.NotFound);
+                if (await database.StockContainers.AnyAsync(row => row.Id == dimension.ContainerId, ct))
+                {
+                    var locations = await database.Locations.Where(row => row.Id == dimension.LocationId).Select(row => row.Id).ToArrayAsync(ct);
+                    await WmsResourceLocks.AcquireAsync(database, dimension.WarehouseId, locations, dimension.ContainerId, ct);
+                }
                 var balance = await database.Balances.SingleOrDefaultAsync(item => item.Id == command.BalanceId, ct);
                 if (balance is null) return new(ReservationDecision.NotFound);
                 if (!Guid.TryParseExact(command.ExpectedVersion, "D", out var version) || version == Guid.Empty)
@@ -41,6 +49,9 @@ internal sealed class ChangeStockReservation(WmsDbContext database, TimeProvider
                 StockProtectionKind beforeKind;
                 if (command.Action == ReservationAction.Reserve)
                 {
+                    if ((await InboundPendingProtection.ReadAsync(database, balance.WarehouseId, ct))
+                        .Any(receipt => receipt.ContainerId == balance.ContainerId && receipt.ExecutionId != command.ExecutionUnitId))
+                        return new(ReservationDecision.StateConflict);
                     if (reservation is not null)
                         return await FindReplayAsync(command, ct)
                             ?? throw new InvalidOperationException("A reserved execution identity must resolve to its permanent record.");

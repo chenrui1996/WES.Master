@@ -82,6 +82,11 @@ public sealed partial class WmsDbContext
                 _ = new InboundOrder(document.Entity.TenantId, document.Entity.WarehouseId, document.Entity.Code, revision.Lines);
                 continue;
             }
+            if (fact.Kind is InboundFactKind.TransportLinked or InboundFactKind.Arrived)
+            {
+                ValidateTransportFact(fact, document.Property(row => row.Version).OriginalValue);
+                continue;
+            }
             if (fact.Kind != InboundFactKind.Received
                 || document.Property(item => item.State).OriginalValue is not (InboundOrderState.Approved or InboundOrderState.Executing)
                 || document.Entity.State is not (InboundOrderState.Executing or InboundOrderState.Completed))

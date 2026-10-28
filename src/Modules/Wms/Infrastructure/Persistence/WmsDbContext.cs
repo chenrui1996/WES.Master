@@ -30,6 +30,7 @@ public sealed partial class WmsDbContext : DbContext
         ConfigureMasterData(modelBuilder);
         ConfigureOutbox(modelBuilder);
         ConfigureInbound(modelBuilder);
+        ConfigureInboundTransport(modelBuilder);
         ConfigureStockResources(modelBuilder);
         var balance = modelBuilder.Entity<StockBalance>();
         balance.ToTable("wms_stock_balances");
@@ -120,6 +121,7 @@ public sealed partial class WmsDbContext : DbContext
     {
         ValidateLedgerEffects();
         ValidateInboundWrites();
+        ValidateInboundTransportWrites();
         ValidateReservationEffects();
         ValidateMasterDataWrites();
         ValidateStockResourceWrites();

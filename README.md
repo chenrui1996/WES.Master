@@ -9,6 +9,10 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 ## 文档工作区
 
+上述运输续片最终收口：独立审查补齐目标另容器占位/预留/未决执行锁内保护，9项先红后绿；最终运输72、修复相关268、最后HTTP/配置与真实浏览器89、架构29通过，Release0/0、EF无漂移和格式验证通过。较早63/533/192为历史回归、不重复累计；详见[证据](docs/implementation/180-t09-durable-inbound-transport-tests.md)。
+
+最新T09运输续片：[WMS耐久运输契约闭环](docs/implementation/179-t09-durable-inbound-transport-design.md)/[独立证据](docs/implementation/180-t09-durable-inbound-transport-tests.md)已实现原消息/意图、同事务在途保护、可信关联/完成Inbox及唯一最终Transfer。新运输63、相关MySQL533、前端1051/严格构建通过，重叠不合计；独立审查与最终发布门禁见证据。仅WMS契约夹具，无人工Completed接口、默认可信adapter或自动投递；实际T15订单/Leg、Pack和物理到达未接入，仍明确待运输。两新表仅在wes_test应用，不改旧账；来源深化/整包T09仍不因此关闭。
+
 最新T09续片：[当前受权审核、收货与容器保护](docs/implementation/177-t09-authorized-inbound-execution.md)/[独立测试](docs/implementation/178-t09-authorized-inbound-execution-tests.md)已接通独立owner、默认关闭两个POST与具名预览确认/原键Unknown恢复/显式另读。合法计划/真实多creator完整权限、保存后撤权回滚、源目标schema/Enabled、唯一容器账面位置和正库存/预留/待运输保护已验证；同址完成、异址明确Executing且待运输。最终本片owner127、相关旧账本/资源/库位回归529、HTTP/配置与六浏览器192、前端1051及严格构建通过，结果重叠不合计；最后发布门禁见测试记录。新增请求身份表仅在wes_test应用，不改旧账。来源深化、耐久运输意图/Orchestration及最终到达移账仍是主体待办，T09未关闭。
 
 最新T08/T09依赖片：[合法资源与零余额账维度](docs/implementation/176-t08-legal-stock-resources.md)已交付受权单位/物料/仓内容器及精度派生零维度owner、独立默认关闭四POST/三GET和具名预览确认/原键Unknown恢复/显式查询面板。最终本片owner109、较早相关owner682、相关Release Modules636及最后HTTP配置/五真实HTTPS浏览器37、前端1016/严格构建、架构29/Release0/0/EF无漂移通过（重叠不合计）。新增四表仅在wes_test应用，不改旧余额。登记不入账/占位；唯一容器账面位置/执行保护、受权审核收货及最终运输仍待实施，不关闭T08/T09。

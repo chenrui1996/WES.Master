@@ -234,6 +234,9 @@ public sealed partial class WmsMasterDataTests : IAsyncLifetime
         foreach (var tenant in new[] { _tenant, _other })
         {
             await using var owner = Open(tenant);
+            await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_inbound_transport_inbox WHERE TenantId = {tenant.ToString("D")}");
+            await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_inbound_transport_intents WHERE TenantId = {tenant.ToString("D")}");
+            await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_reservation_changes WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_stock_entries WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_inbound_execution_operations WHERE TenantId = {tenant.ToString("D")}");
             await owner.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM wms_inbound_facts WHERE TenantId = {tenant.ToString("D")}");

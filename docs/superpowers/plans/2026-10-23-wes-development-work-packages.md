@@ -194,6 +194,10 @@
 
 ### T09：入库收货与上架
 
+- [x] [WMS耐久运输契约链](../../implementation/179-t09-durable-inbound-transport-design.md)/[最终证据](../../implementation/180-t09-durable-inbound-transport-tests.md)：异址意图/在途保护同事务，可信关联与完成Inbox、唯一Transfer/到达事实/Applied原子提交。独立审查目标占位问题修复复审通过；最终运输72/修复相关268/HTTP配置与真实浏览器89/架构29、Release0/0/EF无漂移通过，重叠不合计。仅T09契约夹具，不关闭T15实际编排/Pack或整个T09。
+
+2026-10-28续片：[WMS耐久运输契约链](../../implementation/179-t09-durable-inbound-transport-design.md)/[测试](../../implementation/180-t09-durable-inbound-transport-tests.md)按原依赖采用可信契约夹具，不提前宣称T15订单/Leg。异址公开收货同事务原消息/意图及在途保护，可信关联与完成Inbox、唯一最终Transfer/到达历史/保护消费/Applied原子提交已实现；新运输63、相关MySQL533、前端1051/严格构建通过，重叠不合计。独立审查及最后门禁见测试；无人工Completed接口、默认adapter或Host自动投递，实际Pack/现场/来源深化不因此完成，不关闭整个T09。
+
 2026-10-27 执行优先级调整：按[基本功能与后置清单](../../implementation/TodoList.md)先验证前置主体程序，再交付本包最小完整软件链路；外部验收不阻断实施，但仍不伪造 Pack/运输到达或绕过库存不变量。三 Provider 要求继续按 ADR-0002 以 MySQL 为当前必需、其余延后。
 
 - [x] [入库领域首片](../../implementation/173-t09-inbound-basic-flow.md)：多行计划/审核/部分收货、原操作/执行身份去重、同址无运输、异址精确最终到达；新增6项，领域118/架构29/Release0/0通过。该片为内部状态机，持久事务、当前授权 HTTP 与具名页面仍待实施，不关闭本包。

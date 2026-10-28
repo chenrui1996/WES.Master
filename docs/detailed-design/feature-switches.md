@@ -20,6 +20,8 @@
 
 ## 2. 配置与生命周期
 
+[T09耐久运输续片](../implementation/179-t09-durable-inbound-transport-design.md)不新增操作者可用的Completed接口，也不借`Outbox`开关装配默认可信适配器。既有入库审核/收货开关只许可对应当前授权操作；收货形成的耐久意图不等于运输已受理。实际Orchestration适配器、运行能力与生产门禁未接通前不启动运输dispatcher/consumer；关闭交付能力不能删除已收货库存、意图、可信完成Inbox或在途保护，恢复必须使用原身份对账。现有主数据Outbox开关和诊断仍只针对其原创建事件，不混入运输消息。
+
 [当前实体附件目录](../implementation/169-t07-current-entity-attachment-catalog.md)的两个固定集合GET沿用下述同一双开关AND；任一关闭不映射集合，关闭/恢复不改引用/文件/永久回执。没有新增目录开关、默认授权或扫描健康成功fallback。
 
 具名仓库/库位附件读取及[永久绑定/解绑](../implementation/167-t07-durable-business-file-bindings.md)复用 `Wes:WmsMasterData:Enabled` 与默认关闭 `Wes:Files:Enabled` 的AND，不增加开关或动态授权策略；任一关闭不映射GET/PUT/DELETE这些路由，文件身份/引用/永久操作回执保留。UI模块开关不替代当前双owner权限，上传者也不能绕过已有来源实体read。详见[具名实体附件读取](../implementation/165-t07-entity-authorized-file-reads.md)；启用不代表业务附件UI或真实病毒库/ACL已验收，撤去路由不是删除永久回执的许可。

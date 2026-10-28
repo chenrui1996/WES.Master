@@ -27,7 +27,7 @@
 ## 条目约定
 
 - ID 固定：`DEF-xxx` 默认值/边界，`INF-xxx` 底层/基础设施，`GEN-xxx` 通用开发测试；新条目递增，不复用旧 ID。
-- 证据标签：**已复现**（已有失败/修复记录）、**基线约束**（规范要求，非已发生缺陷）、**待定位**（尚无确定根因）。
+- 证据标签：**已复现**（已有失败/修复记录）、**基线约束**（规范要求，非已发生缺陷）、**待定位**（尚无确定根因）、**外部经验待核验**（其他项目的风险提示，不能作为WES已发生缺陷或运行证据）。
 - “已修复”只对引用的工作包/版本成立；“基线约束”不得写成历史缺陷已修复。
 - 每条至少含适用范围、现象/风险、原因/规则、处理/禁用绕过、验证和证据。优先链接持久化仓库文档与测试，不把会话临时路径作为唯一证据。
 - 不记录连接密码、令牌、生产原始数据或完整敏感 payload；TRX/日志/临时 SQL 仍放验证目录，不复制进这里。
@@ -49,3 +49,28 @@
 ## 首次整理范围
 
 本次按已持久化的 T08–T11 设计与证据整理，不宣称穷尽全部历史问题。主要来源为[174](../implementation/174-t08-warehouse-operational-state.md)、[176](../implementation/176-t08-legal-stock-resources.md)、[178](../implementation/178-t09-authorized-inbound-execution-tests.md)、[180](../implementation/180-t09-durable-inbound-transport-tests.md)、[182](../implementation/182-t10-outbound-basic-flow-tests.md)、[183](../implementation/183-t11-blind-count-and-local-lock.md)、[184](../implementation/184-t11-blind-count-tests.md)。没有重新执行这些历史业务测试；本次文档更新不能当作新的运行证据。
+
+## LES2参考材料补充（2026-10-28）
+
+参考用户提供的LES2 `Doc\注意事项\默认上限.md`与`Doc\注意事项\通用框架与底层.md`提炼风险，不复制旧系统实现、环境凭据或种子密码。来源位于仓库外，不建立依赖本机盘符的文档链接；以下映射供核对，来源不可用时仍可按条目内检查步骤验证。
+
+| 外部材料主题 | 本库条目 |
+|---|---|
+| 表单/集合/深度、正文、请求行/头、代理最小上限 | DEF-007、DEF-008 |
+| SQL/HTTP/代理/会话超时、分页、SignalR大小 | DEF-009、DEF-010 |
+| 文化/时区、缺字段、JSON外形、代理与Cookie | DEF-011、DEF-012、DEF-013 |
+| 多context迁移、密码验证、IQueryable、跟踪缓存 | INF-003、INF-005、INF-008、INF-010、GEN-009 |
+| 数据库精度/级联/排序规则、IN列表 | DEF-004、INF-001、INF-009 |
+| 执行线程/内存锁、日志旁路、连接并发 | INF-011、INF-012 |
+| Web/App入口、角色授权树、列布局、重复加载前端库 | GEN-004、GEN-008、GEN-010 |
+| 大整数传输 | DEF-012 |
+
+新增 **DEF-007..013、INF-008..012、GEN-008..010** 共15条，总计35条。外部经验条目是按需核验清单，不代表发现了15个WES缺陷；一旦核验发现真实问题，再关联对应工作包和TodoList，修复后补实际结果。
+
+迁移材料时必须纠正或限定容易误传的结论：
+
+- 不把LES2的MVC/Newtonsoft/SQL Server/Kendo配置当成WES的Minimal API/System.Text.Json/MySQL/Vue配置。
+- 不把 `DateTime.Now` 自身称为Unspecified；它是本地时间，写入不保留Kind/时区的字段或重新构造后才可能丢失语义。WES以既有受控UTC/TimeProvider合同为准，不统一改为某个本地TZ。
+- Cookie的same-site与same-origin不同，不能只因端口不同就断言SameSite阻断；TLS反代还要单独检查可信转发头、Secure与浏览器凭据策略。
+- 旧执行栈的 `Task.Run`、READ UNCOMMITTED、日志丢弃策略、管理员仓库例外均不直接迁入WES。
+- 数值默认只有绑定具体组件版本、配置和部署链路才成立；不能把某个代理的默认值或单条header限制当作所有部署事实。

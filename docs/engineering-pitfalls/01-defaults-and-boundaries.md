@@ -108,3 +108,20 @@
 - 限定：端口不同表示cross-origin，不必然cross-site；SameSite故障不能只凭端口变化判断。WES当前受权API也不能按LES2 Cookie登录方式假设。
 - 验证：直连HTTPS、可信反代、伪造转发头、跨站/同站跨源、缺配置和非法配置；实际部署拓扑未验证，不宣称生产可用。
 - 依据：[功能开关设计](../detailed-design/feature-switches.md)、[Host入口](../../src/Host/Program.cs)、[GEN-004](03-development-and-testing.md#gen-004-当前权限不等于创建时权限也不只看单据creator)。
+- 网络补证（2026-10-28）：[WEB-013/015](04-public-source-register.md#web-013-转发头可信代理兼容变更)记录了8.0.17/9.0.6起对未知代理转发头的收紧，以及一个反代认证问题报告。不能照抄问题正文中清空可信列表/强制Scheme的尝试，也不能由issue关闭推断已有修复；WES实际部署仍需验证。
+
+## DEF-014 ResponseHeadersRead后的正文不自动受原超时和缓冲上限保护
+
+- 记录/更新：2026-10-28；**外部经验待核验（官方API语义已查）**；适用：.NET流式HTTP下载/适配器。
+- 风险：改用ResponseHeadersRead后，只收到响应头就完成Send/Get；HttpClient.Timeout的该次调用预算不继续覆盖后续正文读取，MaxResponseContentBufferSize也不按原预期自动限制流。
+- 处理：分别定义响应头/正文/总期限和最大正文预算，取消令牌传入读取循环，按实际累计字节判断；及时释放response/stream。不能相信Content-Length或把“已收到200头”当完整有效回执。
+- 待执行验证：服务器立即发头后停流、慢速滴流、无Content-Length、错误长度、M/M+1字节、取消及流资源回收；写结果不明仍按Unknown，不重发新操作。
+- 来源：[WEB-001](04-public-source-register.md#web-001-httpcompletionoption流式读取边界)；延伸[DEF-007](#def-007-请求没进端点先按整条链路核对容量限制)、[DEF-009](#def-009-连接命令http代理与业务期限分别记账)。未审计WES全部出站HTTP调用。
+
+## DEF-015 Vue组件默认值可能让父子模型不同步或共享可变对象
+
+- 记录/更新：2026-10-28；**外部经验待核验（官方文档已查）**；适用：defineModel（3.4+）、withDefaults与props。
+- 风险：子defineModel设默认值而父绑定仍undefined，父子初值不同；withDefaults的数组/对象直接用共享值，可能使组件实例互相污染。
+- 处理：表单初值由合同明确归属，父层显式初始化或要求必传，不让子默认伪造有效业务输入；withDefaults可变对象用工厂。不要把此工厂规则机械套到Vue3.5响应式props解构默认值，官方明确该语法不需同样包装。
+- 待执行验证：父undefined/null/显式0、两个组件实例互不影响、重置/换主体/取消预览；子显示默认值不能直接成为服务端“用户已确认”的数量或状态。
+- 来源：[WEB-009](04-public-source-register.md#web-009-script-setup的版本相关默认行为)。这是补充检查，不改变WES当前表单合同。

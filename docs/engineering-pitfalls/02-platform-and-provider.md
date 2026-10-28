@@ -97,3 +97,51 @@
 - 处理：区分可有损诊断与必须耐久的业务事实/Outbox/Inbox；如诊断队列允许丢弃，记录容量/截断策略、丢弃计数和健康告警，不静默宣称完整。连接登记/移除使用合适同步与快照，发送时仍处理已断连。
 - 限定：并发字典只保护单操作，不保证“查找→发送→移除”整个流程原子；推送也不是业务提交或当前权限权威。外部队列2000/单条256KB不变成WES默认。
 - 验证：队列满、日志库不可用、敏感字段脱敏、断连重连与发送竞态；关键事实不得随诊断丢失。依据：[工程治理](../03-engineering-governance.md)、[GEN-006](03-development-and-testing.md#gen-006-验证准确门槛和副作用不能只看http成功)；实际实现按相关日志/实时工作包核验。
+
+## INF-013 DbContext池化复用实例，租户与自定义状态不会重新配置
+
+- 记录/更新：2026-10-28；**外部经验待核验（官方机制已查）**；适用：未来考虑AddDbContextPool/PooledDbContextFactory的优化。
+- 风险：context跨请求复用，OnConfiguring只在实例创建时运行；把tenant/actor/权限快照留在实例里可能串上下文。DbContext池与驱动连接池不是同一机制，池大小也不是并发业务上限。
+- 处理：没有隔离设计和基准证据不引入池化；确需使用时，逐次租用设置可信上下文、确保自定义状态和手工打开的底层连接/会话状态归还前恢复，不能假设EF替应用重置一切。不要为性能去掉租户过滤或当前权限核验。
+- 待执行验证：tenant A→B→A复用同实例、取消/故障归还、手工连接开关、事务/会话状态及字段授权不串；和非池化方案比较真实负载。
+- 来源：[WEB-003](04-public-source-register.md#web-003-ef-context池化状态)。不是WES已启用池化或已发生越租户的声明。
+
+## INF-014 ExecuteUpdate/Delete不是SaveChanges的快速等价替代
+
+- 记录/更新：2026-10-28；**外部经验待核验（官方机制已查）**；适用：EF关系Provider支持的直接批量DML。
+- 风险：立即执行、不更新change tracker，不经过SaveChanges路径；多次调用不会自动组成一个整体事务，之后tracked SaveChanges还可能覆盖批量更新。并发token也不会像跟踪保存那样自动带入。
+- 处理：不能用于绕过本项目唯一库存writer、append-only事实或保存守卫；即使普通维护数据使用，也要明确授权过滤、版本谓词/影响行数、事务与上下文刷新方式，并核Provider支持。raw SQL有相同绕过风险。
+- 待执行验证：第二条语句失败无部分业务效果、旧tracked实体不会写回旧值、0行/多行更新显式处理、越租户拒绝；账本/审计守卫不能因“批量更快”消失。
+- 来源：[WEB-004](04-public-source-register.md#web-004-ef直接批量更新删除)。不据官方性能示例批准改写WMS余额。
+
+## INF-015 数据库执行策略重放要覆盖整个事务，并处理提交结果未知
+
+- 记录/更新：2026-10-28；**外部经验待核验（官方机制已查）**；适用：接入Provider execution strategy/自动重试。
+- 风险：提交时断线，事务可能已提交；策略假定回滚后重放可能重复业务。手动BeginTransaction与逐语句重试也不能随意混用；启用重试还可能使结果集内部缓冲增加内存。
+- 处理：仅对已确认可重试的错误，在受控整个事务单元中恢复；复用永久operation/精确tuple/唯一约束并查成功事实，不换key、不把设备调用放进会被重放的delegate。客户端生成GUID本身不等于完整幂等方案。
+- 待执行验证：提交前失败、提交成功但ACK丢失、验证成功状态时再次断线、整单多行及Outbox仅一次；Provider策略支持/分类未知时不能套用SQL Server范例称MySQL已通过。
+- 来源：[WEB-005](04-public-source-register.md#web-005-ef事务重试与提交未知)、[GEN-001](03-development-and-testing.md#gen-001-已提交重放与新动作校验必须区分)。本次未启用新策略或修改既有Unknown合同。
+
+## INF-016 MySQL迁移外面的BEGIN不保证全部DDL能回滚
+
+- 记录/更新：2026-10-28；**外部经验待核验（MySQL8.4官方语义已查）**；适用：迁移/维护DDL，实际服务器版本需另核。
+- 风险：CREATE/ALTER/DROP等很多DDL隐式提交；脚本有START TRANSACTION/COMMIT也不代表多条DDL连同迁移历史原子回滚。“atomic DDL”不等于用户可ROLLBACK整组DDL；临时表也存在不能回滚的例外。
+- 处理：继续逐项审SQL，同时设计中途失败后结构/历史核对、可重入修复和备份恢复；不在业务记账事务中混入DDL，不把Down当无损撤销，不为验证向生产注入失败。
+- 待执行验证：在授权隔离环境按实际MySQL版本验证第二步DDL失败后的表/索引/迁移历史，人工恢复流程须保留证据；历史“SQL审阅通过”不能代签已验证迁移原子性。
+- 来源：[WEB-006](04-public-source-register.md#web-006-mysql-ddl隐式提交)。补充[INF-003](#inf-003-迁移脚本的默认历史表可能与运行时owner不一致)、[INF-008](#inf-008-多owner迁移与滚动升级要分别证明兼容)，不否定已取得的具体迁移结果。
+
+## INF-017 全局查询过滤不是完整授权，也可能改变Include结果
+
+- 记录/更新：2026-10-28；**外部经验待核验（官方机制已查）**；适用：EF租户/软删除query filters。
+- 风险：必需导航产生INNER JOIN，关联行被过滤后主查询数量也变；IgnoreQueryFilters可能同时移除租户边界，新增过滤配置方式还与EF版本相关。
+- 处理：明确各实体租户/删除语义与关联过滤一致性，对实际SQL做权限与计数检查；不能为了“找回缺行”关闭全部过滤或把必需关系改可选。命名过滤器的版本支持不替代当前字段/creator权限。
+- 待执行验证：带/不带Include计数、关联被删/被拒、tenant A/B、分页count与明细、管理入口需要的最窄例外；保留复合租户FK与owner权限核验。
+- 来源：[WEB-007](04-public-source-register.md#web-007-ef查询过滤与必需导航)。未断言WES目前依赖全局过滤实施授权。
+
+## INF-018 HttpClient连接复用、DNS刷新与Cookie隔离要一起设计
+
+- 记录/更新：2026-10-28；**外部经验待核验（官方机制已查）**；适用：未来外部系统/设备HTTP adapter。
+- 风险：每请求new并dispose拥有handler的client会反复建连接并耗端口；长期连接不会按DNS TTL自动刷新；factory池化handler可能共享CookieContainer，回收时又丢cookie。
+- 处理：使用既有具名/typed client或有明确PooledConnectionLifetime的长生命周期client，配置依据DNS/服务切换要求，不照抄示例2/15分钟。会话cookie、租户令牌、默认headers不能在并发请求间互相污染；需要cookie的场景单独设计隔离。
+- 待执行验证：DNS/目标切换、并发负载/释放、handler回收、两个租户/会话互不串凭据；连接寿命与请求超时分别验证。
+- 来源：[WEB-002](04-public-source-register.md#web-002-httpclient寿命dns与cookie)。本条不是新增HTTP依赖/重试策略的授权。

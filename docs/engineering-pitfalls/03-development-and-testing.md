@@ -83,3 +83,35 @@
 - 处理：合同明确全量替换或增量patch，声明半选/未加载/缺字段/空集合语义，使用稳定ID和版本。无法确定集合完整时显式拒绝，不把读取失败当“清空全部”。更新与删除通过受权owner，不合并前端任意实体字典。
 - 验证：未展开子树、分页只读部分、取消勾选、明确空集合、缺失节点ID、并发变更、越权节点和保存失败回滚；前端状态不能替代服务端完整性校验。
 - 依据：[DEF-012](01-defaults-and-boundaries.md#def-012-缺字段null零值与json数字都有各自语义)、[工程治理](../03-engineering-governance.md)。本次没有断言WES使用旧授权树或其全量保存机制。
+
+## GEN-011 async watcher的依赖收集、清理注册和卸载停止有不同边界
+
+- 记录/更新：2026-10-28；**外部经验待核验（Vue官方机制已查）**；适用：Vue3异步详情/候选查询。
+- 风险：watchEffect只收集同步段访问的依赖，首个await后才读的主体/路由不自动追踪；3.5+ onWatcherCleanup必须同步注册；异步回调中创建的watcher不自动绑定组件卸载。
+- 处理：安全敏感查询显式watch完整上下文/getter，在发起IO时注册取消，另核响应generation/主体指纹。回调参数onCleanup与onWatcherCleanup的限制不同，不混写；尽量同步创建watcher，异步创建时持有stop并显式清理。
+- 待执行验证：主体/路由/字段权限在等待中切换、旧请求不可取消仍返回、卸载后完成、条件分支改变依赖、watcher重复创建。AbortController不能代替迟到结果核验。
+- 来源：[WEB-008/014](04-public-source-register.md#web-008-vue-watchers)、[GEN-002](#gen-002-unknown恢复上下文不能跟随查询组件卸载)。GitHub讨论是文档语义线索，不称Vue当前版本存在已确认缺陷。
+
+## GEN-012 reactive解构与Vue3.5 props编译转换不能混为一谈
+
+- 记录/更新：2026-10-28；**外部经验待核验（官方语义已查）**；适用：Vue3响应式对象/组件props与composable。
+- 风险：普通reactive属性解构成局部原始值，后续访问不再触发原proxy；但Vue3.5的script setup内defineProps解构有编译转换，不能笼统禁止或假定跨函数传值仍可追踪。
+- 处理：按需要传ref/getter或保留props/对象属性访问；不得把watch的源写成已求值的普通值。非原始对象内部仍可能响应，proxy与原对象引用也不相同，身份/key用稳定业务ID而非对象引用猜同一行。
+- 待执行验证：父prop更新、composable读取、字段换值/嵌套修改、列表换对象、构建器与Vue/compiler版本匹配；不要仅凭TypeScript通过认为运行响应式正确。
+- 来源：[WEB-009/010](04-public-source-register.md#web-009-script-setup的版本相关默认行为)。本次不变更现有组件。
+
+## GEN-013 分页稳定排序不等于跨请求固定快照
+
+- 记录/更新：2026-10-28；**外部经验待核验（EF官方文档已查）**；适用：实时目录、导出、审计核对。
+- 风险：仅按时间排序，同一时刻多行会跨页跳行；offset在并发插删时可能漏/重复，排序完全唯一也不能保证跨请求读取同一数据集。数据库主键存在不表示默认ORDER BY。
+- 处理：按合同使用唯一复合排序和对应索引；需要前后顺序遍历时评估keyset，任意页跳转仍需权衡offset。不能私自把现有分页API改cursor；要求固定核对结果时另用已批准快照机制，不能把keyset称为一致性快照。
+- 待执行验证：相同时间100行、页间插删/排序字段更新、权限撤销、空页与最后一页、导出不漏重；游标绑定租户/过滤/版本并受验证，不能借其绕过当前授权。
+- 来源：[WEB-011](04-public-source-register.md#web-011-ef分页)、[DEF-010](01-defaults-and-boundaries.md#def-010-分页和实时通道都不能默认自然有界)。未声明发现WES当前目录分页缺陷。
+
+## GEN-014 浏览器自动等待、测试隔离与真实效果验证各管一层
+
+- 记录/更新：2026-10-28；**外部经验待核验（Playwright官方建议已查）**；适用：真实HTTPS组合测试。
+- 风险：用固定sleep或即时isVisible快照断言造成时序不稳；测试间共享cookie/存储/账号业务数据互相影响；反复重试动作可能掩盖重复提交副作用。
+- 处理：用语义role/label定位和await web-first assertion等待目标状态，隔离browser context/tenant/业务数据；服务端事实/流水/锁仍单独核验。UI可点击不代表当前受权，DOM成功也不代表数据库成功。
+- 待执行验证：延迟响应、双账号独立context、前例失败后的清理、真实201提交后截断交付的恢复；外部依赖可有明确contract夹具，但不能mock掉本次声称真实验证的WMS写。
+- 来源：[WEB-012](04-public-source-register.md#web-012-playwright最佳实践)、[GEN-006](#gen-006-验证准确门槛和副作用不能只看http成功)。不新增代码生成器，也不以框架自动等待代替业务Unknown策略。

@@ -9,6 +9,7 @@
 
 | 切片 | 范围/设计 | 测试/证据状态 |
 |---|---|---|
+| T12 定义/表单纯校验内核 | SCOPE-WF-01/02、REQ-WF-001..008、FUNC-WF-001/004、DTC-WF-002/005/008规则子集、RULE-10/11、TC-T12-CORE-01..07；[187](implementation/187-t12-definition-validation-core.md)/[188](implementation/188-t12-definition-validation-core-tests.md) | 本子片已验收：有限图/候选、固定schema引用、精确数据/分支及priority冲突；本片113，联合Modules302、架构29、Release0/0及格式通过。无持久发布/HTTP/页面/真实历史实例/授权适配，不整体关闭DTC或T12；T13审批/hook仍待实施 |
 | T11 多行TransferOrder | FUNC-WMS-006、PAGE-WMS-007、REQ-WMS-024..026、DTC-WMS-008/009适用子集、RULE-07/08、RVT-02、TC-T11-TRANSFER-01..07；[设计](implementation/185-t11-transfer-order.md)/[证据](implementation/186-t11-transfer-order-tests.md) | 基本软件子片已实现验证，复审状态见186。关联MySQL977、修复后Transfer70、最后HTTP/配置/真实HTTPS浏览器32、架构29、前端1219/严格构建、Release0/0/EF无漂移/增量SQL/格式通过，重叠不合计。全行审核、逐单元耐久到达/唯一记账、Pending补账与Unknown/ClosedPartial保护，原tuple恢复锁后当前授权复验。单正维度整容器不替代多维度编组/拆容器、可信运输/T15及Outbox发布软件依赖，不整体关闭T11 |
 | T11 盲盘及局部锁 | FUNC-WMS-005、PAGE-WMS-006、REQ-WMS-020..023、DTC-WMS-007适用子集、TC-T11-COUNT-01..07；[设计](implementation/183-t11-blind-count-and-local-lock.md)/[证据](implementation/184-t11-blind-count-tests.md) | 本子片已实现验证；最终真实MySQL923、HTTP/配置/真实HTTPS浏览器165、架构29、前端48文件/1164项与严格构建、Release0/0/EF无漂移/增量SQL/格式通过，审查6项修复并复审关闭。单库位全部合法维度盲盘、永久局部锁、非本人差异复核、原子调整/人工失效重盘；TransferOrder为下一主体，T11父任务不整体勾选，现场/生产/PDA真机未验证 |
 | T10 基本出库直发链 | FUNC-WMS-003/004、PAGE-WMS-004/005、REQ-WMS-015..019、DTC-WMS-004..006适用子集、TC-T10-BASIC-01..07；[设计](implementation/181-t10-outbound-basic-flow.md)/[证据](implementation/182-t10-outbound-basic-flow-tests.md) | 基本软件子片已实现验证，最终MySQL392、HTTP/配置/真实HTTPS浏览器120、架构29、前端1107/严格构建、Release0/0/EF无漂移/格式通过；重叠不合计。5项审查问题先红后绿修复并复审关闭。显式合法来源、多行原子预留、短缺非原人复核释放、无运输一次直发及ClosedPartial；RequiresTransport不允许手工发运。FEFO/自动来源、多次部分发运与实际T15出库运输未因此完成，不整体关闭T10 |
@@ -118,8 +119,8 @@
 | SCOPE-PLAT-04 | REQ-PLAT-007..009 | [Platform 与安全](modules/platform-and-security.md) §4 | PLAT-TC-011, 015..018 | 配置/字典/国际化/文件 |
 | SCOPE-PLAT-05 | REQ-PLAT-010..012 | [Platform 与安全](modules/platform-and-security.md) §5 | PLAT-TC-012..013, 019..020 | 审计/日志/健康/指标 |
 | SCOPE-PLAT-06 | REQ-PLAT-013..014 | [通知/定时任务](modules/notifications-and-jobs.md) §4 | NTF-TC-013..014 | HotStore 归属需核验 |
-| SCOPE-WF-01 | REQ-WF-001..005 | [Workflow 与表单](modules/workflow-and-forms.md) §2-3 | WF-TC-001..011 | 条件/并行能力待确认 |
-| SCOPE-WF-02 | REQ-WF-006..008 | [Workflow 与表单](modules/workflow-and-forms.md) §4 | WF-TC-012..014 | 运行时，不生成源码 |
+| SCOPE-WF-01 | REQ-WF-001..005 | [Workflow 与表单](modules/workflow-and-forms.md) §2-3 | WF-TC-001..011 | RULE-10限定图；T12纯内核已验收，持久发布/页面及T13实例仍待实施 |
+| SCOPE-WF-02 | REQ-WF-006..008 | [Workflow 与表单](modules/workflow-and-forms.md) §4 | WF-TC-012..014 | T12纯schema/data校验已验收；历史持久版本/页面待实施，不生成源码 |
 | SCOPE-WF-03 | REQ-NTF-001..003 | [通知/定时任务](modules/notifications-and-jobs.md) §2 | NTF-TC-006..008 | 集群策略待确认 |
 | SCOPE-WF-04 | REQ-NTF-004..008 | [通知/定时任务](modules/notifications-and-jobs.md) §1 | NTF-TC-001..005, 015 | Broker/保留期待确认 |
 | SCOPE-WF-05 | REQ-NTF-009..014 | [通知/定时任务](modules/notifications-and-jobs.md) §3, 5 | NTF-TC-009..012, 015 | 新闻闭环待核 |

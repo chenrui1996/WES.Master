@@ -32,6 +32,8 @@ T04–T08 已验证切片继续有效；先完成当前附件客户端并验证�
 
 ## 尚不能按“外部验证”关闭的软件事项
 
+- T12按[187](187-t12-definition-validation-core.md)/[188](188-t12-definition-validation-core-tests.md)仅完成纯校验内核（新113，联合302，架构29与Release0/0通过）。**下一主体**：真实MySQL定义草稿/不可变发布/schema历史、并发/幂等/当前权限、Platform候选/文件适配、严格默认关闭HTTP及001/004具名页面；显示/格式/保留策略和角色组织候选同属软件待办。不可把编译快照当发布版本或真实历史；T13实例/会签竞争/hook另按依赖实施。
+
 - T11多行TransferOrder按[185](185-t11-transfer-order.md)/[186](186-t11-transfer-order-tests.md)已实现验证整单原子审核、人工逐单元耐久到达/只补账和Unknown/ClosedPartial；关联MySQL977、修复后Transfer70、最后HTTP/配置/真实浏览器32、架构29、前端1219/严格构建及Release0/0/EF/格式通过，重叠不合计，复审状态见186。当前同容器账本约束下仅单正维度整量单元，不将多维度整容器编组、拆容器/来源10移动3、可信运输接线及实际T15、Outbox发布记为已实现。这些仍属软件主体依赖，不因无现场验证而关闭。
 
 - T11位置级盲盘及全库存写共同依赖的持久局部锁已按[183](183-t11-blind-count-and-local-lock.md)/[184](184-t11-blind-count-tests.md)实现验证并关闭本子片：最终真实MySQL923、HTTP/配置/真实浏览器165、架构29、前端1164/严格构建、Release0/0/EF无漂移及格式通过，关联6项审查问题修复并复审关闭。多行TransferOrder的全行审核/逐实物单元记账、已到待同步及Unknown保护/ClosedPartial仍是下一主体，不属于外部验证或可靠性增强；T11不整包关闭。多库位调度/提醒渠道/PDA专页见HARD-08，不将锁TTL当自动释放许可。

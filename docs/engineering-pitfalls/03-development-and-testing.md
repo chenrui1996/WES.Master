@@ -51,6 +51,7 @@
 - 处理：改共享底层必须覆盖原调用路径；行数上限测真实100行全链，响应丢失必须是服务端已提交后截断交付，再手工同key/body恢复，确认效果恰一次。
 - 证据分别记录命令/选择器、环境、通过/失败/跳过、持久结果及未运行范围；重叠选择器不相加称新增覆盖。审查报告不能代替测试；旧失败保留，末尾追加修复最终结果。
 - 证据：[工程治理 §6](../03-engineering-governance.md#6-测试质量门禁和-pr)、[182](../implementation/182-t10-outbound-basic-flow-tests.md)、[184](../implementation/184-t11-blind-count-tests.md)。
+- T12补证（2026-10-29）：错误定位也要验证精确path，不能只断言“存在错误”。坏key不加入去重集合时，以集合Count当字段index会把下一行错误指回前行；`SchemaIssuePaths_UseOriginalIndicesAfterInvalidKeys`先1RED后按原数组索引修复。100字段实际数据及100节点实际遍历验证不截断，见[188](../implementation/188-t12-definition-validation-core-tests.md)。没有据纯内核通过宣称MySQL发布或真实文件鉴权已完成。
 
 ## GEN-007 工作树/附件路径/外部文档与真正缺文件要区分
 
@@ -59,6 +60,7 @@
 - 处理：以当前仓库根为准定位一次实际路径；不创建重复worktree层、不改其他聊天目录、不把错误附件路径当业务文档缺失。检查文档相对链接时区分新增断链与基线缺外部目标，并如实报告两者。
 - 验证：本次请求附件即出现重复嵌套；T11最终文档检查11份、0新增断链、7个基线外部目标不可用。历史数字仅对应当次工作树，不沿用作本次检查结果。
 - 证据：[184 §6](../implementation/184-t11-blind-count-tests.md#6-最终发布门禁与关闭范围)。外部来源仍按内容访问限制处理，不能为补缺失而越权读取。
+- T12文档检查补证：本地Windows PowerShell的Get-Content缺Encoding时，UTF-8中文文件链接被错解为含`?`的路径，GetFullPath报非法字符；显式`-Encoding UTF8`后13文档1000目标检查完成，0新增断链。不能把解码错误记为仓库缺文件或用此绕过内容限制，见[188](../implementation/188-t12-definition-validation-core-tests.md)。
 
 ## GEN-008 页面/App适配复用业务owner，不复制旧反射框架
 

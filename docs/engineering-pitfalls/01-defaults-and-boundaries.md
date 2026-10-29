@@ -125,3 +125,11 @@
 - 处理：表单初值由合同明确归属，父层显式初始化或要求必传，不让子默认伪造有效业务输入；withDefaults可变对象用工厂。不要把此工厂规则机械套到Vue3.5响应式props解构默认值，官方明确该语法不需同样包装。
 - 待执行验证：父undefined/null/显式0、两个组件实例互不影响、重置/换主体/取消预览；子显示默认值不能直接成为服务端“用户已确认”的数量或状态。
 - 来源：[WEB-009](04-public-source-register.md#web-009-script-setup的版本相关默认行为)。这是补充检查，不改变WES当前表单合同。
+
+## DEF-016 正则尾锚和类型校验不等于完整字符串或必填
+
+- 记录/更新：2026-10-29；**已复现并修复**；适用：.NET10 WorkflowForm稳定key/label/业务类型/节点与动态Text字段。
+- 现象：`^...$`接受尾部单个换行，四种标识被误判合法；Text只核JSON类型/长度时，required仍接受空串/纯空白。
+- 根因：.NET的`$`可以匹配末尾换行前位置；required业务语义不等于“JSON属性已提供且类型为string”。
+- 处理：稳定标识使用`\A...\z`全字符串锚点及显式长度/ASCII白名单；required文本另核非空白，不对所有字段全局Trim/截断或静默改写原值。optional空值、精确Decimal、owner只读缺失仍各按具名合同处理。
+- 验证：`TrailingNewline_IsNotPartOfAStableIdentifier`四项及`RequiredText_RejectsEmptyOrWhitespace`三项先7RED后GREEN，包含在最终本片113/联合302中；Text4096接受/4097拒绝，不截断。证据：[188](../implementation/188-t12-definition-validation-core-tests.md)、[测试](../../tests/Modules/WorkflowForm/DefinitionValidationTests.cs)。

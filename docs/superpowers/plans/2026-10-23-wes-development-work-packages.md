@@ -248,6 +248,8 @@ T10基本软件交付覆盖说明：[181设计](../../implementation/181-t10-out
 
 ### T12：有限流程与运行时表单定义
 
+阶段记录：已按[187](../../implementation/187-t12-definition-validation-core.md)/[188](../../implementation/188-t12-definition-validation-core-tests.md)完成纯校验内核（内部强类型输入，不是发布owner），本片113、联合302、架构29、Release0/0与格式通过。下一依赖为持久不可变发布/当前受权管理/HTTP页面和真实MySQL/HTTPS；下列父复选框保持未完成，T13不提前启动。
+
 **Files:** `src\Modules\WorkflowForm\Features\Definitions\{ValidateDefinition.cs,PublishDefinition.cs}`、`Features\Forms\{PublishSchema.cs,ValidateForm.cs,QueryHistoricalForm.cs}`；`clients\ops-web\src\features\workflow\{DefinitionsPage.vue,FormsPage.vue}`；`tests\Modules\WorkflowForm\DefinitionFormTests.cs`。
 
 **Interfaces:** 消费Platform授权/文件引用/白名单业务字段；产出FUNC-WF-001/004、PAGE-WF-001/004的不可变定义/schema版本。运行时表单不生成源码、不把字段当数据库列。

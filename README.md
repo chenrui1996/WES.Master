@@ -11,6 +11,8 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 - [开发与测试踩坑知识库](docs/engineering-pitfalls/README.md)：默认值与边界、底层/Provider和通用问题；后续开发测试前查阅，发现后随工作包及时补录证据与回归结果。
 
+当前推进T12：[有限流程/表单校验内核](docs/implementation/187-t12-definition-validation-core.md)/[证据](docs/implementation/188-t12-definition-validation-core-tests.md)已交付独立WorkflowForm模块，覆盖受限图/候选、固定schema引用、精确数据验证、分支及优先级冲突。联合回归302项（含本片113）、架构29及Release0/0通过；新增DEF-016。仅纯内核，无发布/HTTP/页面/审批实例；下一依赖为真实MySQL不可变版本与受权管理入口，不整体关闭T12或T11剩余能力。
+
 最新T11多行移库基本子片：[TransferOrder设计](docs/implementation/185-t11-transfer-order.md)/[证据](docs/implementation/186-t11-transfer-order-tests.md)已实现单仓单正维度整容器全行原子审核、人工逐单元耐久到达/唯一移账、Pending仅补账、Unknown保护与安全ClosedPartial，严格默认关闭HTTP及具名页面已接通。关联真实MySQL977、修复后Transfer70、最后HTTP/配置/真实HTTPS浏览器32、架构29、前端1219及严格构建通过，Release0/0、EF无漂移、增量SQL/格式通过；重叠不合计。两项审查问题已修复，复审状态见证据。多维度编组/拆容器、可信运输接线及实际T15、Outbox发布仍是软件依赖，不整体关闭T11，不授予现场/生产许可。
 
 前序T11盘点基本子片已交付：[盲盘及持久局部锁](docs/implementation/183-t11-blind-count-and-local-lock.md)/[证据](docs/implementation/184-t11-blind-count-tests.md)。位置级全部合法维度盲盘、独立差异复核、全行原子调整/解锁、人工失效重盘、共享库存写保护及默认关闭HTTP/具名页面已接通。6项关联审查问题修复并复审无显著剩余问题；最终真实MySQL923、HTTP/配置/真实HTTPS浏览器165、架构29、前端1164通过，Release0/0、EF无漂移、增量SQL/格式通过，重叠不合计。下一主体工作为多行TransferOrder，不整体关闭T11；实际T15/Pack、PDA真机和生产许可未包含在本软件证据中。

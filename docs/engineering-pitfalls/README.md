@@ -25,6 +25,8 @@
 
 此机制通过仓库治理和根目录 Agent 规则落实，不是后台自动扫描或自动汇总服务；只有实际执行开发/测试时才会更新。不要为此新增生成器、无证据定时报告或重复日志仓库。
 
+2026-10-29 T12实际开发补录：[DEF-016](01-defaults-and-boundaries.md#def-016-正则尾锚和类型校验不等于完整字符串或必填)的正则尾换行/required空白7项RED/GREEN；[GEN-006](03-development-and-testing.md#gen-006-验证准确门槛和副作用不能只看http成功)补错误path索引1项RED/GREEN与100字段/节点真实容量，GEN-007补本地PowerShell文档检查显式UTF-8。证据见[188](../implementation/188-t12-definition-validation-core-tests.md)，新增1条后合计48条；不改变此前外部经验待核验状态。
+
 ## 条目约定
 
 - ID 固定：`DEF-xxx` 默认值/边界，`INF-xxx` 底层/基础设施，`GEN-xxx` 通用开发测试；新条目递增，不复用旧 ID。

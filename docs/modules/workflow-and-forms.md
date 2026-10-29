@@ -7,6 +7,8 @@
 - 基线参考：[Seven 工作流](../../../Seven.Master/doc/05-工作流.md)、[业务扩展规范](../../../Seven.Master/doc/23-业务扩展规范.md)
 - 测试前缀：`WF-TC-*`
 
+实施进度：首个[T12纯校验内核](../implementation/187-t12-definition-validation-core.md)及[证据](../implementation/188-t12-definition-validation-core-tests.md)已验收，覆盖有限图、显式用户候选/禁自批、schema与data、白名单分支及priority冲突的内部规则。尚无持久草稿/发布、HTTP/页面、Platform适配或审批实例；下文完整生命周期与WF-TC父用例未因此通过。
+
 ## 1. 目标与范围
 
 WorkflowForm 拥有流程定义、已发布版本、实例、审批任务、审计历史和运行时表单 schema。业务模块拥有自己的单据状态；流程只能通过业务模块提供的 hook/command 完成审批关联状态变更，不能凭动态 `WorkTable` 字符串直接更新任意表。

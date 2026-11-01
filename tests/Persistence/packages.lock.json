@@ -293,6 +293,13 @@
         "resolved": "0.8.6",
         "contentHash": "iP4jVLQoQmUjMU88g1WObiNr6YKZGvh4aOXn3yOJsHqZsflwRsxZPcIBvNXgjXO3vQKSLctXGLTpcBPLnWPS8A=="
       },
+      "wes.notifications": {
+        "type": "Project",
+        "dependencies": {
+          "MySql.Data": "[9.7.0, )",
+          "MySql.EntityFrameworkCore": "[10.0.7, )"
+        }
+      },
       "wes.platform": {
         "type": "Project",
         "dependencies": {

@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+2026-11-01 T14独立原事实接收子片按[191](191-t14-durable-alarm-occurrences.md)/[192](192-t14-durable-alarm-occurrences-tests.md)已实现验证：Notifications内部owner、长期源身份、全输入重放/冲突、每event保留、唯一键竞争和完整不可变/tenant守卫，UTC源ticks与接收微秒。实际本片MySQL44、联合Workflow22共66、架构29通过；ambient事务与Provider漏collation分别1/2项RED后修复。新owner表及历史只在wes_test应用，不碰旧账/其他owner；无HTTP/UI/worker/源认证/投递/确认清除，父T14未完成，T12管理门禁与T13/T15依赖保留，生产/现场许可不变。
+
 2026-11-01发布内核衔接续片：按[189 §2.1](189-t12-management-surface-blocker.md)/[190 §4](190-t12-management-surface-blocker-tests.md)修复重复候选规范化造成合法发布失败，以及内部CompiledWorkflow记录绕过有限图规则。最新真实MySQL22、内核113、架构29、Release0/0、EF无漂移及格式通过；不新增表或迁移。管理权限合同确认未获可用回答，当前门禁不变；HTTP/UI/候选与文件适配仍未完成，不整体关闭T12。以下9项为较早持久化历史证据，不与最新22叠加。
 
 T12首个纯内核子片按[187](187-t12-definition-validation-core.md)/[188](188-t12-definition-validation-core-tests.md)已验收：WorkflowForm受限图/候选、固定schema引用、表单/白名单条件及显式priority匹配；当时Modules302（含新113）、架构29、Release0/0及定向格式通过。2026-11-01依Controller ruling新增T12a owner-local持久化子片：[189](189-t12-management-surface-blocker.md)/[190](190-t12-management-surface-blocker-tests.md)，真实MySQL9项通过，现有draft CAS、immutable历史、固定schema引用、operationId重放/mismatch、并发竞争与owner同事务audit已验证；不读取Platform私表。通用MutationContext/idempotency/Audit.Append不是阻断。管理permission/field映射、当前文件引用与候选受权适配仍未批准/接通；严格HTTP、默认关闭Host/DI装配、两管理页及HTTP/client测试未实现。没有关闭DTC父用例或整体T12；T13审批实例/业务hook未实现；T11原待办不变。

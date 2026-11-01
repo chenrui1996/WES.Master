@@ -276,6 +276,8 @@ T10基本软件交付覆盖说明：[181设计](../../implementation/181-t10-out
 
 **Interfaces:** 消费Outbox/主体授权/设备或owner事件；产出FUNC-NTF-002..005、PAGE-NTF-001/002/004..006。alarm/通知delivery/issue不合一，issue归T28。
 
+- [x] 原始occurrence内部耐久接收子片：[191](../../implementation/191-t14-durable-alarm-occurrences.md)/[192](../../implementation/192-t14-durable-alarm-occurrences-tests.md)，MySQL44/联合Workflow22共66、架构29、Release0/0；长期源身份重放/冲突、所有event原事实、确定性1062竞争、tenant/不可变/独立事务与源精度。仅关闭该子片，无源认证/管理授权/HTTP/UI/worker/聚合/确认清除/投递，以下父项保持未完成，T12管理门禁保留。
+
 - [ ] DTC-NTF-003..009/VAL-06/07：双节点同fireTime、600+30秒Unknown不并跑、DST缺失跳过/重复首次UTC；occurrence幂等/高危禁静默/普通900秒默认与3600上限、公告7天/空受众/PDA显式渠道。
 - [ ] 实现AdoJobStore默认单调度节点/多节点cluster唯一实例、诊断skip/重算合并/物理不补跑；通知聚合30秒保留事实、高危即时，受众tenant∩org∩(users∪roles)。
 - [ ] Outbox999/1000和59/60秒每30秒监测、同episode不重复通知；缓存Disabled/Unavailable区分、HotStore无权grant；渠道断线重连仅补授权数据，不把Sent当已读。

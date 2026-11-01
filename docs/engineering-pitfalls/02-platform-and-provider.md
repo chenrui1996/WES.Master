@@ -41,6 +41,7 @@
 - 处理：按真实工作单元隔离上下文，或在适用测试中清理已结束工作单元的tracking后再调用独立owner；不能在生产保存守卫中加绕过或吞掉异常。
 - 验证：重新从数据库读取最终状态/事实，保留非法直接改写被拒绝的负例。不要把此条当成随意Clear以丢弃未提交业务的许可。
 - 证据：[178](../implementation/178-t09-authorized-inbound-execution-tests.md)首轮117项修复记录。
+- 2026-11-01 T14补证（已复现并修复）：仅检查`Database.CurrentTransaction`遗漏`Transaction.Current`；`AmbientTransactionCannotEnlistAlarmIngress`先1RED（未抛异常、接收成功），显式拒绝ambient scope后无事实。独立owner同时核tracking/局部transaction/ambient transaction，不通过Provider忽略或支持ambient的默认行为推断独立性；见[192](../implementation/192-t14-durable-alarm-occurrences-tests.md)。
 
 ## INF-006 读取header和事实也需要一致事务快照
 
@@ -73,6 +74,7 @@
 - 处理：精度/scale、FK删除行为、唯一约束和编码规范明确入模并审实际SQL。不要把SQL Server decimal(18,2)、2100参数或OPENJSON兼容级别当MySQL结论；也不要统一Trim/改collation改变已批准身份语义。
 - 验证：最小精度/最大合法数、溢出/多余小数、删父保留事实、编码大小写/尾空格/唯一冲突、空/大ID集合；查询仍保留租户/权限过滤，不靠内存全表过滤“解决”翻译失败。
 - 依据：[INF-001](#inf-001-mysql-guid集合contains可能在构建命令时失败)、[DEF-004](01-defaults-and-boundaries.md#def-004-数量的0null精度与上限不能混用)、[184迁移SQL审查](../implementation/184-t11-blind-count-tests.md)。本次未验证全部collation/删除矩阵。
+- 2026-11-01 T14 collation子集**已复现并修复**：MySql.EntityFrameworkCore10.0.7的通用`UseCollation`虽写入C#迁移却被SQL生成器忽略，实际来源列使用非binary排序，把`Stacker`/`stacker`不同sourceOwner合并；实际列metadata与身份2项先RED。复用MySQL专用collation/charset annotation维护模型；annotation-only变化仍生成空迁移，需沿Platform先例显式限定本表四列的ALTER，并核最终SQL及information_schema。最终来源身份独立、四列实际binary和MySQL44项通过；源第七位ticks与received微秒也真实持久重放验证。见[191 §4](../implementation/191-t14-durable-alarm-occurrences.md#4-实施结果与接线边界)/[192](../implementation/192-t14-durable-alarm-occurrences-tests.md)。只确认该环境子集，不把其他decimal/删除/排序风险自动标为已验证；禁止只靠无模型漂移或C# `collation:`标记放行。
 
 ## INF-010 IQueryable枚举、不可翻译函数与上下文生命周期要分开处理
 

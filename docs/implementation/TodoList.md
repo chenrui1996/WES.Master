@@ -32,6 +32,8 @@ T04–T08 已验证切片继续有效；先完成当前附件客户端并验证�
 
 ## 尚不能按“外部验证”关闭的软件事项
 
+- T14按[191](191-t14-durable-alarm-occurrences.md)/[192](192-t14-durable-alarm-occurrences-tests.md)仅关闭内部原始occurrence耐久接收（MySQL44、联合Workflow22共66、架构29；永久同源重放/冲突、每event保留/精度、tenant/不可变/事务与唯一竞争已验证）。**下一主体**：可信源认证与当前权限接线、30秒聚合/高危即时、确认/来源清除/静默、独立耐久delivery/真实渠道与告警/投递页面；Jobs/公告/缓存诊断仍依原计划。无新permission默认批准或Host公开入口，不把内部存储成功当已通知/已恢复；父T14不关闭。这些软件功能不能按“外部验证”关闭。
+
 - T12按[187](187-t12-definition-validation-core.md)/[188](188-t12-definition-validation-core-tests.md)完成纯校验内核，按[189](189-t12-management-surface-blocker.md)/[190](190-t12-management-surface-blocker-tests.md)完成内部草稿/不可变历史、CAS/幂等/审计及发布内核衔接修复（最新MySQL22、内核113、架构29、Release0/0/EF/格式通过）。**下一主体**：管理permission/field合同批准与当前权限/候选/文件适配、严格默认关闭HTTP及001/004具名页面；显示/格式/保留策略和角色组织候选同属软件待办。当前未获新增管理合同确认，保持gated，不把内部持久store当已接通管理功能；T13实例/会签竞争/hook另按依赖实施。
 
 - T11多行TransferOrder按[185](185-t11-transfer-order.md)/[186](186-t11-transfer-order-tests.md)已实现验证整单原子审核、人工逐单元耐久到达/只补账和Unknown/ClosedPartial；关联MySQL977、修复后Transfer70、最后HTTP/配置/真实浏览器32、架构29、前端1219/严格构建及Release0/0/EF/格式通过，重叠不合计，复审状态见186。当前同容器账本约束下仅单正维度整量单元，不将多维度整容器编组、拆容器/来源10移动3、可信运输接线及实际T15、Outbox发布记为已实现。这些仍属软件主体依赖，不因无现场验证而关闭。

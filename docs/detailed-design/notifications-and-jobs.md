@@ -20,6 +20,8 @@
 
 ## 2. 功能与契约
 
+T14原始occurrence接收已有[191](../implementation/191-t14-durable-alarm-occurrences.md)/[192](../implementation/192-t14-durable-alarm-occurrences-tests.md)：仅FUNC-NTF-003步骤1的内部tenant owner、每event事实、长期源identity精确重放/冲突、并发唯一和immutable守卫、UTC源精度；MySQL44/联合66、架构29通过。PAGE-NTF-001/002、30秒聚合/高危即时、源认证/当前用户权限、确认/清除/静默、delivery/真实渠道均未接通；不能把原事实持久化代签DTC-NTF-004/VAL-06全生命周期。
+
 后续[WMS默认关闭托管调度](../implementation/159-t05-hosted-wms-publisher.md)/[证据](../implementation/160-t05-hosted-wms-publisher-tests.md)替代下述历史“无Host worker接线”：显式tenant/batch/周期、60秒合作取消、新owner runner及未确认警告，新增27 Host/真实进程和1真实MySQL runner，最终Release相关147项含四套真实HTTPS浏览器通过、构建0/0。默认不注册worker；真实Program仍拒绝未登记的Outbox/MessageQueue runtime owner。本片没有实际adapter/消费Inbox、跨owner统一快照或完整Broker/父DTC验收，不将服务集合中的测试transport当实际运行能力。
 
 后续[WMS owner发布器](../implementation/157-t05-wms-owner-outbox-publisher.md)/[证据](../implementation/158-t05-wms-owner-outbox-publisher-tests.md)替代下述历史Pending-only/publisher未实现部分：耐久90秒lease、claim计数最多6次/15分钟预算、有限退避与隔离、提交后发送前复验、原event未确认恢复。原列表九字段扩展真实四态，统计仍三字段且只计Pending，客户端同步标签，不将Published当业务完成。新增33owner/3HTTP/4前端，最终238+32含四套真实浏览器+29=299、前端695和严格构建通过，Release0/0；默认无Host worker/transport外发，Inbox/真实Broker/统一快照/父DTC未关闭。

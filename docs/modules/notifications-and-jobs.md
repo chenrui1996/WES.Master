@@ -40,6 +40,8 @@
 
 ## 3. 告警生命周期和实时通知
 
+2026-11-01原始事实接收子片已实现验证：[191](../implementation/191-t14-durable-alarm-occurrences.md)/[192](../implementation/192-t14-durable-alarm-occurrences-tests.md)。内部Notifications owner仅保存每个occurrence及长期源identity、重放/冲突与不可变事实，不实现下述聚合状态机/源认证/当前授权/确认清除或渠道推送。实际MySQL44、联合Workflow22共66及架构29通过；父T14/NTF-TC完整用例仍未完成，不从数据库接收结果推导设备恢复或消息已送达。
+
 ### 3.1 领域状态
 
 建议将**告警事实**与**通知投递状态**分开。事实字段包括稳定 Code、来源设备/模块、资源引用、等级、参数快照、首次/最近发生时间、重复计数、状态和关联事件。通知 delivery 按渠道保存 Pending/Sent/Failed/Retrying。

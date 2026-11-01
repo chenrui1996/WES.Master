@@ -248,7 +248,7 @@ T10基本软件交付覆盖说明：[181设计](../../implementation/181-t10-out
 
 ### T12：有限流程与运行时表单定义
 
-阶段记录：已按[187](../../implementation/187-t12-definition-validation-core.md)/[188](../../implementation/188-t12-definition-validation-core-tests.md)完成纯校验内核（内部强类型输入，不是发布owner），本片113、联合302、架构29、Release0/0与格式通过。下一依赖为持久不可变发布/当前受权管理/HTTP页面和真实MySQL/HTTPS；下列父复选框保持未完成，T13不提前启动。
+阶段记录：纯校验内核见[187](../../implementation/187-t12-definition-validation-core.md)/[188](../../implementation/188-t12-definition-validation-core-tests.md)；2026-11-01 T12a owner-local drafts/不可变published snapshots、expectedVersion、operationId重放/mismatch及同事务Workflow audit已实现，真实MySQL9项证据见[189](../../implementation/189-t12-management-surface-blocker.md)/[190](../../implementation/190-t12-management-surface-blocker-tests.md)。Workflow管理permission/field映射与当前文件引用授权仍未接通，故无受权HTTP/UI；DTC父项及下列父复选框不勾选，T12不整体关闭，T13不提前启动。
 
 **Files:** `src\Modules\WorkflowForm\Features\Definitions\{ValidateDefinition.cs,PublishDefinition.cs}`、`Features\Forms\{PublishSchema.cs,ValidateForm.cs,QueryHistoricalForm.cs}`；`clients\ops-web\src\features\workflow\{DefinitionsPage.vue,FormsPage.vue}`；`tests\Modules\WorkflowForm\DefinitionFormTests.cs`。
 

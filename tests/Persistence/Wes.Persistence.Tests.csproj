@@ -15,5 +15,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Modules\Platform\Wes.Platform.csproj" />
     <ProjectReference Include="..\..\src\Modules\Wms\Wes.Wms.csproj" />
+    <ProjectReference Include="..\..\src\Modules\WorkflowForm\Wes.WorkflowForm.csproj" />
   </ItemGroup>
 </Project>

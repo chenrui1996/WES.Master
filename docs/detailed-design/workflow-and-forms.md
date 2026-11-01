@@ -7,6 +7,8 @@
 
 T12实施补充：[187](../implementation/187-t12-definition-validation-core.md)/[188](../implementation/188-t12-definition-validation-core-tests.md)纯校验子片已验收。TC-T12-CORE-01..07覆盖DTC-WF-002/005/008规则子集；持久发布/页面/实例和真实文件授权适配未接通，DTC父状态继续designed/未完整执行，不以纯快照测试代替历史实例回放。
 
+2026-11-01 T12a owner-local持久化子片见[189](../implementation/189-t12-management-surface-blocker.md)/[190](../implementation/190-t12-management-surface-blocker-tests.md)：真实MySQL已验证tenant-scoped drafts、不可变published definition/schema snapshots、固定schema版本引用、expectedVersion冲突、tenant+WorkflowForm+operationId幂等回放/mismatch、并发发布与同事务owner audit。按Controller裁定，通用MutationContext/operation identity与owner-local Audit.Append已有全局契约，不再视为阻断。Workflow管理permission/field映射和当前文件引用授权适配仍未批准/接通，因此尚无受权HTTP/UI；候选当前资格适配也未成为发布入口。DTC父状态与T12均保持未完成，T13继续排除。
+
 ## 1. 页面
 
 | PAGE定义 | 角色/入口 | 线框、字段/来源/校验 | 操作/查询与返回 |

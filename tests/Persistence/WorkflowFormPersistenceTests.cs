@@ -186,6 +186,78 @@ public sealed class WorkflowFormPersistenceTests : IAsyncLifetime
         await Assert.ThrowsAsync<InvalidOperationException>(() => database.SaveChangesAsync());
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SaveChangesOverloadsEnforcePublishedAndDraftAuditGuards(bool? acceptAllChangesOnSuccess)
+    {
+        var schemaId = Guid.NewGuid();
+        var draft = await SaveSchemaAsync(_tenant, schemaId, Schema(schemaId, "Quantity"));
+        await PublishSchemaAsync(_tenant, schemaId, draft.ResourceVersion!);
+
+        await using var database = Open(_tenant);
+        var published = await database.SchemaVersions.SingleAsync(item => item.Id == schemaId);
+        published.SnapshotJson = "{}";
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            if (acceptAllChangesOnSuccess.HasValue) database.SaveChanges(acceptAllChangesOnSuccess.Value);
+            else database.SaveChanges();
+        });
+
+        database.ChangeTracker.Clear();
+        database.SchemaDrafts.Add(new WorkflowSchemaDraftEntity
+        {
+            TenantId = _tenant,
+            Id = Guid.NewGuid(),
+            BusinessType = "Order",
+            PlannedVersion = 1,
+            DraftVersion = Guid.NewGuid().ToString("D"),
+            SnapshotJson = "{}",
+            LastOperationId = Guid.NewGuid(),
+            AuditFactId = Guid.NewGuid()
+        });
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            if (acceptAllChangesOnSuccess.HasValue) database.SaveChanges(acceptAllChangesOnSuccess.Value);
+            else database.SaveChanges();
+        });
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SaveChangesAsyncOverloadsEnforcePublishedAndDraftAuditGuards(bool? acceptAllChangesOnSuccess)
+    {
+        var schemaId = Guid.NewGuid();
+        var draft = await SaveSchemaAsync(_tenant, schemaId, Schema(schemaId, "Quantity"));
+        await PublishSchemaAsync(_tenant, schemaId, draft.ResourceVersion!);
+
+        await using var database = Open(_tenant);
+        var published = await database.SchemaVersions.SingleAsync(item => item.Id == schemaId);
+        published.SnapshotJson = "{}";
+        await Assert.ThrowsAsync<InvalidOperationException>(() => acceptAllChangesOnSuccess.HasValue
+            ? database.SaveChangesAsync(acceptAllChangesOnSuccess.Value, CancellationToken.None)
+            : database.SaveChangesAsync(CancellationToken.None));
+
+        database.ChangeTracker.Clear();
+        database.SchemaDrafts.Add(new WorkflowSchemaDraftEntity
+        {
+            TenantId = _tenant,
+            Id = Guid.NewGuid(),
+            BusinessType = "Order",
+            PlannedVersion = 1,
+            DraftVersion = Guid.NewGuid().ToString("D"),
+            SnapshotJson = "{}",
+            LastOperationId = Guid.NewGuid(),
+            AuditFactId = Guid.NewGuid()
+        });
+        await Assert.ThrowsAsync<InvalidOperationException>(() => acceptAllChangesOnSuccess.HasValue
+            ? database.SaveChangesAsync(acceptAllChangesOnSuccess.Value, CancellationToken.None)
+            : database.SaveChangesAsync(CancellationToken.None));
+    }
+
     [Fact]
     public async Task InterruptedSaveRollsBackDraftReceiptAndAuditTogether()
     {

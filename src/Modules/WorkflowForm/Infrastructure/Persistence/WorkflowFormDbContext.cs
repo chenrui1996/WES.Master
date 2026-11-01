@@ -105,17 +105,24 @@ public sealed class WorkflowFormDbContext(DbContextOptions<WorkflowFormDbContext
     }
 
     /// <inheritdoc />
-    public override int SaveChanges()
+    public override int SaveChanges() => SaveChanges(acceptAllChangesOnSuccess: true);
+
+    /// <inheritdoc />
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         ValidateOwnerWrites();
-        return base.SaveChanges();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
     /// <inheritdoc />
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
+        SaveChangesAsync(acceptAllChangesOnSuccess: true, cancellationToken: cancellationToken);
+
+    /// <inheritdoc />
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         ValidateOwnerWrites();
-        return base.SaveChangesAsync(cancellationToken);
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
     private void ValidateOwnerWrites()

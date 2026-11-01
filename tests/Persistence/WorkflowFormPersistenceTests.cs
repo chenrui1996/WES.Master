@@ -116,6 +116,102 @@ public sealed class WorkflowFormPersistenceTests : IAsyncLifetime
     }
 
     [Fact]
+    [Trait("CaseId", "TC-T12-PUBLISH-01")]
+    public async Task PublicationAcceptsCompilerCandidateDeduplicationAndReplaysOriginalVersion()
+    {
+        var schemaId = Guid.NewGuid();
+        var schema = Schema(schemaId, "Quantity") with { TenantId = _tenant };
+        var schemaDraft = await SaveSchemaAsync(_tenant, schemaId, schema);
+        await PublishSchemaAsync(_tenant, schemaId, schemaDraft.ResourceVersion!);
+        var definitionId = Guid.NewGuid();
+        var definition = Definition(definitionId, schemaId, 1);
+        var nodes = definition.Nodes.ToArray();
+        nodes[1] = nodes[1] with { Candidates = [CandidateId, CandidateId] };
+        definition = definition with { Nodes = nodes };
+        var saved = await SaveDefinitionAsync(definition);
+        Assert.Equal(WorkflowPersistenceDecision.DraftSaved, saved.Decision);
+        var compiled = WorkflowValidation.Compile(definition, schema, new HashSet<Guid> { CandidateId });
+        Assert.True(compiled.IsValid);
+        var operationId = Guid.NewGuid();
+        var published = await PublishDefinitionAsync(definitionId, saved.ResourceVersion!, compiled.Value!, operationId);
+        Assert.Equal(WorkflowPersistenceDecision.Published, published.Decision);
+        var replay = await PublishDefinitionAsync(definitionId, saved.ResourceVersion!, compiled.Value!, operationId);
+        Assert.Equal(WorkflowPersistenceDecision.Replayed, replay.Decision);
+        Assert.Equal(published.ResourceVersion, replay.ResourceVersion);
+        await using var verify = Open(_tenant);
+        var historical = await new WorkflowDefinitionStore(verify, TimeProvider.System).ReadPublishedDefinitionAsync(definitionId, 1);
+        Assert.Equal(CandidateId, Assert.Single(historical!.Nodes[1].Candidates));
+        Assert.Empty(await verify.DefinitionDrafts.ToListAsync());
+        Assert.Single(await verify.DefinitionVersions.ToListAsync());
+        Assert.Equal(4, await verify.OperationReceipts.CountAsync());
+        Assert.Equal(4, await verify.AuditFacts.CountAsync());
+    }
+
+    [Theory]
+    [InlineData("cycle")]
+    [InlineData("empty-candidates")]
+    [InlineData("unknown-node")]
+    [Trait("CaseId", "TC-T12-PUBLISH-02")]
+    public async Task PublicationRejectsInvalidGraphEvenWithConstructedCompiledRecord(string variant)
+    {
+        var schemaId = Guid.NewGuid();
+        var schema = Schema(schemaId, "Quantity") with { TenantId = _tenant };
+        var schemaDraft = await SaveSchemaAsync(_tenant, schemaId, schema);
+        await PublishSchemaAsync(_tenant, schemaId, schemaDraft.ResourceVersion!);
+        var definitionId = Guid.NewGuid();
+        var definition = Definition(definitionId, schemaId, 1);
+        var nodes = definition.Nodes.ToArray();
+        nodes[1] = variant switch
+        {
+            "cycle" => nodes[1] with { Edges = [new("start")] },
+            "empty-candidates" => nodes[1] with { Candidates = [] },
+            _ => nodes[1] with { Kind = (NodeKind)99 },
+        };
+        definition = definition with { Nodes = nodes };
+        var saved = await SaveDefinitionAsync(definition);
+        Assert.Equal(WorkflowPersistenceDecision.DraftSaved, saved.Decision);
+        var result = await PublishDefinitionAsync(definitionId, saved.ResourceVersion!, new(definition, schema));
+        Assert.Equal(WorkflowPersistenceDecision.Invalid, result.Decision);
+        await using var verify = Open(_tenant);
+        Assert.Empty(await verify.DefinitionVersions.ToListAsync());
+        var remaining = Assert.Single(await verify.DefinitionDrafts.ToListAsync());
+        Assert.Equal(saved.ResourceVersion, remaining.DraftVersion);
+        Assert.Equal(3, await verify.OperationReceipts.CountAsync());
+        Assert.Equal(3, await verify.AuditFacts.CountAsync());
+    }
+
+    [Theory]
+    [InlineData("candidate")]
+    [InlineData("mode")]
+    [InlineData("schema")]
+    [Trait("CaseId", "TC-T12-PUBLISH-03")]
+    public async Task PublicationRejectsDifferentCompiledSnapshotWithoutDeletingDraft(string variant)
+    {
+        var schemaId = Guid.NewGuid();
+        var schema = Schema(schemaId, "Quantity") with { TenantId = _tenant };
+        var schemaDraft = await SaveSchemaAsync(_tenant, schemaId, schema);
+        await PublishSchemaAsync(_tenant, schemaId, schemaDraft.ResourceVersion!);
+        var definitionId = Guid.NewGuid();
+        var definition = Definition(definitionId, schemaId, 1);
+        var saved = await SaveDefinitionAsync(definition);
+        var nodes = definition.Nodes.ToArray();
+        var otherCandidate = Guid.NewGuid();
+        if (variant == "candidate") nodes[1] = nodes[1] with { Candidates = [otherCandidate] };
+        if (variant == "mode") nodes[1] = nodes[1] with { Mode = ApprovalMode.Any };
+        var suppliedSchema = variant == "schema" ? schema with { Fields = [schema.Fields[0] with { MaxLength = 32 }] } : schema;
+        var compiled = WorkflowValidation.Compile(definition with { Nodes = nodes }, suppliedSchema,
+            new HashSet<Guid> { CandidateId, otherCandidate });
+        Assert.True(compiled.IsValid);
+        Assert.Equal(WorkflowPersistenceDecision.Invalid,
+            (await PublishDefinitionAsync(definitionId, saved.ResourceVersion!, compiled.Value!)).Decision);
+        await using var verify = Open(_tenant);
+        Assert.Empty(await verify.DefinitionVersions.ToListAsync());
+        Assert.Equal(saved.ResourceVersion, Assert.Single(await verify.DefinitionDrafts.ToListAsync()).DraftVersion);
+        Assert.Equal(3, await verify.OperationReceipts.CountAsync());
+        Assert.Equal(3, await verify.AuditFacts.CountAsync());
+    }
+
+    [Fact]
     public async Task SameOperationWithDifferentPayloadConflictsAndDoesNotMutateDraft()
     {
         var schemaId = Guid.NewGuid();

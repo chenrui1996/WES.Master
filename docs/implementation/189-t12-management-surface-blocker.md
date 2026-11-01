@@ -25,6 +25,16 @@
 - 每次实际draft/publish改变在同一MySQL事务新增一条WorkflowForm operation receipt和append-only audit fact；published版本也引用其operation。冲突/验证失败不产生回执或审计。
 - DbContext拒绝修改/删除published snapshots、operation receipts和audit facts；draft修改/删除须有本事务对应operation及audit事实。
 
+### 2.1 发布内核衔接修复（2026-11-01，已实现验证）
+
+本轮沿已有T12a边界继续，不授予尚未批准的管理权限。内核会去重候选，但存储比较原始draft JSON与编译结果，合法重复候选可能使发布失败；`CompiledWorkflow`是内部数据记录而非不可伪造证明，不能只凭类型名跳过发布规则。
+
+持锁读取原draft与固定已发布schema后，复用现有有限图编译器重验草稿形状、条件、引用及候选集合，再与调用方编译快照比较；比较与持久化使用规范化后定义，允许既定候选去重，不改变节点顺序或条件。无效图/空候选/未知类型明确Invalid，不新增版本/receipt/audit，不删原草稿；调用方修改图/候选/schema仍拒绝。operation指纹、原键恢复及draft CAS不变。这里提供的候选集合只用于原快照一致性验证，**不是Platform当前候选资格证明**；当前资格与禁自批的业务提交阶段仍按187/后续受权owner执行。
+
+关联REQ-WF-001..005、RULE-10、DTC-WF-002/004规则子集；TC-T12-PUBLISH-01（重复候选合法发布、固定历史/重放）、02（伪造编译记录不能发布非法图）、03（编译内容与草稿不符拒绝且无副作用）。先真实MySQL RED后修复及回归；证据追加190，不整体关闭T12或T13。
+
+实际7项新增测试首轮4失败/3通过；修复后Workflow持久集22/22、内核113/113、架构29/29、Release0/0、EF无漂移与定向格式通过。无需新表/迁移或更改历史版本；前序9项为当时证据，不覆盖后来新增的SaveChanges重载回归。管理合同授权询问本轮未获得可用回答，保持原门禁，不虚构批准。
+
 ## 3. 剩余门禁与部署
 
 - Platform/Workflow owner仍须批准Workflow management permission/field map与当前文件引用授权API，方可建立受权HTTP读写和UI。

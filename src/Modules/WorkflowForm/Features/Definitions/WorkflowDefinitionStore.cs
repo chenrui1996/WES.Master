@@ -362,8 +362,7 @@ internal sealed class WorkflowDefinitionStore(WorkflowFormDbContext database, Ti
                     return await CommitAndReturnAsync(transaction, Result(WorkflowPersistenceDecision.Conflict, definitionId), ct);
 
                 var definition = Deserialize<WorkflowDefinition>(draft.SnapshotJson);
-                if (Serialize(definition) != Serialize(validated.Definition)
-                    || definition.Version != draft.PlannedVersion || definition.BusinessType != draft.BusinessType)
+                if (definition.Version != draft.PlannedVersion || definition.BusinessType != draft.BusinessType)
                     return await CommitAndReturnAsync(transaction, Result(WorkflowPersistenceDecision.Invalid, definitionId), ct);
                 var schemaEntity = await database.SchemaVersions.AsNoTracking().SingleOrDefaultAsync(
                     item => item.Id == definition.SchemaId && item.Version == definition.SchemaVersion, ct);
@@ -374,6 +373,13 @@ internal sealed class WorkflowDefinitionStore(WorkflowFormDbContext database, Ti
                     || publishedSchema.TenantId != database.TenantId
                     || publishedSchema.BusinessType != definition.BusinessType)
                     return await CommitAndReturnAsync(transaction, Result(WorkflowPersistenceDecision.Invalid, definitionId), ct);
+
+                // A compiled record is not authorization proof. Recheck stored graph rules and compare normalized snapshots.
+                var suppliedCandidates = validated.Definition.Nodes.SelectMany(node => node.Candidates).ToHashSet();
+                var compiled = WorkflowValidation.Compile(definition, publishedSchema, suppliedCandidates);
+                if (!compiled.IsValid || Serialize(compiled.Value!.Definition) != Serialize(validated.Definition))
+                    return await CommitAndReturnAsync(transaction, Result(WorkflowPersistenceDecision.Invalid, definitionId), ct);
+                definition = compiled.Value!.Definition;
 
                 var latest = await database.DefinitionVersions.Where(item => item.Id == definitionId)
                     .OrderByDescending(item => item.Version).Select(item => (int?)item.Version).FirstOrDefaultAsync(ct);

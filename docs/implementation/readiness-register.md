@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+2026-11-01发布内核衔接续片：按[189 §2.1](189-t12-management-surface-blocker.md)/[190 §4](190-t12-management-surface-blocker-tests.md)修复重复候选规范化造成合法发布失败，以及内部CompiledWorkflow记录绕过有限图规则。最新真实MySQL22、内核113、架构29、Release0/0、EF无漂移及格式通过；不新增表或迁移。管理权限合同确认未获可用回答，当前门禁不变；HTTP/UI/候选与文件适配仍未完成，不整体关闭T12。以下9项为较早持久化历史证据，不与最新22叠加。
+
 T12首个纯内核子片按[187](187-t12-definition-validation-core.md)/[188](188-t12-definition-validation-core-tests.md)已验收：WorkflowForm受限图/候选、固定schema引用、表单/白名单条件及显式priority匹配；当时Modules302（含新113）、架构29、Release0/0及定向格式通过。2026-11-01依Controller ruling新增T12a owner-local持久化子片：[189](189-t12-management-surface-blocker.md)/[190](190-t12-management-surface-blocker-tests.md)，真实MySQL9项通过，现有draft CAS、immutable历史、固定schema引用、operationId重放/mismatch、并发竞争与owner同事务audit已验证；不读取Platform私表。通用MutationContext/idempotency/Audit.Append不是阻断。管理permission/field映射、当前文件引用与候选受权适配仍未批准/接通；严格HTTP、默认关闭Host/DI装配、两管理页及HTTP/client测试未实现。没有关闭DTC父用例或整体T12；T13审批实例/业务hook未实现；T11原待办不变。
 
 最新T11多行TransferOrder按[185设计](185-t11-transfer-order.md)/[186证据](186-t11-transfer-order-tests.md)实现单仓单正维度整容器的原子全行审核、逐单元耐久到达/唯一记账与Pending补账、Unknown保护和安全ClosedPartial。默认关闭HTTP/具名客户端接通；关联MySQL977、修复后Transfer70、最后HTTP/配置/真实HTTPS浏览器32、架构29、前端1219/严格构建、Release0/0/EF无漂移/增量SQL/格式通过，重叠不合计。两项关联审查问题已修复，复审状态见186。仅wes_test应用三张新表，不改旧账；多维度编组/拆容器、branch1可信运输/T15及Outbox发布仍属主体软件依赖，不能按外部验证关闭；不整体关闭T11，不授予生产/物理控制。

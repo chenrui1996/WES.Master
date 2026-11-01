@@ -9,6 +9,7 @@
 - 处理：先验证body/intent/可信adapter身份，对已Applied同一原事件恢复不可变posting，不再执行新移动；未Applied仍检查所有当前保护。绝不能将“重放优先”变成绕过当前身份/权限/关联校验的公共捷径。
 - 验证：`AppliedTransportCompletionReplaysWhileLaterCountProtectsItsContainer`已有RED/GREEN；同时保留新执行被锁拒绝及换tuple冲突。
 - 证据：[183](../implementation/183-t11-blind-count-and-local-lock.md)、[184 §5](../implementation/184-t11-blind-count-tests.md#5-独立审查与关联修复)。
+- 2026-11-01 T12补证：验证器候选去重后的快照与raw draft序列化比较会误拒绝合法发布；CompiledWorkflow内部record也不天然保证来源已校验。发布复用同一编译器重验固定schema/原图，比较并保存规范化定义，不用忽略所有JSON差异绕过。合法重复候选及非法图共4RED，修复后持久集22/22，见[190 §4](../implementation/190-t12-management-surface-blocker-tests.md)。候选集合只是快照一致性校验，不是当前权限证明。
 
 ## GEN-002 Unknown恢复上下文不能跟随查询组件卸载
 
@@ -52,6 +53,7 @@
 - 证据分别记录命令/选择器、环境、通过/失败/跳过、持久结果及未运行范围；重叠选择器不相加称新增覆盖。审查报告不能代替测试；旧失败保留，末尾追加修复最终结果。
 - 证据：[工程治理 §6](../03-engineering-governance.md#6-测试质量门禁和-pr)、[182](../implementation/182-t10-outbound-basic-flow-tests.md)、[184](../implementation/184-t11-blind-count-tests.md)。
 - T12补证（2026-10-29）：错误定位也要验证精确path，不能只断言“存在错误”。坏key不加入去重集合时，以集合Count当字段index会把下一行错误指回前行；`SchemaIssuePaths_UseOriginalIndicesAfterInvalidKeys`先1RED后按原数组索引修复。100字段实际数据及100节点实际遍历验证不截断，见[188](../implementation/188-t12-definition-validation-core-tests.md)。没有据纯内核通过宣称MySQL发布或真实文件鉴权已完成。
+- 2026-11-01 T12发布补证：新增测试贯穿compile→save raw draft→publish→历史/receipt/audit查询，复现纯内核113项和既有持久happy path未覆盖的规范化接线错误；拒绝变体必须同时核原draft版本、published零新增、receipt/audit不增。结果见[190 §4](../implementation/190-t12-management-surface-blocker-tests.md)，不以store成功代签HTTP/UI/当前授权。
 
 ## GEN-007 工作树/附件路径/外部文档与真正缺文件要区分
 

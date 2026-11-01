@@ -272,6 +272,8 @@ T10基本软件交付覆盖说明：[181设计](../../implementation/181-t10-out
 
 ### T14：Jobs、告警、通知、公告与缓存诊断
 
+- [x] 控制台基本续片：[193](../../implementation/193-t14-alarm-console-design.md)/[194](../../implementation/194-t14-alarm-console-tests.md)。聚合/当前授权、永久CAS操作/审计、确认/人工源清除/静默、独立InApp及两张基本页面已验证：owner85、HTTP29含实际HTTPS/MySQL浏览器、前端1313/严格构建、Release0/0、EF/完整格式通过。全Modules原基线两项失败与窄复测见194/HARD-10/11，不声称全套通过；普通查询驱动，不冒充后台或真实渠道。完整父DTC、源认证/恢复、Jobs/公告/缓存仍待办。
+
 **Files:** `src\Modules\Notifications\Features\{Jobs\ScheduleJob.cs,Alarms\RecordOccurrence.cs,Delivery\DeliverNotification.cs,Announcements\PublishAnnouncement.cs,Cache\QueryCacheStatus.cs}`；`clients\ops-web\src\features\notifications\{AlarmsPage.vue,DeliveriesPage.vue,JobsPage.vue,AnnouncementsPage.vue,CachePage.vue}`；`tests\Modules\Notifications\{JobTests.cs,AlarmAnnouncementTests.cs}`。
 
 **Interfaces:** 消费Outbox/主体授权/设备或owner事件；产出FUNC-NTF-002..005、PAGE-NTF-001/002/004..006。alarm/通知delivery/issue不合一，issue归T28。

@@ -28,11 +28,16 @@ T04–T08 已验证切片继续有效；先完成当前附件客户端并验证�
 | HARD-06 | T08 | 单位/物料/容器目录候选链和关联回填 | 待办；当前具名登记与已知UUID查询已基本验证，扩展运营交互时补齐；不以候选替代提交复验 |
 | HARD-07 | T10 | pending来源/目标元组逐动作全矩阵、HTTP保存后撤权拦截变体及扩展页面/终端矩阵 | 待办；当前受权基本链/持久撤权和真实双账号浏览器已验证，后续覆盖深化补齐；不替代库存保护 |
 | HARD-08 | T11 | 多库位大计划调度、提醒渠道升级/PDA专页及扩展终端矩阵 | 待办；位置级盲盘/持久锁/原子调整已验证，集成调度/Notifications/PDA能力时补齐；1800秒不得自动解锁 |
+| HARD-09 | T14 | 密集告警/投递表、时间/来源/状态筛选、列偏好、地图/问题跳转及渠道受众偏好 | 待办；193固定完整投影基本页面已接通，运营交互深化时补齐；不以基本列表代签完整PAGE/DTC |
+| HARD-10 | T11/测试基线 | 旧ledger非法查询用例仍把已批准AdjustmentIn=3当非法 | 已复现待修；194全Modules和窄复测均expected400/actual200。WMS/Platform与原用例本片未改；下次测试基线工作包同步合法3/4与真正非法枚举边界，不回退已批准功能 |
+| HARD-11 | Platform/测试环境 | MessageCounts缺LeasedCount变体在SignInAsync偶发500 | 待定位；194全Modules失败发生在登录、尚未查counts，窄复测全部字段变体通过。保留失败，不无证据归因负载或称已修复；复现时采安全correlation诊断 |
 | COMPAT-01 | 全局 | SQL Server/PostgreSQL 兼容 | 按 ADR-0002 延后；恢复支持前独立验证 |
 
 ## 尚不能按“外部验证”关闭的软件事项
 
-- T14按[191](191-t14-durable-alarm-occurrences.md)/[192](192-t14-durable-alarm-occurrences-tests.md)仅关闭内部原始occurrence耐久接收（MySQL44、联合Workflow22共66、架构29；永久同源重放/冲突、每event保留/精度、tenant/不可变/事务与唯一竞争已验证）。**下一主体**：可信源认证与当前权限接线、30秒聚合/高危即时、确认/来源清除/静默、独立耐久delivery/真实渠道与告警/投递页面；Jobs/公告/缓存诊断仍依原计划。无新permission默认批准或Host公开入口，不把内部存储成功当已通知/已恢复；父T14不关闭。这些软件功能不能按“外部验证”关闭。
+- T14控制台续片按[193](193-t14-alarm-console-design.md)/[194](194-t14-alarm-console-tests.md)实现30秒聚合/高危即时、当前字段与creator/部门权限、确认/人工源清除/普通静默、独立耐久InApp与两张基本页面，最终验证状态见194。独立默认关闭HTTP、新权限不自动授予；普通Pending由受权查询驱动，无worker/在线推送。**下一主体**：Jobs/公告/缓存诊断；可信设备源认证/权威恢复、邮件/SignalR仍是软件待办，扩展页面见HARD-09。父T14与DTC不整体关闭，不从Sent推导已读或设备恢复。
+
+- 前序T14按[191](191-t14-durable-alarm-occurrences.md)/[192](192-t14-durable-alarm-occurrences-tests.md)关闭内部原始occurrence耐久接收（历史MySQL44、联合Workflow22共66、架构29）。当时尚无聚合/当前授权/HTTP/UI/独立投递；这些软件子集由上方193/194续片覆盖，源认证/恢复与实际渠道仍未完成，不从原事实接收推导通知成功。
 
 - T12按[187](187-t12-definition-validation-core.md)/[188](188-t12-definition-validation-core-tests.md)完成纯校验内核，按[189](189-t12-management-surface-blocker.md)/[190](190-t12-management-surface-blocker-tests.md)完成内部草稿/不可变历史、CAS/幂等/审计及发布内核衔接修复（最新MySQL22、内核113、架构29、Release0/0/EF/格式通过）。**下一主体**：管理permission/field合同批准与当前权限/候选/文件适配、严格默认关闭HTTP及001/004具名页面；显示/格式/保留策略和角色组织候选同属软件待办。当前未获新增管理合同确认，保持gated，不把内部持久store当已接通管理功能；T13实例/会签竞争/hook另按依赖实施。
 

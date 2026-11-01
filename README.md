@@ -11,7 +11,9 @@ WES.Master 是面向仓储执行与设备调度的新项目。已从文档启动
 
 - [开发与测试踩坑知识库](docs/engineering-pitfalls/README.md)：默认值与边界、底层/Provider和通用问题；后续开发测试前查阅，发现后随工作包及时补录证据与回归结果。
 
-当前推进T14独立基础子片：[原始告警事实耐久接收](docs/implementation/191-t14-durable-alarm-occurrences.md)/[证据](docs/implementation/192-t14-durable-alarm-occurrences-tests.md)。内部Notifications owner已验证每事件保留、永久源身份重放/冲突、确定性唯一键竞争、租户隔离、完整SaveChanges不可变守卫、UTC源ticks/接收微秒精度。真实MySQL本片44、连同Workflow22共66、架构29通过；修复并记录ambient事务遗漏与MySQL实际DDL忽略通用collation。无HTTP/UI/worker或源认证适配，不将接收事实当已通知/已恢复；聚合/确认清除/投递/Jobs/公告/缓存诊断仍待后续，父T14未关闭，T12管理门禁保留。
+当前T14控制台续片：[聚合/当前授权/独立投递与页面设计](docs/implementation/193-t14-alarm-console-design.md)/[验证记录](docs/implementation/194-t14-alarm-console-tests.md)。基本告警及投递页面、永久原操作恢复、30秒聚合/高危即时、人工源清除/普通静默、独立InApp记录已接通；完整字段与Platform当前creator/部门交集、不自动授予权限，HTTP独立默认关闭。最新验证及收口以194为准；普通投递由受权查询驱动，无邮件/SignalR或真实设备源认证/恢复，不整体关闭T14。Jobs/公告/缓存诊断及T12门禁保持待办。
+
+前序T14独立基础子片：[原始告警事实耐久接收](docs/implementation/191-t14-durable-alarm-occurrences.md)/[证据](docs/implementation/192-t14-durable-alarm-occurrences-tests.md)。内部Notifications owner已验证每事件保留、永久源身份重放/冲突、确定性唯一键竞争、租户隔离、完整SaveChanges不可变守卫、UTC源ticks/接收微秒精度。真实MySQL本片44、连同Workflow22共66、架构29通过；修复并记录ambient事务遗漏与MySQL实际DDL忽略通用collation。无HTTP/UI/worker或源认证适配，不将接收事实当已通知/已恢复；聚合/确认清除/投递/Jobs/公告/缓存诊断仍待后续，父T14未关闭，T12管理门禁保留。
 
 当前推进T12：[有限流程/表单校验内核](docs/implementation/187-t12-definition-validation-core.md)及[T12a持久化](docs/implementation/189-t12-management-surface-blocker.md)已交付独立WorkflowForm模块。2026-11-01发布衔接续片修复合法候选去重后发布失败，以及构造编译记录绕过有限图校验；真实MySQL22、内核113、架构29及Release0/0、EF无漂移/格式通过，[证据](docs/implementation/190-t12-management-surface-blocker-tests.md)。当前具备内部草稿/不可变历史、CAS/幂等/审计；管理权限/字段映射和候选/文件当前授权、HTTP/两管理页仍gated且未实现，不整体关闭T12或T11剩余能力。
 

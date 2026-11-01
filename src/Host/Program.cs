@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Serilog;
 using Wes.Host.Identity;
+using Wes.Host.Notifications;
 using Wes.Host.Platform;
 using Wes.Host.Runtime;
 using Wes.Host.Wms;
@@ -18,6 +19,7 @@ builder.Services.AddWesPlatformFiles(builder.Environment);
 builder.Services.AddWesPlatformRetention(builder.Configuration);
 builder.Services.AddWesPlatformPublisher(builder.Configuration);
 builder.Services.AddWesWmsMasterData();
+builder.Services.AddWesNotifications();
 builder.Services.AddWesWmsPublisher(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddCheck("ApplicationNotAssembled",
@@ -26,6 +28,7 @@ builder.Services.AddHealthChecks()
 
 await using var app = builder.Build();
 _ = app.Services.GetRequiredService<WmsMasterDataSettings>();
+_ = app.Services.GetRequiredService<NotificationsSettings>();
 if (app.Services.GetRequiredService<PlatformFileSettings>().Enabled)
     _ = app.Services.GetRequiredService<PlatformFileAdapters>();
 if (args.Contains("--wes-provision=true", StringComparer.Ordinal))
@@ -41,7 +44,7 @@ if (app.Configuration.GetValue<bool>("Wes:Identity:Enabled"))
     app.Use(async (http, next) =>
     {
         if (http.Request.Path.StartsWithSegments("/api/identity") || http.Request.Path.StartsWithSegments("/api/platform")
-            || http.Request.Path.StartsWithSegments("/api/wms"))
+            || http.Request.Path.StartsWithSegments("/api/wms") || http.Request.Path.StartsWithSegments("/api/notifications"))
             http.Response.OnStarting(() =>
             {
                 http.Response.Headers.CacheControl = "no-store";
@@ -54,6 +57,7 @@ if (app.Configuration.GetValue<bool>("Wes:Identity:Enabled"))
     app.MapWesIdentity();
     app.MapWesPlatform();
     app.MapWesWmsMasterData();
+    app.MapWesNotifications();
     app.MapOperationsWeb();
 }
 app.MapHealthChecks("/health/live", new HealthCheckOptions

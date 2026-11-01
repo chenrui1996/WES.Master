@@ -20,6 +20,8 @@
 
 ## 2. 功能与契约
 
+T14控制台续片见[193](../implementation/193-t14-alarm-console-design.md)/[194](../implementation/194-t14-alarm-console-tests.md)：已实现PAGE-NTF-001/002基本固定投影列表/详情、显式分页与预览/原键Unknown恢复，独立默认关闭HTTP、30秒聚合/高危即时、当前权限、人工源清除/静默和耐久InApp。读取全字段19/11、动作全projection加OperationId/ExpectedVersion/Reason、投递再交告警read；无Occurrences/Attempts合成字段。扩展密集表/筛选/列偏好、地图/问题跳转、受众偏好和真实渠道仍待后续，不以基本页面代签全部UI/DTC。普通InApp查询驱动、无推送worker；最终验证状态见194，以下原片缺口为历史而非本续片最新状态。
+
 T14原始occurrence接收已有[191](../implementation/191-t14-durable-alarm-occurrences.md)/[192](../implementation/192-t14-durable-alarm-occurrences-tests.md)：仅FUNC-NTF-003步骤1的内部tenant owner、每event事实、长期源identity精确重放/冲突、并发唯一和immutable守卫、UTC源精度；MySQL44/联合66、架构29通过。PAGE-NTF-001/002、30秒聚合/高危即时、源认证/当前用户权限、确认/清除/静默、delivery/真实渠道均未接通；不能把原事实持久化代签DTC-NTF-004/VAL-06全生命周期。
 
 后续[WMS默认关闭托管调度](../implementation/159-t05-hosted-wms-publisher.md)/[证据](../implementation/160-t05-hosted-wms-publisher-tests.md)替代下述历史“无Host worker接线”：显式tenant/batch/周期、60秒合作取消、新owner runner及未确认警告，新增27 Host/真实进程和1真实MySQL runner，最终Release相关147项含四套真实HTTPS浏览器通过、构建0/0。默认不注册worker；真实Program仍拒绝未登记的Outbox/MessageQueue runtime owner。本片没有实际adapter/消费Inbox、跨owner统一快照或完整Broker/父DTC验收，不将服务集合中的测试transport当实际运行能力。

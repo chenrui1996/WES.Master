@@ -29,6 +29,8 @@
 
 ## 条目约定
 
+2026-11-01 T14控制台续片补录既有INF-004/009、GEN-003/004/006：生成迁移格式门禁、真实浏览器版本类型不一致、Platform16字段上限/全批次creator交集，以及转义后receipt容量预防性验证；失败与GREEN分别记录于[194](../implementation/194-t14-alarm-console-tests.md)。Modules全回归两项原基线失败及窄复测保留在HARD-10/11；没有新增条目ID，不把预防性容量测试写成已复现失败或把focused绿灯写成全套通过。
+
 2026-11-01 T14更新既有INF-005（ambient事务遗漏1RED）、INF-009（Provider实际binary DDL/大小写身份2RED）、GEN-006（确定性1062竞争及实际数据库元数据/精度）。最终本片44真实MySQL/联合66通过，见[192](../implementation/192-t14-durable-alarm-occurrences-tests.md)；没有新增条目ID，总数仍48，未扩大外部经验已核验范围。
 
 - ID 固定：`DEF-xxx` 默认值/边界，`INF-xxx` 底层/基础设施，`GEN-xxx` 通用开发测试；新条目递增，不复用旧 ID。

@@ -25,40 +25,15 @@ internal sealed class AlarmOccurrenceStore(NotificationsDbContext database, Time
             System.Transactions.Transaction.Current is not null)
             throw new InvalidOperationException("Alarm ingress requires a clean independent Notifications owner scope.");
         var now = clock.GetUtcNow();
-        if (input.SourceEventId == Guid.Empty || input.ResourceId == Guid.Empty || input.CorrelationId == Guid.Empty)
-            return Invalid("Alarm.Identity");
-        if (input.SourceOwner is null || input.SourceOwner.Length is < 1 or > 64 || !OwnerPattern.IsMatch(input.SourceOwner))
-            return Invalid("Alarm.SourceOwner");
-        if (input.Code is null || input.Code.Length is < 1 or > 64 || !CodePattern.IsMatch(input.Code))
-            return Invalid("Alarm.Code");
-        if (!Enum.IsDefined(input.SourceKind) || !Enum.IsDefined(input.Severity))
-            return Invalid("Alarm.Classification");
-        if (string.IsNullOrWhiteSpace(input.Summary) || input.Summary.Length > 512)
-            return Invalid("Alarm.Summary");
-        if (input.OccurredAt.Offset != TimeSpan.Zero || input.OccurredAt > now)
-            return Invalid("Alarm.OccurredAt");
+        var invalid = Validate(input, now);
+        if (invalid is not null) return Invalid(invalid);
 
-        var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(input))));
+        var fingerprint = Fingerprint(input);
         try
         {
             var original = await OriginalAsync(input, cancellationToken);
             if (original is not null) return Replay(original, fingerprint);
-            var fact = new AlarmOccurrenceEntity
-            {
-                TenantId = database.TenantId,
-                Id = Guid.NewGuid(),
-                SourceEventId = input.SourceEventId,
-                SourceOwner = input.SourceOwner,
-                SourceKind = input.SourceKind,
-                ResourceId = input.ResourceId,
-                Code = input.Code,
-                Severity = input.Severity,
-                OccurredAt = input.OccurredAt,
-                ReceivedAt = new DateTimeOffset(now.UtcTicks - now.UtcTicks % 10, TimeSpan.Zero),
-                CorrelationId = input.CorrelationId,
-                Summary = input.Summary,
-                Fingerprint = fingerprint,
-            };
+            var fact = CreateFact(input, database.TenantId, now, fingerprint);
             database.Occurrences.Add(fact);
             try
             {
@@ -87,6 +62,42 @@ internal sealed class AlarmOccurrenceStore(NotificationsDbContext database, Time
         }
     }
 
+    internal static string? Validate(AlarmOccurrenceInput input, DateTimeOffset now)
+    {
+        if (input.SourceEventId == Guid.Empty || input.ResourceId == Guid.Empty || input.CorrelationId == Guid.Empty)
+            return "Alarm.Identity";
+        if (input.SourceOwner is null || input.SourceOwner.Length is < 1 or > 64 || !OwnerPattern.IsMatch(input.SourceOwner))
+            return "Alarm.SourceOwner";
+        if (input.Code is null || input.Code.Length is < 1 or > 64 || !CodePattern.IsMatch(input.Code))
+            return "Alarm.Code";
+        if (!Enum.IsDefined(input.SourceKind) || !Enum.IsDefined(input.Severity))
+            return "Alarm.Classification";
+        if (string.IsNullOrWhiteSpace(input.Summary) || input.Summary.Length > 512)
+            return "Alarm.Summary";
+        if (input.OccurredAt.Offset != TimeSpan.Zero || input.OccurredAt > now)
+            return "Alarm.OccurredAt";
+        return null;
+    }
+
+    internal static string Fingerprint(AlarmOccurrenceInput input) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(input))));
+
+    internal static AlarmOccurrenceEntity CreateFact(AlarmOccurrenceInput input, Guid tenant, DateTimeOffset now, string fingerprint) => new()
+    {
+        TenantId = tenant,
+        Id = Guid.NewGuid(),
+        SourceEventId = input.SourceEventId,
+        SourceOwner = input.SourceOwner,
+        SourceKind = input.SourceKind,
+        ResourceId = input.ResourceId,
+        Code = input.Code,
+        Severity = input.Severity,
+        OccurredAt = input.OccurredAt,
+        ReceivedAt = new DateTimeOffset(now.UtcTicks - now.UtcTicks % 10, TimeSpan.Zero),
+        CorrelationId = input.CorrelationId,
+        Summary = input.Summary,
+        Fingerprint = fingerprint
+    };
     private Task<AlarmOccurrenceEntity?> OriginalAsync(AlarmOccurrenceInput input, CancellationToken ct) =>
         database.Occurrences.AsNoTracking().SingleOrDefaultAsync(
             fact => fact.SourceOwner == input.SourceOwner && fact.SourceEventId == input.SourceEventId, ct);

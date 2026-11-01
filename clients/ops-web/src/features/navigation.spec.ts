@@ -2,6 +2,13 @@ import { describe, expect, it } from "vitest";
 import { getNavigation } from "./navigation";
 
 describe("management navigation", () => {
+  it.each([["notifications.alarms.read", "/notifications/alarms"], ["notifications.deliveries.read", "/notifications/deliveries"]])(
+    "gates %s by Platform UI availability and its own owner permission", (permission, path) => {
+      expect(getNavigation(module => module === "Platform", value => value === permission).map(item => item.path))
+        .toEqual(["/account/sessions", path]);
+      expect(getNavigation(module => module === "Wms", value => value === permission).map(item => item.path))
+        .toEqual(["/account/sessions"]);
+    });
   it.each([["wms.outbound.read", "/wms/outbound"], ["wms.outbound.pick", "/wms/picking"], ["wms.counts.read", "/wms/counts"],
     ["wms.transfers.read", "/wms/transfers"]])("gates %s to its named WMS page", (permission, path) => {
     expect(getNavigation(module => module === "Wms", value => value === permission).map(item => item.path))

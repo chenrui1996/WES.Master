@@ -9,5 +9,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Modules\Wms\Wes.Wms.csproj" />
+    <ProjectReference Include="..\Modules\Notifications\Wes.Notifications.csproj" />
   </ItemGroup>
 </Project>

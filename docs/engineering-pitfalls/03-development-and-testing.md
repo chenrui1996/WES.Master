@@ -28,6 +28,8 @@
 - 验证：真实调整响应形状、正入/负出及错误符号、筛选和标签。两例RED后修复；只改enum不是完成。
 - 证据：[183](../implementation/183-t11-blind-count-and-local-lock.md)、[184 §5](../implementation/184-t11-blind-count-tests.md#5-独立审查与关联修复)。
 
+2026-11-01 T14最终回归补证（GEN-003）：旧ledger HTTP非法变体仍拒绝合法AdjustmentIn=3，全Modules与窄复测均失败；本片未修改原enum/endpoint/test，不回退已批准盘点调整。必须同步消费者也包括**非法测试数据**，后续HARD-10补合法3/4和真正非法边界；见[194](../implementation/194-t14-alarm-console-tests.md)。
+
 ## GEN-004 当前权限不等于创建时权限，也不只看单据creator
 
 - **基线约束**；适用：受权业务owner及原tuple恢复。
@@ -36,6 +38,8 @@
 - 验证：逐字段缺权、不同creator/部门、保存后撤权、越租户、撤权后重放和复核清私有数据，不能仅测管理员happy path。
 - T11原键并发还须覆盖“初次读无原fact→等待资源fence→赢家提交→权限撤销→锁后查到原fact”。锁后直接返回原回执会误用等待前权限；修复为持锁重读原单/全部真实creator资源并复核当前action/read，不把新动作state/schema条件加到已提交重放。16项确定性RED/GREEN及授权保留/schema不可用仍合法重放见[186](../implementation/186-t11-transfer-order-tests.md)。
 - 证据：[177](../implementation/177-t09-authorized-inbound-execution.md)、[183](../implementation/183-t11-blind-count-and-local-lock.md)、[184](../implementation/184-t11-blind-count-tests.md)。
+
+2026-11-01 T14当前授权接线补证：Platform `VisibleOwnedCreatorsAsync`明确最多16字段，告警完整读取19/动作22或23不能一次提交。真实HTTP5项失败后按≤16分批并对**所有批次creator集合取交集**，再按真实creator复核全部字段；不扩大owner边界、不仅取首批成功。客户端同样覆盖完整19/11读取交集和OperationId/ExpectedVersion动作字段，不用不存在的Occurrences/Attempts授权字段；见[193](../implementation/193-t14-alarm-console-design.md)/[194](../implementation/194-t14-alarm-console-tests.md)。
 
 ## GEN-005 原子审核、物理完成与数据库回滚不是同一层
 
@@ -55,6 +59,8 @@
 - T12补证（2026-10-29）：错误定位也要验证精确path，不能只断言“存在错误”。坏key不加入去重集合时，以集合Count当字段index会把下一行错误指回前行；`SchemaIssuePaths_UseOriginalIndicesAfterInvalidKeys`先1RED后按原数组索引修复。100字段实际数据及100节点实际遍历验证不截断，见[188](../implementation/188-t12-definition-validation-core-tests.md)。没有据纯内核通过宣称MySQL发布或真实文件鉴权已完成。
 - 2026-11-01 T12发布补证：新增测试贯穿compile→save raw draft→publish→历史/receipt/audit查询，复现纯内核113项和既有持久happy path未覆盖的规范化接线错误；拒绝变体必须同时核原draft版本、published零新增、receipt/audit不增。结果见[190 §4](../implementation/190-t12-management-surface-blocker-tests.md)，不以store成功代签HTTP/UI/当前授权。
 - 2026-11-01 T14补证：`Task.WhenAll`可能实际先读/写完成再开始另一读，不能单独证明duplicate-key分支；shared reader barrier确保两SELECT都取得空结果后再允许INSERT，真实1062后第三次SELECT回读赢家，同输入Replay/变参Conflict且仅一事实。SQL中没有COLLATE时，即使C#迁移/模型/既有测试通过，也必须新增实际列元数据/大小写身份断言；2RED修复。源第七位tick和返回/重放receivedAt精确相等也按所需形状实测，不以“大致同秒”代替。见[192](../implementation/192-t14-durable-alarm-occurrences-tests.md)，不代签HTTP/UI/源认证或通知送达。
+
+2026-11-01 T14收口补证（GEN-006）：全Persistence1689/Route228/Architecture29通过，Modules1377/2失败。旧kind3非法用例窄复测仍失败；登录fixture500窄复测不再出现但根因未明。不把focused85/29绿灯或一次复测变成全套通过/偶发问题已修复；失败与HARD-10/11保持显式见[194](../implementation/194-t14-alarm-console-tests.md)。
 
 ## GEN-007 工作树/附件路径/外部文档与真正缺文件要区分
 

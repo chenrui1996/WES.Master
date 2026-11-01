@@ -7,6 +7,8 @@
 
 ## 1. 范围与角色
 
+2026-11-01 T14控制台续片按[193](193-t14-alarm-console-design.md)/[194](194-t14-alarm-console-tests.md)实现聚合、当前字段/creator/部门授权、版本化确认/人工源清除/普通静默、独立InApp投递与两张基本页面。每个原事实保留；High/Critical即时不可静默；普通Pending由最多100条受权投递查询驱动，不是后台推送。新权限不自动grant、HTTP独立默认false；实际最终验证状态见194。设备源认证/恢复、邮件/SignalR、Jobs/公告/缓存及完整父DTC仍未完成；三项新迁移仅wes_test，生产/现场许可与T12管理门禁不变。以下191/192数字为原事实历史，不与续片重复相加。
+
 2026-11-01 T14独立原事实接收子片按[191](191-t14-durable-alarm-occurrences.md)/[192](192-t14-durable-alarm-occurrences-tests.md)已实现验证：Notifications内部owner、长期源身份、全输入重放/冲突、每event保留、唯一键竞争和完整不可变/tenant守卫，UTC源ticks与接收微秒。实际本片MySQL44、联合Workflow22共66、架构29通过；ambient事务与Provider漏collation分别1/2项RED后修复。新owner表及历史只在wes_test应用，不碰旧账/其他owner；无HTTP/UI/worker/源认证/投递/确认清除，父T14未完成，T12管理门禁与T13/T15依赖保留，生产/现场许可不变。
 
 2026-11-01发布内核衔接续片：按[189 §2.1](189-t12-management-surface-blocker.md)/[190 §4](190-t12-management-surface-blocker-tests.md)修复重复候选规范化造成合法发布失败，以及内部CompiledWorkflow记录绕过有限图规则。最新真实MySQL22、内核113、架构29、Release0/0、EF无漂移及格式通过；不新增表或迁移。管理权限合同确认未获可用回答，当前门禁不变；HTTP/UI/候选与文件适配仍未完成，不整体关闭T12。以下9项为较早持久化历史证据，不与最新22叠加。

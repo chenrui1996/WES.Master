@@ -19,6 +19,289 @@ namespace Wes.Notifications.Infrastructure.Persistence.Migrations
                 .HasAnnotation("ProductVersion", "10.0.7")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
+            modelBuilder.Entity("Wes.Notifications.Infrastructure.Persistence.AlarmAttemptEntity", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<long>("AttemptedAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("DeliveryId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("ErrorCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .UseCollation("ascii_bin")
+                        .HasAnnotation("MySQL:Charset", "ascii")
+                        .HasAnnotation("MySQL:Collation", "ascii_bin");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .UseCollation("ascii_bin")
+                        .HasAnnotation("MySQL:Charset", "ascii")
+                        .HasAnnotation("MySQL:Collation", "ascii_bin");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "DeliveryId");
+
+                    b.ToTable("ntf_alarm_delivery_attempts", (string)null);
+                });
+
+            modelBuilder.Entity("Wes.Notifications.Infrastructure.Persistence.AlarmAuditEntity", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("ActorId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<long>("At")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("ExpiresAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .UseCollation("ascii_bin")
+                        .HasAnnotation("MySQL:Charset", "ascii")
+                        .HasAnnotation("MySQL:Collation", "ascii_bin");
+
+                    b.Property<string>("OperationId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("varchar(512)")
+                        .UseCollation("utf8mb4_bin")
+                        .HasAnnotation("MySQL:Charset", "utf8mb4")
+                        .HasAnnotation("MySQL:Collation", "utf8mb4_bin");
+
+                    b.Property<string>("TargetId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "OperationId")
+                        .IsUnique();
+
+                    b.ToTable("ntf_alarm_audits", (string)null);
+                });
+
+            modelBuilder.Entity("Wes.Notifications.Infrastructure.Persistence.AlarmConsoleLockEntity", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId");
+
+                    b.ToTable("ntf_alarm_console_locks", (string)null);
+                });
+
+            modelBuilder.Entity("Wes.Notifications.Infrastructure.Persistence.AlarmDeliveryEntity", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("AlarmId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .UseCollation("ascii_bin")
+                        .HasAnnotation("MySQL:Charset", "ascii")
+                        .HasAnnotation("MySQL:Collation", "ascii_bin");
+
+                    b.Property<long>("DueAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ErrorCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .UseCollation("ascii_bin")
+                        .HasAnnotation("MySQL:Charset", "ascii")
+                        .HasAnnotation("MySQL:Collation", "ascii_bin");
+
+                    b.Property<long?>("NextAttemptAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("OccurrenceCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .UseCollation("ascii_bin")
+                        .HasAnnotation("MySQL:Charset", "ascii")
+                        .HasAnnotation("MySQL:Collation", "ascii_bin");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "AlarmId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "State", "DueAt", "Id");
+
+                    b.ToTable("ntf_alarm_deliveries", (string)null);
+                });
+
+            modelBuilder.Entity("Wes.Notifications.Infrastructure.Persistence.AlarmEntity", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Id")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<long?>("AcknowledgedAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("AcknowledgedBy")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("AggregateKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .UseCollation("ascii_bin")
+                        .HasAnnotation("MySQL:Charset", "ascii")
+                        .HasAnnotation("MySQL:Collation", "ascii_bin");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .UseCollation("ascii_bin")
+                        .HasAnnotation("MySQL:Charset", "ascii")
+                        .HasAnnotation("MySQL:Collation", "ascii_bin");
+
+                    b.Property<string>("CreatorId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<long>("FirstOccurredAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("LastOccurredAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("OccurrenceCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ResourceId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<int>("Severity")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("SilenceUntil")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("SourceKind")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SourceOwner")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .UseCollation("ascii_bin")
+                        .HasAnnotation("MySQL:Charset", "ascii")
+                        .HasAnnotation("MySQL:Collation", "ascii_bin");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .UseCollation("ascii_bin")
+                        .HasAnnotation("MySQL:Charset", "ascii")
+                        .HasAnnotation("MySQL:Collation", "ascii_bin");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "AggregateKey");
+
+                    b.HasIndex("TenantId", "CreatorId", "LastOccurredAt", "Id");
+
+                    b.ToTable("ntf_alarms", (string)null);
+                });
+
+            modelBuilder.Entity("Wes.Notifications.Infrastructure.Persistence.AlarmMembershipEntity", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("OccurrenceId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("AlarmId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "OccurrenceId");
+
+                    b.HasIndex("TenantId", "AlarmId");
+
+                    b.ToTable("ntf_alarm_memberships", (string)null);
+                });
+
             modelBuilder.Entity("Wes.Notifications.Infrastructure.Persistence.AlarmOccurrenceEntity", b =>
                 {
                     b.Property<string>("TenantId")
@@ -96,6 +379,93 @@ namespace Wes.Notifications.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("ntf_alarm_occurrences", (string)null);
+                });
+
+            modelBuilder.Entity("Wes.Notifications.Infrastructure.Persistence.AlarmOperationEntity", b =>
+                {
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("OperationId")
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("ActorId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("varchar(4096)")
+                        .UseCollation("utf8mb4_bin")
+                        .HasAnnotation("MySQL:Charset", "utf8mb4")
+                        .HasAnnotation("MySQL:Collation", "utf8mb4_bin");
+
+                    b.Property<string>("CreatorId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .UseCollation("ascii_bin")
+                        .HasAnnotation("MySQL:Charset", "ascii")
+                        .HasAnnotation("MySQL:Collation", "ascii_bin");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)")
+                        .UseCollation("ascii_bin")
+                        .HasAnnotation("MySQL:Charset", "ascii")
+                        .HasAnnotation("MySQL:Collation", "ascii_bin");
+
+                    b.Property<string>("TargetId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("varchar(36)");
+
+                    b.HasKey("TenantId", "OperationId");
+
+                    b.ToTable("ntf_alarm_operations", (string)null);
+                });
+
+            modelBuilder.Entity("Wes.Notifications.Infrastructure.Persistence.AlarmAttemptEntity", b =>
+                {
+                    b.HasOne("Wes.Notifications.Infrastructure.Persistence.AlarmDeliveryEntity", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "DeliveryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Wes.Notifications.Infrastructure.Persistence.AlarmDeliveryEntity", b =>
+                {
+                    b.HasOne("Wes.Notifications.Infrastructure.Persistence.AlarmEntity", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "AlarmId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Wes.Notifications.Infrastructure.Persistence.AlarmMembershipEntity", b =>
+                {
+                    b.HasOne("Wes.Notifications.Infrastructure.Persistence.AlarmEntity", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "AlarmId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Wes.Notifications.Infrastructure.Persistence.AlarmOccurrenceEntity", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OccurrenceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

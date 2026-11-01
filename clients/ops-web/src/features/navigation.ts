@@ -10,6 +10,8 @@ const entries = [
   { path: "/admin/audit", name: "审计与登录事件", short: "审", module: "Platform", permission: ["platform.audit.read"] },
   { path: "/files", name: "暂存文件", short: "文", module: "Platform", permission: ["platform.files.read"] },
   { path: "/notifications/messages", name: "消息诊断", short: "消", messageOwners: true },
+  { path: "/notifications/alarms", name: "告警与原始事实", short: "警", module: "Platform", permission: ["notifications.alarms.read"] },
+  { path: "/notifications/deliveries", name: "独立通知投递", short: "递", module: "Platform", permission: ["notifications.deliveries.read"] },
   { path: "/wms/locations", name: "仓库与库位详情", short: "仓", module: "Wms", permission: ["wms.warehouses.read", "wms.locations.read"] },
   { path: "/wms/inventory", name: "库存与保护量", short: "存", module: "Wms", permission: ["wms.inventory.read"] },
   { path: "/wms/ledger", name: "库存流水", short: "流", module: "Wms", permission: ["wms.ledger.read"] },

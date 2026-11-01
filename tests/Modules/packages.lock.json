@@ -689,8 +689,16 @@
         "dependencies": {
           "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
           "Serilog.AspNetCore": "[10.0.0, )",
+          "Wes.Notifications": "[1.0.0, )",
           "Wes.Platform": "[1.0.0, )",
           "Wes.Wms": "[1.0.0, )"
+        }
+      },
+      "wes.notifications": {
+        "type": "Project",
+        "dependencies": {
+          "MySql.Data": "[9.7.0, )",
+          "MySql.EntityFrameworkCore": "[10.0.7, )"
         }
       },
       "wes.platform": {
@@ -709,7 +717,11 @@
         }
       },
       "wes.workflowform": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "MySql.Data": "[9.7.0, )",
+          "MySql.EntityFrameworkCore": "[10.0.7, )"
+        }
       }
     }
   }

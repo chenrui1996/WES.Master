@@ -40,6 +40,8 @@
 
 ## 3. 告警生命周期和实时通知
 
+2026-11-01控制台续片按[193](../implementation/193-t14-alarm-console-design.md)/[194](../implementation/194-t14-alarm-console-tests.md)接通以下软件子集：完整原事实及distinct membership、固定接收时间30秒桶/高危即时、当前Platform19/11字段和creator/部门交集、永久CAS操作/审计、确认/人工源清除/普通静默、独立InApp及两张基本页面。HTTP独立默认关闭且不自动grant。普通Pending在受权投递查询中有限推进，Sent不等于已读；没有worker/邮件/SignalR提示、可信设备源认证/权威恢复或完整父DTC验收。最终验证以194为准；以下191/192为原事实接收时的历史边界。
+
 2026-11-01原始事实接收子片已实现验证：[191](../implementation/191-t14-durable-alarm-occurrences.md)/[192](../implementation/192-t14-durable-alarm-occurrences-tests.md)。内部Notifications owner仅保存每个occurrence及长期源identity、重放/冲突与不可变事实，不实现下述聚合状态机/源认证/当前授权/确认清除或渠道推送。实际MySQL44、联合Workflow22共66及架构29通过；父T14/NTF-TC完整用例仍未完成，不从数据库接收结果推导设备恢复或消息已送达。
 
 ### 3.1 领域状态

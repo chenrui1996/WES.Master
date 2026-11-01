@@ -34,6 +34,8 @@
 - 验证：Release完整解决方案、架构测试和changed-file格式分别通过，三者不能互相代替。
 - 证据：[182 §2.4](../implementation/182-t10-outbound-basic-flow-tests.md#24-最终发布门禁)、[184 §4–6](../implementation/184-t11-blind-count-tests.md)。
 
+2026-11-01 T14续片补证（INF-004）：仅格式检查手写源文件会漏掉EF生成migration的BOM/charset。最终完整changed-C# selector发现3个迁移编码错误，既有dotnet formatter定向修正后全选择器复验通过、Release0/0；见[194](../implementation/194-t14-alarm-console-tests.md)。不能把生成文件排除后称全部格式通过。
+
 ## INF-005 独立owner测试不能携带上一个写入者的tracked状态
 
 - **已复现并修复**；适用：组合内部primitive与当前受权owner的持久测试。
@@ -75,6 +77,8 @@
 - 验证：最小精度/最大合法数、溢出/多余小数、删父保留事实、编码大小写/尾空格/唯一冲突、空/大ID集合；查询仍保留租户/权限过滤，不靠内存全表过滤“解决”翻译失败。
 - 依据：[INF-001](#inf-001-mysql-guid集合contains可能在构建命令时失败)、[DEF-004](01-defaults-and-boundaries.md#def-004-数量的0null精度与上限不能混用)、[184迁移SQL审查](../implementation/184-t11-blind-count-tests.md)。本次未验证全部collation/删除矩阵。
 - 2026-11-01 T14 collation子集**已复现并修复**：MySql.EntityFrameworkCore10.0.7的通用`UseCollation`虽写入C#迁移却被SQL生成器忽略，实际来源列使用非binary排序，把`Stacker`/`stacker`不同sourceOwner合并；实际列metadata与身份2项先RED。复用MySQL专用collation/charset annotation维护模型；annotation-only变化仍生成空迁移，需沿Platform先例显式限定本表四列的ALTER，并核最终SQL及information_schema。最终来源身份独立、四列实际binary和MySQL44项通过；源第七位ticks与received微秒也真实持久重放验证。见[191 §4](../implementation/191-t14-durable-alarm-occurrences.md#4-实施结果与接线边界)/[192](../implementation/192-t14-durable-alarm-occurrences-tests.md)。只确认该环境子集，不把其他decimal/删除/排序风险自动标为已验证；禁止只靠无模型漂移或C# `collation:`标记放行。
+
+2026-11-01 T14补证（INF-009容量/类型子集）：实际浏览器拒绝UUID字符串版本，需公共DTO与持久CAS统一为JavaScript安全整数，而不是客户端接受任意类型。默认JSON转义使合法512个中文摘要的原body超过2048字符；receipt改4096并验证最大摘要/理由的Applied及精确Replayed。容量是预防性GREEN，不伪称RED；版本接线有真实浏览器失败后修复，见[194](../implementation/194-t14-alarm-console-tests.md)。不以入参字符上限代替序列化后持久容量。
 
 ## INF-010 IQueryable枚举、不可翻译函数与上下文生命周期要分开处理
 

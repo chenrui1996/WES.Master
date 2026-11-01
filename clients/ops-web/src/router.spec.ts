@@ -9,6 +9,18 @@ afterEach(() => {
 });
 
 describe("module-aware routes", () => {
+  it.each([
+    [true, "notifications.alarms.read", "/notifications/alarms", "/notifications/alarms"],
+    [true, "notifications.deliveries.read", "/notifications/deliveries", "/notifications/deliveries"],
+    [true, "platform.messages.read", "/notifications/alarms", "/account/sessions"],
+    [false, "notifications.alarms.read", "/notifications/alarms", "/module-unavailable"],
+  ])("gates notifications with enabled=%s permission=%s", async (enabled, permission, path, expected) => {
+    sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false,
+      credentialVersion: "version", grants: [{ permission, scope: 0, departments: [], fields: ["Id"] }] };
+    vi.spyOn(moduleCatalog, "load").mockResolvedValue(true); vi.spyOn(moduleCatalog, "isEnabled").mockReturnValue(enabled);
+    await router.push("/account/sessions"); await router.push(path);
+    expect(router.currentRoute.value.path).toBe(expected); await router.push("/account/sessions");
+  });
   it.each([["wms.outbound.read", "outbound"], ["wms.outbound.pick", "picking"], ["wms.counts.read", "counts"],
     ["wms.transfers.read", "transfers"]])("gates known WMS UUID route for %s", async (permission, page) => {
     sessionState.subject = { tenantId: "tenant", userId: "user", sessionId: "session", requiresPasswordChange: false,
